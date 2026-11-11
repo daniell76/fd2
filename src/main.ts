@@ -4302,6 +4302,9 @@ class FlameDragonWebApp {
     // Authentic `FD2.EXE` `fn_7918` / `fn_10621` 4-beat ping-pong stride (`0 -> 1 -> 2 -> 1`, 2 BIOS ticks ~90–110ms per pose)
     const walkTick = Math.floor(nowMs / 90) % 4;
     const walkFrame = walkTick === 3 ? 1 : walkTick;
+    // Authentic `FD2.EXE` `fn_10208` (`L10225..10256` & `L10471..10485`):
+    // `M1[GLOBAL_2_14852] ^= 1` toggles every 1 BIOS tick (~55ms) and adds `+1` native pixel to X when `paralyzeTurns > 0`!
+    const paralyzeShakePx = (Math.floor(nowMs / 55) & 1) * Math.max(1, Math.round(tilePx / 24));
 
     for (const u of this.renderedUnits) {
       const rx = u.renderX ?? u.x;
@@ -4333,6 +4336,8 @@ class FlameDragonWebApp {
 
       const isMovingNow = u.renderX !== undefined || u.renderY !== undefined;
       const isDyingSpin = u.hp <= 0;
+      const isParalyzed = !isDyingSpin && u.paralyzeTurns > 0;
+      const spriteDx = isParalyzed ? dx + paralyzeShakePx : dx;
       const cellFlags = !isMovingNow ? (ch.cells[u.y]?.[u.x]?.[4] ?? 0) : 0;
       if ((cellFlags & 0x08) === 0) {
         const isHalfBehindRoof = (cellFlags & 0x80) !== 0;
@@ -4342,15 +4347,15 @@ class FlameDragonWebApp {
           ctx.rect(dx, dy, tilePx, Math.round(tilePx * 0.54));
           ctx.clip();
         }
-        // Exact `FD2.EXE` `fn_10261` (`L10485..10613`):
-        // ALL living non-paralyzed units on the battlefield (Player, Ally, and Enemy) continuously play the 4-beat
-        // `0 -> 1 -> 2 -> 1` idle stomping animation (`GLOBAL_2_15371`); only paralyzed (`M1[unit+38] != 0`) or dying units freeze at frame 0!
+        // Exact `FD2.EXE` `fn_10208` (`L10471..10613`):
+        // - All living non-paralyzed units (Player, Ally, and Enemy) continuously play the 4-beat `0 -> 1 -> 2 -> 1` idle stomping animation.
+        // - Paralyzed units (`M1[unit+38] != 0`) lock their pose to frame `0` (`L10524`) and tremble horizontally (`v3 += GLOBAL_2_14852` at `L10479`)!
         this.assets.drawUnitSprite(
           ctx,
           u.spriteGroup,
           u.dir,
-          isDyingSpin || u.paralyzeTurns > 0 ? 0 : isMovingNow ? walkFrame : idleFrame,
-          dx,
+          isDyingSpin || isParalyzed ? 0 : isMovingNow ? walkFrame : idleFrame,
+          spriteDx,
           dy,
           tilePx,
           !isDyingSpin && u.acted && u.faction === 'player'
