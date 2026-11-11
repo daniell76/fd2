@@ -50,6 +50,7 @@ function randInclusive(minVal: number, maxVal: number): number {
 }
 
 export function getUnitClassLabel(uid: number, classId: number, gd: GameData): string {
+  if (uid === 48 || uid === 135) return tr('國王', '国王', 'King');
   const dex = gd.unitDex[uid];
   if (dex?.classNameZh) return dex.classNameZh;
   const hc = gd.heroClasses.find((c) => c.id === classId);

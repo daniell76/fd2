@@ -770,7 +770,7 @@ export function applyLocaleToGameState(
       u.classNameZh = getLocalizedClassName(matchingClass.id, u.classNameZh);
     } else if (u.id === 39) {
       u.classNameZh = tr('長老', '长老', 'Elder');
-    } else if (u.id === 48) {
+    } else if (u.id === 48 || u.id === 135) {
       u.classNameZh = tr('國王', '国王', 'King');
     } else if (u.id === 66) {
       u.classNameZh = tr('王族', '王族', 'Royalty');
@@ -803,7 +803,10 @@ export function applyLocaleToGameState(
     activeChapter.titleZh = getLocalizedChapterTitle(activeChapter.id, activeChapter.titleZh);
     for (const cu of activeChapter.units ?? []) {
       cu.nameZh = getLocalizedUnitName(cu.uid, cu.nameZh);
-      cu.classNameZh = getLocalizedClassName(cu.classId, cu.classNameZh);
+      cu.classNameZh =
+        cu.uid === 48 || cu.uid === 135
+          ? tr('國王', '国王', 'King')
+          : getLocalizedClassName(cu.classId, cu.classNameZh);
     }
     for (const dlgEntry of activeChapter.dialogues ?? []) {
       for (const seg of dlgEntry ?? []) {
@@ -815,7 +818,10 @@ export function applyLocaleToGameState(
   if (battleUnits) {
     for (const bu of battleUnits) {
       bu.nameZh = getLocalizedUnitName(bu.uid, bu.nameZh);
-      bu.classNameZh = getLocalizedClassName(bu.classId, bu.classNameZh);
+      bu.classNameZh =
+        bu.uid === 48 || bu.uid === 135
+          ? tr('國王', '国王', 'King')
+          : getLocalizedClassName(bu.classId, bu.classNameZh);
     }
   }
 

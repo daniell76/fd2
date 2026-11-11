@@ -1511,7 +1511,7 @@ def main():
             return {
                 "nameZh": zh,
                 "nameGlyphs": gids,
-                "classNameZh": zh,
+                "classNameZh": "國王" if uid == 135 else zh,
                 "classGlyphs": gids,
                 "raceId": ec["raceId"],
                 "raceZh": ec["raceZh"],
