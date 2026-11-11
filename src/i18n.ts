@@ -201,7 +201,7 @@ export const UNIT_LOCALES: Record<number, [string, string, string]> = {
   72: ['精靈', '精灵', 'Elf'],
   73: ['龍人', '龙人', 'Dragonkin'],
   74: ['惡魔', '恶魔', 'Demon'],
-  75: ['米蘭', '米兰', 'Milan'],
+  75: ['系統侍女', '系统侍女', 'Camp Maid'],
   76: ['士兵', '士兵', 'Soldier'],
   77: ['精英戰士', '精英战士', 'Elite Warrior'],
   78: ['鎧甲武士', '铠甲武士', 'Armored Samurai'],

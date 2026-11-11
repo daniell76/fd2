@@ -1902,7 +1902,7 @@ class FlameDragonWebApp {
             tileX: tx,
             tileY: ty,
             speakerPortraitId: 75,
-            speakerNameZh: getLocalizedUnitName(75, '米蘭'),
+            speakerNameZh: getLocalizedUnitName(75, '系統侍女'),
             promptZh: tr('確定要離開戰場返回標題畫面嗎？', '确定要离开战场返回标题画面吗？', 'Leave the battlefield and return to the Title Screen?'),
             selected: 'no',
             onConfirmYes: () => {
@@ -1988,8 +1988,8 @@ class FlameDragonWebApp {
     this.crossMenu.openYesNo({
       tileX: tx,
       tileY: ty,
-      speakerPortraitId: 75, // `#75 米蘭`!
-      speakerNameZh: getLocalizedUnitName(75, '米蘭'),
+      speakerPortraitId: 75, // `#75 系統侍女`!
+      speakerNameZh: getLocalizedUnitName(75, '系統侍女'),
       promptZh:
         unacted > 0
           ? tr(
