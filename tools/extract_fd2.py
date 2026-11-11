@@ -6,6 +6,8 @@ ignores FD2.EX_) and outputs web-ready PNG atlases, verified character/image map
 (character_dex.json & gamedata.json), 33 chapters, dialogues, and XMI music into public/assets/.
 """
 
+import base64
+import hashlib
 import json
 import shutil
 import struct
@@ -867,6 +869,9 @@ def main():
             fcnt = ch[0]
             is_remote = bool(ch[1])
             split_frame = int(ch[2])
+            sfx_bank_code = int(ch[4]) if len(ch) > 4 else 0
+            sfx_bank_table = [48, 49, 50, 51, 52, 53, 51]
+            sfx_bank_chunk = sfx_bank_table[sfx_bank_code - 1] if 1 <= sfx_bank_code <= len(sfx_bank_table) else 0
             if fcnt <= 0 or len(ch) < 8 + fcnt * 4:
                 continue
             foffs = list(struct.unpack_from(f"<{fcnt}I", ch, 8)) + [len(ch)]
@@ -911,6 +916,8 @@ def main():
                     "stripH": strip_h,
                     "isRemote": bool(is_remote and has_valid_split),
                     "splitFrame": eff_split,
+                    "sfxBankCode": sfx_bank_code,
+                    "sfxBankChunk": sfx_bank_chunk,
                     "frames": frames_info,
                 }
                 extracted_strips += 1
@@ -1051,6 +1058,9 @@ def main():
     OBJ2_SPELL_FX_BASE = 327168
     map_fx_starts = list(exe[OBJ2_SPELL_FX_BASE + 7987 : OBJ2_SPELL_FX_BASE + 7987 + 33])
     map_fx_counts = list(exe[OBJ2_SPELL_FX_BASE + 8020 : OBJ2_SPELL_FX_BASE + 8020 + 33])
+    map_sfx_indices = list(exe[OBJ2_SPELL_FX_BASE + 8053 : OBJ2_SPELL_FX_BASE + 8053 + 36])
+    cutaway_spell_sfx_banks = list(exe[OBJ2_SPELL_FX_BASE + 9676 : OBJ2_SPELL_FX_BASE + 9676 + 10])
+    summon_sfx_banks = list(exe[OBJ2_SPELL_FX_BASE + 9563 : OBJ2_SPELL_FX_BASE + 9563 + 4])
     spells = []
     for sid in range(36):
         rec = exe[SPELL_BASE + sid * 7 : SPELL_BASE + (sid + 1) * 7]
@@ -1062,6 +1072,12 @@ def main():
         )
         m_start = map_fx_starts[sid] if sid < len(map_fx_starts) else 0
         m_cnt = map_fx_counts[sid] if sid < len(map_fx_counts) else 0
+        m_sfx = map_sfx_indices[sid] if sid < len(map_sfx_indices) else 0
+        cut_sfx_bank = (
+            cutaway_spell_sfx_banks[sid]
+            if sid < 10
+            else (summon_sfx_banks[sid - 32] if 32 <= sid <= 35 else 0)
+        )
         sp_obj = {
             "id": sid,
             "nameZh": SPELL_NAMES_ZH[sid],
@@ -1079,6 +1095,8 @@ def main():
             "isAttackMagic": is_atk_magic,
             "mapFxStart": m_start if m_cnt > 0 else None,
             "mapFxCount": m_cnt if m_cnt > 0 else None,
+            "mapSfxIdx": m_sfx if m_sfx > 0 else None,
+            "cutawaySfxBank": cut_sfx_bank if cut_sfx_bank > 0 else None,
         }
         if anim_e is not None:
             sp_obj["animEnemyStripId"] = anim_e
@@ -1932,6 +1950,47 @@ def main():
         json.dumps(post_formations, separators=(",", ":")), encoding="utf-8"
     )
     print(f"  [OK] choreography.json ({len(choreography_scripts)} scripts) & post_formations.json ({len(post_formations)} formations)")
+
+    # 11d. FDOTHER.DAT -> Authentic 8-Bit Unsigned PCM Sound Effects Bundle (sfx_banks.json)
+    # Verified in FD2.EXE fn_88726 / fn_88901 (AIL_init_sample default 11,025 Hz 8-bit unsigned mono PCM):
+    #   - Bank 31 (GLOBAL_2_16108): Tactical UI & Unit Movement SFX (0=cursor, 2=dialogue, 3=death explosion,
+    #     4=rest heal/turn phase, 5=confirm, 6=cancel, 7=click, 8=cross menu open, 9=footstep, 10=wing flap,
+    #     11=horse gallop, 12=treasure chest)
+    #   - Banks 48..53 (GLOBAL_2_9686[sfxBankCode-1]): Cutaway Combat Weapon & Motion SFX ([bank][0] = dodge/miss,
+    #     [bank][1..6] = weapon swings, horse charge, bowstring, arrow/sword/axe/lance/punch/beam impacts)
+    #   - Bank 64 (GLOBAL_2_15119): Map Item / Promotion / Event SFX
+    #   - Bank 80 (GLOBAL_2_15123): On-Map Spell Cast ([80][1]), Spell Impacts ([80][GLOBAL_2_8053[sid]]), & Level-Up ([80][11])
+    #   - Banks 82..94 (GLOBAL_2_16671): Cutaway Spell & Summon SFX ([bank][0] = caster magic chant, [bank][1..3] = spell impacts)
+    sfx_target_chunks = [31, 48, 49, 50, 51, 52, 53, 64, 77, 78, 80, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95]
+    sfx_samples: dict[str, str] = {}
+    sfx_banks: dict[str, list[str | None]] = {}
+    for sfx_cid in sfx_target_chunks:
+        if sfx_cid >= len(other_chunks):
+            continue
+        raw_bank = other_chunks[sfx_cid]
+        if raw_bank[:6] != b"LLLLLL":
+            continue
+        sf_off = struct.unpack_from("<I", raw_bank, 6)[0]
+        sn_offs = (sf_off - 6) // 4
+        soffs = list(struct.unpack_from(f"<{sn_offs}I", raw_bank, 6))
+        if soffs[-1] < len(raw_bank):
+            soffs.append(len(raw_bank))
+        bank_items: list[str | None] = []
+        for s_i in range(len(soffs) - 1):
+            sub_pcm = raw_bank[soffs[s_i] : soffs[s_i + 1]]
+            if not sub_pcm:
+                bank_items.append(None)
+                continue
+            digest = hashlib.md5(sub_pcm).hexdigest()[:10]
+            if digest not in sfx_samples:
+                sfx_samples[digest] = base64.b64encode(sub_pcm).decode("ascii")
+            bank_items.append(digest)
+        sfx_banks[str(sfx_cid)] = bank_items
+    (OUT_DIR / "sfx_banks.json").write_text(
+        json.dumps({"sampleRate": 11025, "samples": sfx_samples, "banks": sfx_banks}, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    print(f"  [OK] sfx_banks.json ({len(sfx_samples)} unique 11025Hz PCM samples across {len(sfx_banks)} FDOTHER sound banks)")
 
     # 12. Master gamedata.json
     gamedata = {

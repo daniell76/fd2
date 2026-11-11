@@ -1,21 +1,40 @@
-import type { MusicTrack } from '../types';
+import type { MusicTrack, SfxBanksPayload } from '../types';
 
 export type SfxKind =
   | 'cursor'
+  | 'click'
+  | 'dialogue'
   | 'confirm'
   | 'cancel'
+  | 'cross'
   | 'step'
+  | 'step_foot'
+  | 'step_wing'
+  | 'step_horse'
   | 'slash'
   | 'hit'
   | 'crit'
   | 'miss'
   | 'magic'
+  | 'chant'
   | 'heal'
   | 'chest'
   | 'levelup'
   | 'fanfare'
   | 'explosion'
-  | 'quake';
+  | 'quake'
+  | `bank:${number}:${number}`
+  | `bank:${number}:${number}:${number}`;
+
+// Verified FD2.EXE GLOBAL_2_9752[0..27] (`Obj2 + 9752`, `fn_117228` walk SFX cadence table by classId 1..28):
+//   0 = Robed Mages/Clerics (classId 5,6,13,14,21,22) -> FDOTHER[31][9] every 6 4px sub-steps (1 tile)
+//   1 = Infantry/Fighters/Archers/Thieves/Martial Artists/Mechs -> FDOTHER[31][9] every 4 4px sub-steps
+//   2 = Cavalry/Knights/Paladins (classId 3,11) -> FDOTHER[31][11] every 9 4px sub-steps
+//   3 = Flying classes (classId 15,19; handled by flying check `fn_61827`) -> FDOTHER[31][10] every 6 4px sub-steps
+const WALK_TYPE_BY_CLASS: readonly number[] = [
+  1, 1, 2, 1, 0, 0, 1, 1, 1, 1, 2, 1, 0, 0,
+  3, 1, 1, 1, 3, 1, 0, 0, 1, 1, 1, 1, 1, 1,
+];
 
 export class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -23,6 +42,11 @@ export class SoundEngine {
   private musicGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
   private noiseBuffer: AudioBuffer | null = null;
+
+  private sfxPayload: SfxBanksPayload | null = null;
+  private decodedPcmSamples = new Map<string, Float32Array>();
+  private pcmAudioBuffers = new Map<string, AudioBuffer>();
+  private activeSfxChannels: [AudioBufferSourceNode | null, AudioBufferSourceNode | null] = [null, null];
 
   private tracks: MusicTrack[] = [];
   private currentTrackIdx = -1;
@@ -35,6 +59,23 @@ export class SoundEngine {
 
   setTracks(tracks: MusicTrack[]): void {
     this.tracks = tracks;
+  }
+
+  setSfxBanks(payload: SfxBanksPayload | null): void {
+    this.sfxPayload = payload;
+    this.decodedPcmSamples.clear();
+    this.pcmAudioBuffers.clear();
+    if (!payload) return;
+    for (const [hash, b64] of Object.entries(payload.samples)) {
+      const bin = atob(b64);
+      const len = bin.length;
+      const f32 = new Float32Array(len);
+      for (let i = 0; i < len; i++) {
+        // Unsigned 8-bit PCM centered at 0x80 (128) -> [-1.0, +1.0]
+        f32[i] = (bin.charCodeAt(i) - 128) / 128.0;
+      }
+      this.decodedPcmSamples.set(hash, f32);
+    }
   }
 
   private ensureContext(): AudioContext | null {
@@ -230,8 +271,173 @@ export class SoundEngine {
     }
   }
 
+  /**
+   * Plays an authentic 11,025 Hz 8-bit unsigned PCM sample from `FDOTHER.DAT[bankChunkId][subIdx]`,
+   * matching FD2.EXE `fn_88726(bank, subIdx, 1)` (channel 0) and `fn_88901(bank, subIdx, 1)` (channel 1).
+   */
+  playBankSfx(bankChunkId: number, subIdx: number, channel: 0 | 1 = 0): boolean {
+    if (this.muted || !this.sfxPayload) return false;
+    const ctx = this.ensureContext();
+    if (!ctx || !this.sfxGain) return false;
+
+    const prev = this.activeSfxChannels[channel];
+    if (prev) {
+      try {
+        prev.stop();
+      } catch {
+        // Ignore if already stopped
+      }
+      this.activeSfxChannels[channel] = null;
+    }
+    if (subIdx < 0) return true;
+
+    const bank = this.sfxPayload.banks[String(bankChunkId)];
+    if (!bank || subIdx >= bank.length) return false;
+    const hash = bank[subIdx];
+    if (!hash) return false;
+
+    let audioBuf = this.pcmAudioBuffers.get(hash);
+    if (!audioBuf) {
+      const f32 = this.decodedPcmSamples.get(hash);
+      if (!f32 || f32.length === 0) return false;
+      const sr = this.sfxPayload.sampleRate || 11025;
+      audioBuf = ctx.createBuffer(1, f32.length, sr);
+      audioBuf.getChannelData(0).set(f32);
+      this.pcmAudioBuffers.set(hash, audioBuf);
+    }
+
+    const src = ctx.createBufferSource();
+    src.buffer = audioBuf;
+    src.connect(this.sfxGain);
+    this.activeSfxChannels[channel] = src;
+    src.onended = () => {
+      if (this.activeSfxChannels[channel] === src) {
+        this.activeSfxChannels[channel] = null;
+      }
+    };
+    src.start(ctx.currentTime);
+    return true;
+  }
+
+  /**
+   * Replicates FD2.EXE `fn_117228` (`L117228..L117462`): plays the exact unit movement sound
+   * (`FDOTHER[31][9]` footstep, `FDOTHER[31][10]` wing flap, or `FDOTHER[31][11]` horse gallop)
+   * on the exact `4px` sub-step cadence (`GLOBAL_2_16638`).
+   */
+  playUnitWalkStepSfx(
+    unit: { uid: number; classId: number; raceId?: number; moveMode?: 'foot' | 'cavalry' | 'fly' },
+    subStepCounter: number
+  ): void {
+    const isFlying =
+      unit.moveMode === 'fly' ||
+      unit.classId === 15 ||
+      unit.classId === 19 ||
+      ((unit.raceId === 4 || unit.raceId === 5) && unit.uid !== 28);
+    if (isFlying) {
+      if (subStepCounter % 6 === 0) {
+        this.playSfx('step_wing');
+      }
+      return;
+    }
+    const walkType = WALK_TYPE_BY_CLASS[unit.classId - 1] ?? 1;
+    if (walkType === 0) {
+      // Robed Mage / Cleric (classId 5, 6, 13, 14, 21, 22): every 6 sub-steps (1 tile)
+      if (subStepCounter % 6 === 0) {
+        this.playSfx('step_foot');
+      }
+    } else if (walkType === 2 || unit.moveMode === 'cavalry') {
+      // Cavalry / Knight / Paladin (classId 3, 11): every 9 sub-steps (1.5 tiles)
+      if (subStepCounter % 9 === 0) {
+        this.playSfx('step_horse');
+      }
+    } else {
+      // Infantry / Fighter / Archer / Thief / Martial Artist / Mech: every 4 sub-steps
+      if (subStepCounter % 4 === 0) {
+        this.playSfx('step_foot');
+      }
+    }
+  }
+
   playSfx(kind: SfxKind): void {
     if (this.muted) return;
+    if (kind.startsWith('bank:')) {
+      const parts = kind.split(':');
+      const bankId = Number(parts[1]);
+      const subIdx = Number(parts[2]);
+      const ch = parts[3] === '1' ? 1 : 0;
+      if (!Number.isNaN(bankId) && !Number.isNaN(subIdx)) {
+        this.playBankSfx(bankId, subIdx, ch);
+      }
+      return;
+    }
+
+    if (this.sfxPayload) {
+      switch (kind) {
+        case 'cursor':
+          if (this.playBankSfx(31, 0)) return;
+          break;
+        case 'click':
+          if (this.playBankSfx(31, 7)) return;
+          break;
+        case 'dialogue':
+          if (this.playBankSfx(31, 2)) return;
+          break;
+        case 'confirm':
+          if (this.playBankSfx(31, 5)) return;
+          break;
+        case 'cancel':
+          if (this.playBankSfx(31, 6)) return;
+          break;
+        case 'cross':
+          if (this.playBankSfx(31, 8)) return;
+          break;
+        case 'step':
+        case 'step_foot':
+          if (this.playBankSfx(31, 9)) return;
+          break;
+        case 'step_wing':
+          if (this.playBankSfx(31, 10)) return;
+          break;
+        case 'step_horse':
+          if (this.playBankSfx(31, 11)) return;
+          break;
+        case 'chest':
+          if (this.playBankSfx(31, 12)) return;
+          break;
+        case 'explosion':
+          if (this.playBankSfx(31, 3)) return;
+          break;
+        case 'heal':
+          if (this.playBankSfx(31, 4)) return;
+          break;
+        case 'slash':
+          if (this.playBankSfx(52, 1)) return;
+          break;
+        case 'hit':
+          if (this.playBankSfx(49, 1)) return;
+          break;
+        case 'crit':
+          if (this.playBankSfx(52, 4)) return;
+          break;
+        case 'miss':
+          if (this.playBankSfx(52, 0)) return;
+          break;
+        case 'magic':
+          if (this.playBankSfx(80, 1)) return;
+          break;
+        case 'chant':
+          if (this.playBankSfx(82, 0)) return;
+          break;
+        case 'levelup':
+        case 'fanfare':
+          if (this.playBankSfx(80, 11)) return;
+          break;
+        case 'quake':
+          if (this.playBankSfx(85, 1)) return;
+          break;
+      }
+    }
+
     const ctx = this.ensureContext();
     if (!ctx || !this.sfxGain) return;
     const now = ctx.currentTime;

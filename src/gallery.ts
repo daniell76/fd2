@@ -1,4 +1,5 @@
 import './gallery.css';
+import { SoundEngine } from './audio/soundEngine';
 import { AssetManager } from './engine/assets';
 import {
   SUPPORTED_LOCALES,
@@ -34,6 +35,7 @@ type CatalogSubTab = 'items' | 'spells' | 'classes';
 
 class MappingGalleryApp {
   private assets = new AssetManager();
+  private sound = new SoundEngine();
   private dex!: CharacterDexData;
 
   // Top-level Navigation (Combined Battle Duel + Catalog + Chapters)
@@ -63,6 +65,8 @@ class MappingGalleryApp {
   private duelTimeline: TimelineStep[] = [];
   private duelPlaying = true;
   private duelLoop = false;
+  private sfxEnabled = true;
+  private lastPlayedStepIdx = -1;
   private manualStepIdx = 0;
   private pausedElapsedMs = 0;
   private animStartMs = performance.now();
@@ -101,6 +105,7 @@ class MappingGalleryApp {
       fetch('assets/character_dex.json').then((r) => r.json() as Promise<CharacterDexData>),
     ]);
     this.dex = dexRes;
+    this.sound.setSfxBanks(this.assets.sfxBanks);
 
     // Support URL deep-links (`?hero=9&tier=41&enemy=90&init=hero&move=magic&spell=2&lang=en`)
     const params = new URLSearchParams(window.location.search);
@@ -404,6 +409,7 @@ class MappingGalleryApp {
     }
 
     this.manualStepIdx = 0;
+    this.lastPlayedStepIdx = -1;
     this.pausedElapsedMs = 0;
     this.animStartMs = performance.now();
   }
@@ -912,6 +918,9 @@ class MappingGalleryApp {
                 <button class="gal-btn sm ${this.duelLoop ? 'active' : ''}" id="duel-btn-loop" type="button" style="flex-shrink:0;">
                   🔁 ${tr('自動循環：', '自动循环：', 'Auto-Loop: ')}${this.duelLoop ? tr('開', '开', 'On') : tr('關', '关', 'Off')}
                 </button>
+                <button class="gal-btn sm ${this.sfxEnabled ? 'active' : ''}" id="duel-btn-sfx" type="button" style="flex-shrink:0;">
+                  ${this.sfxEnabled ? '🔊' : '🔇'} ${tr('音效：', '音效：', 'SFX: ')}${this.sfxEnabled ? tr('開', '开', 'On') : tr('關', '关', 'Off')}
+                </button>
                 <span
                   class="mono-tag"
                   id="duel-step-label"
@@ -1289,9 +1298,10 @@ class MappingGalleryApp {
       this.syncPlaybackControlsUi();
     });
 
-    // Replay, Play/Pause, Loop Toggle & Scrubber (millisecond-exact pause/resume with zero DOM thrash)
+    // Replay, Play/Pause, Loop Toggle, SFX Toggle & Scrubber (millisecond-exact pause/resume with zero DOM thrash)
     document.getElementById('duel-btn-replay')?.addEventListener('click', () => {
       this.manualStepIdx = 0;
+      this.lastPlayedStepIdx = -1;
       this.pausedElapsedMs = 0;
       this.animStartMs = performance.now();
       this.duelPlaying = true;
@@ -1306,6 +1316,7 @@ class MappingGalleryApp {
         const lastIdx = Math.max(0, this.duelTimeline.length - 1);
         if (this.manualStepIdx >= lastIdx) {
           this.manualStepIdx = 0;
+          this.lastPlayedStepIdx = -1;
           this.pausedElapsedMs = 0;
           this.animStartMs = performance.now();
         } else {
@@ -1323,6 +1334,7 @@ class MappingGalleryApp {
         const lastIdx = Math.max(0, this.duelTimeline.length - 1);
         if (this.manualStepIdx >= lastIdx) {
           this.manualStepIdx = 0;
+          this.lastPlayedStepIdx = -1;
           this.pausedElapsedMs = 0;
           this.animStartMs = performance.now();
         } else {
@@ -1334,10 +1346,20 @@ class MappingGalleryApp {
       this.syncPlaybackControlsUi();
     });
 
+    document.getElementById('duel-btn-sfx')?.addEventListener('click', () => {
+      this.sfxEnabled = !this.sfxEnabled;
+      this.syncPlaybackControlsUi();
+    });
+
     const scrubber = document.getElementById('duel-scrubber') as HTMLInputElement | null;
     scrubber?.addEventListener('input', () => {
       this.duelPlaying = false;
       this.manualStepIdx = Number(scrubber.value);
+      this.lastPlayedStepIdx = this.manualStepIdx;
+      const scrubbedStep = this.duelTimeline[this.manualStepIdx];
+      if (this.sfxEnabled && scrubbedStep?.sfxTrigger) {
+        this.sound.playSfx(scrubbedStep.sfxTrigger);
+      }
       this.pausedElapsedMs = this.getTicksBeforeStep(this.manualStepIdx) * 55;
       this.syncPlaybackControlsUi();
     });
@@ -1797,6 +1819,19 @@ class MappingGalleryApp {
           }
         }
 
+        if (this.duelPlaying && stepIdx !== this.lastPlayedStepIdx) {
+          if (this.sfxEnabled) {
+            const startIdx = stepIdx < this.lastPlayedStepIdx ? 0 : Math.max(0, this.lastPlayedStepIdx + 1);
+            for (let si = startIdx; si <= stepIdx; si++) {
+              const sfx = this.duelTimeline[si]?.sfxTrigger;
+              if (sfx) {
+                this.sound.playSfx(sfx);
+              }
+            }
+          }
+          this.lastPlayedStepIdx = stepIdx;
+        }
+
         const step = this.duelTimeline[stepIdx];
         const ctx = stageCanvas.getContext('2d')!;
         renderTimelineStep(ctx, this.assets, this.previewBgId, step, Math.floor(nowMs / 180));
@@ -1838,6 +1873,11 @@ class MappingGalleryApp {
     if (loopBtn) {
       loopBtn.classList.toggle('active', this.duelLoop);
       loopBtn.textContent = `🔁 ${tr('自動循環：', '自动循环：', 'Auto-Loop: ')}${this.duelLoop ? tr('開', '开', 'On') : tr('關', '关', 'Off')}`;
+    }
+    const sfxBtn = document.getElementById('duel-btn-sfx');
+    if (sfxBtn) {
+      sfxBtn.classList.toggle('active', this.sfxEnabled);
+      sfxBtn.textContent = `${this.sfxEnabled ? '🔊' : '🔇'} ${tr('音效：', '音效：', 'SFX: ')}${this.sfxEnabled ? tr('開', '开', 'On') : tr('關', '关', 'Off')}`;
     }
     const scrub = document.getElementById('duel-scrubber') as HTMLInputElement | null;
     if (scrub && document.activeElement !== scrub) {

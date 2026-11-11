@@ -176,8 +176,8 @@ export class ScenarioDirector {
 
           const subFrames = 6;
           if (moving.length > 0 && !this.skipRequested) {
-            this.host.sound.playSfx('step');
             for (let f = 1; f <= subFrames; f++) {
+              this.host.sound.playUnitWalkStepSfx(moving[0].unit, step * subFrames + (f - 1));
               const t = f / subFrames;
               for (const m of moving) {
                 m.unit.renderX = m.startX + m.dx * t;
@@ -271,9 +271,9 @@ export class ScenarioDirector {
       }
 
       if (!this.skipRequested) {
-        this.host.sound.playSfx('step');
         const subFrames = 6;
         for (let f = 1; f <= subFrames; f++) {
+          this.host.sound.playUnitWalkStepSfx(u, step * subFrames + (f - 1));
           const t = f / subFrames;
           u.renderX = startX + dx * t;
           u.renderY = startY + dy * t;

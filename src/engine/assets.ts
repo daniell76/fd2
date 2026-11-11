@@ -6,6 +6,7 @@ import type {
   GameData,
   MusicTrack,
   PostFormationDef,
+  SfxBanksPayload,
 } from '../types';
 
 export type GlyphColor = 'ivory' | 'gold' | 'crimson' | 'azure' | 'emerald' | 'shadow' | 'hud_fg' | 'hud_shadow';
@@ -34,6 +35,7 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
 export class AssetManager {
   public gameData!: GameData;
   public musicTracks: MusicTrack[] = [];
+  public sfxBanks: SfxBanksPayload | null = null;
   public choreography: ChoreographyScript[] = [];
   public postFormations: Record<string, PostFormationDef> = {};
 
@@ -64,6 +66,7 @@ export class AssetManager {
     const [
       gdRes,
       musRes,
+      sfxRes,
       choreoRes,
       postFormRes,
       fontAtlas,
@@ -87,6 +90,7 @@ export class AssetManager {
     ] = await Promise.all([
       fetch('assets/gamedata.json').then((r) => r.json() as Promise<GameData>),
       fetch('assets/music.json').then((r) => r.json() as Promise<MusicTrack[]>),
+      fetch('assets/sfx_banks.json').then((r) => (r.ok ? (r.json() as Promise<SfxBanksPayload>) : null)).catch(() => null),
       fetch('assets/choreography.json').then((r) => r.json() as Promise<ChoreographyScript[]>),
       fetch('assets/post_formations.json').then((r) => r.json() as Promise<Record<string, PostFormationDef>>),
       loadImage('assets/font_atlas.png'),
@@ -112,6 +116,7 @@ export class AssetManager {
     this.gameData = gdRes;
     applyLocaleToGameState(this.gameData);
     this.musicTracks = musRes;
+    this.sfxBanks = sfxRes;
     this.choreography = choreoRes;
     this.postFormations = postFormRes;
     this.fontAtlas = fontAtlas;

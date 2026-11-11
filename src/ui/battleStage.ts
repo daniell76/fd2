@@ -1,6 +1,7 @@
+import type { SfxKind } from '../audio/soundEngine';
 import type { AssetManager } from '../engine/assets';
 import { tr } from '../i18n';
-import type { FigAniStrip, GameData, SpellDef, UnitDexEntry } from '../types';
+import type { FigAniFrame, FigAniStrip, GameData, SpellDef, UnitDexEntry } from '../types';
 
 export type BattleMoveKind = 'melee' | 'ranged' | 'special' | 'magic';
 
@@ -62,7 +63,7 @@ export interface TimelineStep {
     targetCenterX: number;
     instances?: SpellBurstInstance[]; // authentic FD2.EXE GLOBAL_9145[0..9] multi-sprite trajectories
   };
-  sfxTrigger?: 'slash' | 'hit' | 'crit' | 'miss' | 'magic' | 'heal';
+  sfxTrigger?: SfxKind;
 }
 
 export const REMOTE_BRIDGE_STEPS = 6;
@@ -372,6 +373,18 @@ export interface PhysicalStrikeTimelineInput {
  *  3) 2-stage Special Technique `#28 淒煌斬` (`#19 羅德曼`, `FD2.EXE` `fn_95980`: Stage 1 solo stance `0..split-1` -> Stage 2 shared-screen rapid slash flurry `split..end-1` with MP deduction)
  *  4) 1-stage shared-screen attack (both units on screen, honoring exact `FD2.EXE` `L104405`/`L105129` `fgLayer` (`fr[7] & 1`) Z-order and multi-hit recoil sync)
  */
+// Authentic FD2.EXE `fn_113818` (`GLOBAL_2_9686 = [48, 49, 50, 51, 52, 53, 51]`):
+// Maps `FIGANI.DAT` chunk_header[4] (`sfxBankCode = 1..6`) to `FDOTHER.DAT[48..53]`.
+const FIGANI_SFX_BANK_TABLE = [48, 49, 50, 51, 52, 53, 51];
+function getStripSfxBankChunk(strip: FigAniStrip | undefined): number {
+  if (!strip) return 0;
+  if (strip.sfxBankChunk && strip.sfxBankChunk > 0) return strip.sfxBankChunk;
+  if (strip.sfxBankCode && strip.sfxBankCode >= 1 && strip.sfxBankCode <= FIGANI_SFX_BANK_TABLE.length) {
+    return FIGANI_SFX_BANK_TABLE[strip.sfxBankCode - 1];
+  }
+  return 0;
+}
+
 export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): TimelineStep[] {
   const steps: TimelineStep[] = [];
   const { actor, target, actorIdle, actorAct, targetIdle } = inp;
@@ -385,6 +398,42 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
   const isRemote3Stage = Boolean(actPack?.strip.isRemote && hasSubSplit);
   const isSoloBeamTurret = SOLO_BEAM_TURRET_UIDS.has(actor.uid) && Boolean(actPack && frames.length > 0);
   const isSpecial2StageShared = Boolean(!isRemote3Stage && inp.specialTechId === 28 && hasSubSplit);
+
+  const sfxBankChunk = getStripSfxBankChunk(actPack?.strip);
+
+  /**
+   * Replicates FD2.EXE `fn_103325` (`L103891..104389`) & `fn_95980` (`L97502`) weapon/motion SFX resolution:
+   *  - On non-impact frames (`fr[4] == 0`): if `fr[5] != 0` (`fr.hitFlag > 0`), plays `FDOTHER[bank][fr.hitFlag]`
+   *    (e.g., Knight horse gallop `[49][2]`, Archer bowstring `[50][2]`, Crossbow fire `[51][4]`, Martial windup `[53][3]`).
+   *  - On impact frames (`fr[4] != 0`): if `didHit`, plays `FDOTHER[bank][fr.hitFlag]`;
+   *    if `!didHit` (miss), plays `FDOTHER[bank][0]` (the 4,182-byte dodge/miss whoosh at index 0 of banks `48..53`).
+   */
+  const resolveFrameWeaponSfx = (
+    fr: FigAniFrame | undefined,
+    isImpactFrame: boolean,
+    didHit: boolean
+  ): SfxKind | undefined => {
+    const subIdx = fr?.hitFlag ?? 0;
+    if (sfxBankChunk > 0) {
+      if (isImpactFrame) {
+        if (!didHit) {
+          return `bank:${sfxBankChunk}:0`;
+        }
+        if (subIdx > 0) {
+          return `bank:${sfxBankChunk}:${subIdx}`;
+        }
+        return inp.crit ? 'crit' : 'hit';
+      }
+      if (subIdx > 0) {
+        return `bank:${sfxBankChunk}:${subIdx}`;
+      }
+      return undefined;
+    }
+    if (isImpactFrame) {
+      return didHit ? (inp.crit ? 'crit' : 'hit') : 'miss';
+    }
+    return subIdx > 0 ? 'slash' : undefined;
+  };
 
   let curTargetHp = inp.targetStartHp;
   let curActorMp = actor.startMp;
@@ -444,6 +493,13 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
       const fr = frames[i];
       const dly = Math.max(1, fr.delay || 2);
       const isBeamFire = Boolean(fr.sfx && fr.sfx !== 0);
+      // Exact FD2.EXE `fn_100228` (`L100719`): triggers `FDOTHER[51][fr.hitFlag]` (`[51][1]` = 8,886B beam cannon roar) when `fr[5] != 0`!
+      const beamStage1Sfx: SfxKind | undefined =
+        fr.hitFlag && fr.hitFlag > 0
+          ? sfxBankChunk > 0
+            ? `bank:${sfxBankChunk}:${fr.hitFlag}`
+            : 'magic'
+          : undefined;
       steps.push(
         makeStep({
           delay: dly,
@@ -453,7 +509,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
           leftFrameIdx: actor.isHeroSide ? 0 : i,
           rightPack: actor.isHeroSide ? actPack : targetIdle,
           rightFrameIdx: actor.isHeroSide ? i : 0,
-          sfxTrigger: isBeamFire ? 'magic' : i === 0 || fr.hitFlag ? 'slash' : undefined,
+          sfxTrigger: beamStage1Sfx,
         })
       );
     }
@@ -480,13 +536,13 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
 
       if (tick === 1) {
         if (!inp.hit) {
-          frameSfx = 'miss';
+          frameSfx = sfxBankChunk > 0 ? `bank:${sfxBankChunk}:0` : 'miss';
         } else {
           curTargetHp = Math.max(0, curTargetHp - inp.totalDamage);
           recoilV6 = 5;
           isFlashTick = true;
           beamFlash = 'intense';
-          frameSfx = inp.crit ? 'crit' : 'hit';
+          frameSfx = sfxBankChunk > 0 ? `bank:${sfxBankChunk}:2` : inp.crit ? 'crit' : 'hit';
         }
       } else if (inp.hit && (tick === 2 || tick === 3)) {
         beamFlash = tick === 2 ? 'intense' : 'fade';
@@ -556,7 +612,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
           leftFrameIdx: actor.isHeroSide ? 0 : i,
           rightPack: actor.isHeroSide ? actPack : targetIdle,
           rightFrameIdx: actor.isHeroSide ? i : 0,
-          sfxTrigger: i === 0 || frames[i].hitFlag ? 'slash' : undefined,
+          sfxTrigger: resolveFrameWeaponSfx(frames[i], false, true),
         })
       );
     }
@@ -585,20 +641,15 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
     for (let i = split; i < frames.length; i++) {
       const dly = Math.max(1, frames[i].delay || 2);
       const hitInfo = hitMap.get(i);
-      let frameSfx: TimelineStep['sfxTrigger'];
+      let frameSfx: TimelineStep['sfxTrigger'] = resolveFrameWeaponSfx(frames[i], Boolean(hitInfo), inp.hit);
       let isHitFrame = false;
 
-      if (hitInfo) {
-        if (!inp.hit) {
-          frameSfx = 'miss';
-        } else {
-          curTargetHp = Math.max(0, curTargetHp - hitInfo.dmg);
-          isHitFrame = true;
-          // Exact FD2.EXE trigger (L104317..104324): if recoil dx == 0, set v6 = 5 (recoil 14->18->14->9->4->0)
-          if (PHYSICAL_HIT_RECOIL_CURVE[recoilV6] === 0) {
-            recoilV6 = 5;
-          }
-          frameSfx = inp.crit ? 'crit' : 'hit';
+      if (hitInfo && inp.hit) {
+        curTargetHp = Math.max(0, curTargetHp - hitInfo.dmg);
+        isHitFrame = true;
+        // Exact FD2.EXE trigger (L104317..104324): if recoil dx == 0, set v6 = 5 (recoil 14->18->14->9->4->0)
+        if (PHYSICAL_HIT_RECOIL_CURVE[recoilV6] === 0) {
+          recoilV6 = 5;
         }
       }
 
@@ -674,7 +725,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
             leftFrameIdx: actor.isHeroSide ? 0 : i,
             rightPack: actor.isHeroSide ? actPack : targetIdle,
             rightFrameIdx: actor.isHeroSide ? i : 0,
-            sfxTrigger: i === 0 || fr.hitFlag ? 'slash' : undefined,
+            sfxTrigger: resolveFrameWeaponSfx(fr, false, true),
           })
         );
       }
@@ -692,8 +743,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
       const fr = frames[i];
       const dly = fr ? Math.max(1, fr.delay || 2) : 3;
       const hitInfo = hitMap.get(i);
-      let frameSfx: TimelineStep['sfxTrigger'] =
-        i === sharedStartIdx || (fr?.hitFlag && !hitInfo) ? 'slash' : undefined;
+      const frameSfx: TimelineStep['sfxTrigger'] = resolveFrameWeaponSfx(fr, Boolean(hitInfo), inp.hit);
       let isHitFrame = false;
 
       // Exact FD2.EXE `Func_103325` Z-order (`L104405..104529` when Hero attacks, `L105129..105250` when Enemy attacks):
@@ -710,17 +760,12 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         mpDeducted = true;
       }
 
-      if (hitInfo) {
-        if (!inp.hit) {
-          frameSfx = 'miss';
-        } else {
-          curTargetHp = Math.max(0, curTargetHp - hitInfo.dmg);
-          isHitFrame = true;
-          // Exact FD2.EXE trigger (L104317..104324): when dx == 0, set v6 = 5 (recoil 14->18->14->9->4->0)
-          if (PHYSICAL_HIT_RECOIL_CURVE[recoilV6] === 0) {
-            recoilV6 = 5;
-          }
-          frameSfx = inp.crit ? 'crit' : 'hit';
+      if (hitInfo && inp.hit) {
+        curTargetHp = Math.max(0, curTargetHp - hitInfo.dmg);
+        isHitFrame = true;
+        // Exact FD2.EXE trigger (L104317..104324): when dx == 0, set v6 = 5 (recoil 14->18->14->9->4->0)
+        if (PHYSICAL_HIT_RECOIL_CURVE[recoilV6] === 0) {
+          recoilV6 = 5;
         }
       }
 
@@ -816,11 +861,13 @@ interface SpellTickPlan {
   instances: SpellBurstInstance[];
   isHit: boolean;
   delay: number;
+  sfx?: SfxKind;
 }
 
 /**
- * Reconstructs the authentic `FD2.EXE` (`GLOBAL_9145[0..9]` & `Func_98249`) multi-sprite trajectories
- * and exact hit-trigger ticks on the 320x200 battle stage for every cutaway attack spell (`#0..#9` & `#32 熾天使`).
+ * Reconstructs the authentic `FD2.EXE` (`GLOBAL_9145[0..9]` & `Func_98249`) multi-sprite trajectories,
+ * exact hit-trigger ticks, and `FDOTHER[82..94]` PCM sound triggers on the 320x200 battle stage
+ * for every cutaway attack spell (`#0..#9` & `#32..#35`).
  */
 function buildCutawaySpellTicks(
   spellId: number,
@@ -835,7 +882,7 @@ function buildCutawaySpellTicks(
   const fCount = strip.frames.length;
   if (fCount === 0) return [{ instances: [], isHit: true, delay: 2 }];
 
-  // #0 火炎術 (GLOBAL_9145[0], L90450): 7 staggered fire pillars rising across the target area
+  // #0 火炎術 (GLOBAL_9145[0], L90450, FDOTHER[82]): 7 staggered fire pillars rising across the target area
   if (spellId === 0 && fCount >= 16) {
     const xs = [40, 70, 120, 80, 50, 100, 70].map((x) => (targetIsHeroSide ? x + 148 : x));
     const ys = [0, -10, -20, 0, -15, -5, 0];
@@ -844,19 +891,21 @@ function buildCutawaySpellTicks(
     for (let t = 0; t < 28; t++) {
       const instances: SpellBurstInstance[] = [];
       let isHit = false;
+      let sfx: SfxKind | undefined;
       for (let k = 0; k < 7; k++) {
         const localF = t - 2 * k;
         if (localF >= 0 && localF < 16) {
           instances.push({ fIdx: localF, dx: xs[k], dy: ys[k], behindTarget: behind[k] });
+          if (localF === 3) sfx = 'bank:82:1';
           if (localF === 9 && (k === 0 || k === 3 || k === 6)) isHit = true;
         }
       }
-      plans.push({ instances, isHit, delay: 1 });
+      plans.push({ instances, isHit, delay: 1, sfx });
     }
     return plans;
   }
 
-  // #1 烈炎術 (GLOBAL_9145[1], L90863): 8 alternating blue + red inferno pillars in an elliptical ring around the target!
+  // #1 烈炎術 (GLOBAL_9145[1], L90863, FDOTHER[82]): 8 alternating blue + red inferno pillars in an elliptical ring around the target!
   if (spellId === 1 && fCount >= 30) {
     const baseX = targetIsHeroSide ? 228 : 80;
     const xOff = [-59, -39, 0, 39, 55, 39, 0, -39];
@@ -865,6 +914,7 @@ function buildCutawaySpellTicks(
     for (let t = 0; t < 31; t++) {
       const instances: SpellBurstInstance[] = [];
       let isHit = false;
+      let sfx: SfxKind | undefined;
       for (let k = 0; k < 8; k++) {
         const localF = t - 2 * k;
         if (localF >= 0 && localF < 15) {
@@ -901,22 +951,23 @@ function buildCutawaySpellTicks(
               behindTarget: false,
             });
           }
+          if (localF === 5) sfx = 'bank:82:1';
           if (localF === 10 && (k === 0 || k === 3 || k === 6)) isHit = true;
         }
       }
-      plans.push({ instances, isHit, delay: 1 });
+      plans.push({ instances, isHit, delay: 1, sfx });
     }
     return plans;
   }
 
-  // #2 炎龍術 (GLOBAL_9145[2], fn_91432 + Func_108289): Sweeping Fire Dragon (`FDOTHER[26]` vs Left Enemy, `FDOTHER[27]` vs Right Hero)
+  // #2 炎龍術 (GLOBAL_9145[2], fn_91432 + Func_108289, FDOTHER[83]): Sweeping Fire Dragon (`FDOTHER[26]` vs Left Enemy, `FDOTHER[27]` vs Right Hero)
   // Exact 3-stage frame playback verified against `FD2.EXE` `fn_91432`:
   //   1) Stage 1 — Dragon Entrance & Coil (`Phase 0/1/2`, 29 ticks total — played ONCE on the first target):
-  //      F00..F04 (2 ticks each = 10), F05..F07 (3 ticks each = 9), F08 (7 ticks mid-air hover/coil!), F09 (2 ticks lunge), F15 (1 tick snap-open).
+  //      F00..F04 (2 ticks each = 10), F05..F07 (3 ticks each = 9; F06 triggers `[83][3]` dragon coil whoosh), F08 (7 ticks mid-air hover/coil!), F09 (2 ticks lunge), F15 (1 tick snap-open).
   //      Z-layer: vs Left Enemy (`FDOTHER[26]`) in front (`behindTarget: false`); vs Right Hero (`FDOTHER[27]`) behind (`behindTarget: true`, with F15+F16 on tick 28).
   //   2) Stage 2 — Blazing Flame Breath Climax (`Phase 3/4/5`, 12 ticks at `delay: 1` — played on EACH target):
   //      Alternates `F16` (even ticks) and `F17` (odd ticks) every single tick while keeping roaring head `F15`!
-  //      Z-layer: vs Left Enemy, `F15` behind (`true`) + `F16/F17` engulfing in front (`false`); vs Right Hero, BOTH `F15` and `F16/F17` in front (`false`).
+  //      Triggers `[83][1]` flame roar on t=0 and `[83][2]` secondary flame blast on t=6.
   //   3) Stage 3 — Dragon Ascent / Exit (`Phase 6/7/8`, 10 ticks — `F10..F14` at 2 ticks each, closing jaws & soaring off the top edge!).
   if (spellId === 2 && fCount >= 18) {
     const plans: SpellTickPlan[] = [];
@@ -938,6 +989,7 @@ function buildCutawaySpellTicks(
           instances: [{ fIdx: fi, dx: 0, dy: 0, behindTarget: targetIsHeroSide }],
           isHit: false,
           delay: d,
+          sfx: fi === 6 ? 'bank:83:3' : undefined,
         });
       }
       // Tick 28: Dragon snaps jaws open into F15 (vs Right Hero FDOTHER[27], tick 28 draws F15 + F16 behind)
@@ -958,6 +1010,7 @@ function buildCutawaySpellTicks(
         ],
         isHit: t === 2 || t === 7,
         delay: 1,
+        sfx: t === 0 ? 'bank:83:1' : t === 6 ? 'bank:83:2' : undefined,
       });
     }
 
@@ -974,7 +1027,7 @@ function buildCutawaySpellTicks(
     return plans;
   }
 
-  // #3 天火術 (GLOBAL_9145[3], L92053): 12 staggered diagonal solar meteors & wide heaven-fire beams
+  // #3 天火術 (GLOBAL_9145[3], L92053, FDOTHER[84]): 12 staggered diagonal solar meteors & wide heaven-fire beams
   if (spellId === 3 && fCount >= 33) {
     const xs = [30, 0, 70, 40, 130, 70, -30, 30, 110, 80, -10, 30].map((x) =>
       targetIsHeroSide ? x + 20 : x
@@ -986,19 +1039,23 @@ function buildCutawaySpellTicks(
     for (let t = 0; t < 33; t++) {
       const instances: SpellBurstInstance[] = [];
       let isHit = false;
+      let sfx: SfxKind | undefined;
       for (let k = 0; k < 12; k++) {
         const localF = t - 2 * k;
         if (localF >= 0 && localF < 11) {
           instances.push({ fIdx: subBases[k] + localF, dx: xs[k], dy: ys[k] });
+          if (localF === 0) {
+            sfx = subBases[k] === 0 ? 'bank:84:1:1' : 'bank:84:2:0';
+          }
           if (localF === 3 && (k === 1 || k === 3 || k === 7 || k === 9)) isHit = true;
         }
       }
-      plans.push({ instances, isHit, delay: 1 });
+      plans.push({ instances, isHit, delay: 1, sfx });
     }
     return plans;
   }
 
-  // #4 電擊術 (GLOBAL_9145[4], L92627): 6 staggered lightning bolts (`0..6` and `7..13` variants)
+  // #4 電擊術 (GLOBAL_9145[4], L92627, FDOTHER[85]): 6 staggered lightning bolts (`0..6` and `7..13` variants)
   if (spellId === 4 && fCount >= 14) {
     const xs = [30, 50, 70, 40, 80, 100].map((x) => (targetIsHeroSide ? x + 143 : x));
     const bases = [0, 7, 0, 7, 0, 7];
@@ -1006,19 +1063,21 @@ function buildCutawaySpellTicks(
     for (let t = 0; t < 18; t++) {
       const instances: SpellBurstInstance[] = [];
       let isHit = false;
+      let sfx: SfxKind | undefined;
       for (let k = 0; k < 6; k++) {
         const localF = t - 2 * k;
         if (localF >= 0 && localF < 7) {
           instances.push({ fIdx: bases[k] + localF, dx: xs[k], dy: 0 });
+          if (localF === 0) sfx = 'bank:85:1';
           if (localF === 2 && (k === 0 || k === 2 || k === 4)) isHit = true;
         }
       }
-      plans.push({ instances, isHit, delay: 1 });
+      plans.push({ instances, isHit, delay: 1, sfx });
     }
     return plans;
   }
 
-  // #5 落雷術 (GLOBAL_9145[5], L93181): 6 staggered heavy thunderbolts (`0..5` and `6..11` variants)
+  // #5 落雷術 (GLOBAL_9145[5], L93181, FDOTHER[86]): 6 staggered heavy thunderbolts (`0..5` and `6..11` variants)
   if (spellId === 5 && fCount >= 12) {
     const xs = [30, 50, 70, 40, 80, 100].map((x) => (targetIsHeroSide ? x + 143 : x));
     const bases = [0, 6, 0, 6, 0, 6];
@@ -1026,25 +1085,27 @@ function buildCutawaySpellTicks(
     for (let t = 0; t < 17; t++) {
       const instances: SpellBurstInstance[] = [];
       let isHit = false;
+      let sfx: SfxKind | undefined;
       for (let k = 0; k < 6; k++) {
         const localF = t - 2 * k;
         if (localF >= 0 && localF < 6) {
           instances.push({ fIdx: bases[k] + localF, dx: xs[k], dy: 0 });
+          if (localF === 0) sfx = k === 0 ? 'bank:86:1:0' : 'bank:86:1:1';
           if (localF === 2 && (k === 0 || k === 2 || k === 4)) isHit = true;
         }
       }
-      plans.push({ instances, isHit, delay: 1 });
+      plans.push({ instances, isHit, delay: 1, sfx });
     }
     return plans;
   }
 
-  // #6 轟雷術 (GLOBAL_9145[6], L93753): 5 orbiting thunder spheres converging into giant plasma detonations (`f5..9`)
+  // #6 轟雷術 (GLOBAL_9145[6], L93753, FDOTHER[87]): 5 orbiting thunder spheres converging into giant plasma detonations (`f5..9`)
   if (spellId === 6 && fCount >= 10) {
     const plans: SpellTickPlan[] = [];
     const orbFr = strip.frames[4];
     const cx = targetIsHeroSide ? 228 : 80;
     const cy = targetIsHeroSide ? 132 : 92;
-    // Phase 1: 5 orbiting thunder spheres (`f4`) spiral inward toward the target
+    // Phase 1: 5 orbiting thunder spheres (`f4`) spiral inward toward the target (`[87][2]` hum)
     for (let t = 0; t < 12; t++) {
       const radius = Math.max(8, Math.round(52 * (1 - t / 13)));
       const instances: SpellBurstInstance[] = [];
@@ -1054,9 +1115,9 @@ function buildCutawaySpellTicks(
         const oy = Math.round(cy + Math.sin(ang) * (radius * 0.55) - orbFr.h * 0.5) - orbFr.oy;
         instances.push({ fIdx: 4, dx: ox, dy: oy, behindTarget: Math.sin(ang) < 0 });
       }
-      plans.push({ instances, isHit: false, delay: 1 });
+      plans.push({ instances, isHit: false, delay: 1, sfx: t === 0 ? 'bank:87:2' : undefined });
     }
-    // Phase 2: Staggered plasma detonations (`f5..9`) directly on the target (`screen_abs` coords in FDOTHER[32]/[33])
+    // Phase 2: Staggered plasma detonations (`f5..9`) directly on the target (`[87][3]` explosion)
     const burstOffsets = [
       { dx: 0, dy: 0 },
       { dx: -18, dy: -12 },
@@ -1076,50 +1137,54 @@ function buildCutawaySpellTicks(
           if (localF === 1) isHit = true;
         }
       }
-      plans.push({ instances, isHit, delay: 2 });
+      plans.push({ instances, isHit, delay: 2, sfx: t === 0 ? 'bank:87:3' : undefined });
     }
     return plans;
   }
 
-  // #7 神雷術 (GLOBAL_9145[7], L94904): 6 massive divine thunder columns cycling across the target zone
+  // #7 神雷術 (GLOBAL_9145[7], L94904, FDOTHER[88]): 6 massive divine thunder columns cycling across the target zone
   if (spellId === 7 && fCount >= 5) {
     const xs = [30, -10, 70, 20, 100, 60].map((x) => (targetIsHeroSide ? x + 130 : x));
     const plans: SpellTickPlan[] = [];
     for (let t = 0; t < 20; t++) {
       const instances: SpellBurstInstance[] = [];
       let isHit = false;
+      let sfx: SfxKind | undefined;
       for (let k = 0; k < 6; k++) {
         const localF = t - 3 * k;
         if (localF >= 0 && localF < 5) {
           instances.push({ fIdx: localF, dx: xs[k], dy: 0 });
+          if (localF === 0) sfx = k === 0 || k === 2 ? 'bank:88:1:0' : 'bank:88:1:1';
           if (localF === 1 && (k === 0 || k === 2 || k === 4)) isHit = true;
         }
       }
-      plans.push({ instances, isHit, delay: 2 });
+      plans.push({ instances, isHit, delay: 2, sfx });
     }
     return plans;
   }
 
-  // #8 聖光彈 (GLOBAL_9145[8], L95408): Rapid-fire 12-ray holy light barrage (`0..7, 8..15, 16..23, 24..31`, `screen_abs`)
+  // #8 聖光彈 (GLOBAL_9145[8], L95408, FDOTHER[89]): Rapid-fire 12-ray holy light barrage (`0..7, 8..15, 16..23, 24..31`, `screen_abs`)
   if (spellId === 8 && fCount >= 32) {
     const groupBases = [0, 8, 24, 16, 8, 0, 24, 16, 0, 8, 24, 16];
     const plans: SpellTickPlan[] = [];
     for (let t = 0; t < 30; t++) {
       const instances: SpellBurstInstance[] = [];
       let isHit = false;
+      let sfx: SfxKind | undefined;
       for (let k = 0; k < 12; k++) {
         const localF = t - 2 * k;
         if (localF >= 0 && localF < 8) {
           instances.push({ fIdx: groupBases[k] + localF, dx: 0, dy: 0 });
+          if (localF === 0) sfx = k === 0 ? 'bank:89:1:0' : 'bank:89:1:1';
           if (localF === 3 && k % 3 === 0) isHit = true;
         }
       }
-      plans.push({ instances, isHit, delay: 1 });
+      plans.push({ instances, isHit, delay: 1, sfx });
     }
     return plans;
   }
 
-  // #9 咒殺術 (GLOBAL_9145[9], L95702): Flashing Grim Reaper Skull (`f0`) -> Death Curse Pillar (`f1..29`)
+  // #9 咒殺術 (GLOBAL_9145[9], L95702, FDOTHER[90]): Flashing Grim Reaper Skull (`f0`) -> Death Curse Pillar (`f1..29`)
   // Note: FDOTHER[44] `f1..29` has `ox=164..188` (Right Hero side); shift `-156` when previewed on a Left Enemy!
   if (spellId === 9 && fCount >= 30) {
     const plans: SpellTickPlan[] = [];
@@ -1129,6 +1194,7 @@ function buildCutawaySpellTicks(
         instances: f % 2 === 0 ? [{ fIdx: 0, dx: 28, dy: 8 }] : [],
         isHit: false,
         delay: 1,
+        sfx: f === 0 ? 'bank:90:1:0' : f === 4 ? 'bank:90:2:1' : undefined,
       });
     }
     // Phase 2: Death Curse Pillar (`f1..29`) erupts over the target (`L95857..95976`)
@@ -1139,22 +1205,25 @@ function buildCutawaySpellTicks(
         instances: [{ fIdx: i, dx: pillarDx, dy: pillarDy }],
         isHit: i === 7 || i === 18,
         delay: 1,
+        sfx: i === 6 ? 'bank:90:1:0' : i === 18 ? 'bank:90:2:1' : undefined,
       });
     }
     return plans;
   }
 
-  // #32 熾天使 (Func_98249, L98969..99360): Seraphim Angel descends (`f0..f2`) and flashes heavenly wings (`f3 <-> f4`)
+  // #32 熾天使 (Func_98249, L98969..99360, FDOTHER[91]): Seraphim Angel descends (`f0..f2`) and flashes heavenly wings (`f3 <-> f4`)
   if (spellId === 32 && fCount >= 5) {
     const seq = [0, 1, 2, 3, 4, 3, 4, 3, 4, 3, 4];
     return seq.map((fi, idx) => ({
       instances: [{ fIdx: fi, dx: 0, dy: 0 }],
       isHit: idx === 3 || idx === 7,
       delay: idx < 3 ? 3 : 2,
+      sfx: idx === 2 || idx === 7 ? 'bank:91:1' : undefined,
     }));
   }
 
-  // Generic fallback for any other single-strip effect
+  // Generic fallback for any other single-strip effect (including summons #33..#35 in FDOTHER[92..94])
+  const summonBank = spellId >= 32 && spellId <= 35 ? 91 + (spellId - 32) : 0;
   const hitSet = new Set<number>(getHitFrameIndices(strip, 0, fCount, fallbackStripId));
   const maxExtent = Math.max(...strip.frames.map((f) => f.ox + f.w), 24);
   const anchorDx = align === 'target_anchor' ? Math.round(targetCenterX - maxExtent * 0.5) : 0;
@@ -1162,6 +1231,14 @@ function buildCutawaySpellTicks(
     instances: [{ fIdx: idx, dx: anchorDx, dy: 0 }],
     isHit: hitSet.has(idx),
     delay: Math.max(1, Math.min(4, fr.delay || 1)),
+    sfx:
+      summonBank > 0
+        ? idx === 1 && spellId === 35
+          ? 'bank:94:2:1'
+          : hitSet.has(idx)
+            ? (`bank:${summonBank}:1` as SfxKind)
+            : undefined
+        : undefined,
   }));
 }
 
@@ -1187,16 +1264,38 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
   const mpDeductFrameIdx = castTriggerIdx >= 0 ? castTriggerIdx : Math.max(0, Math.floor(castFrames.length * 0.5));
   let mpDeducted = false;
 
-  // 1. Stage A: Caster performs magic chant/cast motion (`FD2.EXE` L108934+L108954 draws both caster & target[0] HUDs; `fn_112217` L112448 deducts MP on `b4 == 1`)
+  // Authentic FD2.EXE spell SFX bank (`GLOBAL_2_9676` for spells 0..9 -> FDOTHER[82..90]; `GLOBAL_2_9563` for summons 32..35 -> FDOTHER[91..94])
+  const spellBank =
+    spell.cutawaySfxBank ??
+    (spell.id >= 0 && spell.id <= 9
+      ? [82, 82, 83, 84, 85, 86, 87, 88, 89, 90][spell.id]
+      : spell.id >= 32 && spell.id <= 35
+        ? 91 + (spell.id - 32)
+        : 0);
+  const casterWeaponBank = castPack?.strip ? getStripSfxBankChunk(castPack.strip) : 0;
+
+  // 1. Stage A: Caster performs magic chant/cast motion (`FD2.EXE` L108934+L108954 draws both caster & target[0] HUDs; `fn_112217` L112448 deducts MP on `b4 == 1` and plays `[spellBank][0]` chant)
   const castCount = Math.max(1, castFrames.length);
   for (let i = 0; i < castCount; i++) {
     if (!mpDeducted && castMpCost > 0 && i === mpDeductFrameIdx) {
       curCasterMp = Math.max(0, curCasterMp - castMpCost);
       mpDeducted = true;
     }
-    const dly = castFrames[i] ? Math.max(1, castFrames[i].delay || 2) : 2;
+    const fr = castFrames[i];
+    const dly = fr ? Math.max(1, fr.delay || 2) : 2;
     const leftU = caster.isHeroSide ? firstTarget : caster;
     const rightU = caster.isHeroSide ? caster : firstTarget;
+
+    // Exact FD2.EXE `fn_112217` L112413 & L112583:
+    // - Before the chant trigger frame (`i < mpDeductFrameIdx`), if `fr.hitFlag > 0` and the caster strip has a weapon SFX bank, play `[casterWeaponBank][fr.hitFlag]`.
+    // - On the chant trigger frame (`i === mpDeductFrameIdx`), play `[spellBank][0]` (the authentic 3,300-byte magic chant shimmer!).
+    let castSfx: TimelineStep['sfxTrigger'];
+    if (i === mpDeductFrameIdx) {
+      castSfx = spellBank > 0 ? (`bank:${spellBank}:0` as SfxKind) : 'chant';
+    } else if (i < mpDeductFrameIdx && fr && (fr.hitFlag ?? 0) > 0 && casterWeaponBank > 0) {
+      castSfx = `bank:${casterWeaponBank}:${fr.hitFlag}` as SfxKind;
+    }
+
     steps.push({
       delay: dly,
       mode: casterMode,
@@ -1212,7 +1311,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
       rightFrameIdx: caster.isHeroSide ? i : 0,
       rightHp: rightU ? rightU.startHp : 0,
       rightMp: caster.isHeroSide ? curCasterMp : (rightU ? rightU.startMp : 0),
-      sfxTrigger: i === 0 ? 'magic' : undefined,
+      sfxTrigger: castSfx,
     });
   }
   if (!mpDeducted && castMpCost > 0) {
@@ -1295,22 +1394,24 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
       const plan = tickPlans[pIdx];
       const dly = Math.max(1, plan.delay);
       const hitInfo = hitMap.get(pIdx);
-      let frameSfx: TimelineStep['sfxTrigger'] = pIdx === 0 ? (isHeal ? 'heal' : 'magic') : undefined;
+      let frameSfx: TimelineStep['sfxTrigger'] = plan.sfx;
       let isHitFrame = false;
 
       if (hitInfo) {
         if (!entry.hit && !isHeal) {
-          frameSfx = 'miss';
+          if (!frameSfx) frameSfx = 'miss';
         } else if (isHeal) {
           curHp = Math.min(target.maxHp, curHp + hitInfo.amt);
-          frameSfx = 'heal';
+          if (!frameSfx) frameSfx = 'heal';
         } else {
           curHp = Math.max(0, curHp - hitInfo.amt);
           isHitFrame = true;
           if (PHYSICAL_HIT_RECOIL_CURVE[recoilV6] === 0) {
             recoilV6 = 5;
           }
-          frameSfx = 'hit';
+          if (!frameSfx) {
+            frameSfx = spellBank > 0 ? (`bank:${spellBank}:1` as SfxKind) : 'hit';
+          }
         }
       }
 

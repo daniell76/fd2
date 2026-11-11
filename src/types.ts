@@ -39,6 +39,8 @@ export interface FigAniStrip {
   stripH: number;
   isRemote?: boolean;
   splitFrame?: number;
+  sfxBankCode?: number;
+  sfxBankChunk?: number;
   frames: FigAniFrame[];
 }
 
@@ -157,6 +159,8 @@ export interface SpellDef {
   isAttackMagic?: boolean;
   mapFxStart?: number | null;
   mapFxCount?: number | null;
+  mapSfxIdx?: number | null;
+  cutawaySfxBank?: number | null;
   animEnemyStripId?: number;
   animHeroStripId?: number;
   animAlign?: 'target_anchor' | 'screen_abs';
@@ -590,3 +594,10 @@ export interface SaveSlotData {
   battleUnits?: BattleUnit[];
   party: PartyMemberSave[];
 }
+
+export interface SfxBanksPayload {
+  sampleRate: number;
+  samples: Record<string, string>;
+  banks: Record<string, (string | null)[]>;
+}
+

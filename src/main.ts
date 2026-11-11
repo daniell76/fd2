@@ -328,6 +328,9 @@ class FlameDragonWebApp {
 
     await this.assets.init();
     this.sound.setTracks(this.assets.musicTracks);
+    if (this.assets.sfxBanks) {
+      this.sound.setSfxBanks(this.assets.sfxBanks);
+    }
     this.cutscene = new CutscenePlayer(this.assets, this.sound);
     this.modals = new ModalController(
       this.assets,
@@ -1859,6 +1862,7 @@ class FlameDragonWebApp {
       },
     ];
 
+    this.playUiSfx('cross');
     this.crossMenu.openCross(
       u.x,
       u.y,
@@ -1933,6 +1937,7 @@ class FlameDragonWebApp {
       { dir: 'bottom', iconId: 11, state: 0, labelZh: tr('丟棄道具 (Discard)', '丢弃道具 (Discard)', 'Discard Item'), enabled: u.items.length > 0, action: 'discard' },
     ];
 
+    this.playUiSfx('cross');
     this.crossMenu.openCross(
       u.x,
       u.y,
@@ -1965,6 +1970,7 @@ class FlameDragonWebApp {
       { dir: 'bottom', iconId: 4, state: 0, labelZh: tr('回合結束 (End Turn)', '回合结束 (End Turn)', 'End Turn'), enabled: true, action: 'end_turn' },
     ];
 
+    this.playUiSfx('cross');
     this.crossMenu.openCross(
       tx,
       ty,
@@ -2704,7 +2710,7 @@ class FlameDragonWebApp {
     const subStepMs = Math.max(9, Math.round(18 * scale));
     const msPerTile = subStepMs * 6;
     const totalDurationMs = totalSegments * msPerTile;
-    let lastSoundSeg = -1;
+    let lastSubStepCounter = -1;
 
     const updateFacing = (ax: number, ay: number, bx: number, by: number) => {
       const dx = bx - ax;
@@ -2723,11 +2729,17 @@ class FlameDragonWebApp {
         const segIdx = Math.min(totalSegments - 1, Math.floor(progress));
         const rawFrac = progress - segIdx;
         // Quantize to `FD2.EXE`'s 6 discrete `4px` (`1/6` tile) sub-steps (`1/6, 2/6, 3/6, 4/6, 5/6, 6/6`)
-        const quantFrac = Math.min(6, Math.floor(rawFrac * 6) + 1) / 6;
+        const subStepInSeg = Math.min(5, Math.floor(rawFrac * 6));
+        const quantFrac = (subStepInSeg + 1) / 6;
+        const totalSubStep = segIdx * 6 + subStepInSeg;
 
-        if (segIdx !== lastSoundSeg) {
-          lastSoundSeg = segIdx;
-          this.playUiSfx('step');
+        if (totalSubStep !== lastSubStepCounter) {
+          for (let s = lastSubStepCounter + 1; s <= totalSubStep; s++) {
+            if (this.sfxEnabled) {
+              this.sound.playUnitWalkStepSfx(unit, s);
+            }
+          }
+          lastSubStepCounter = totalSubStep;
         }
 
         const [sx, sy] = path[segIdx];
@@ -3022,7 +3034,11 @@ class FlameDragonWebApp {
       }
       this.screenShake = [0, 0];
     } else if (spell.mapFxStart !== null && spell.mapFxStart !== undefined && spell.mapFxCount && spell.mapFxCount > 0 && targets.length > 0) {
-      this.playUiSfx(spell.targetType === 'ally' ? 'heal' : 'magic');
+      if (spell.mapSfxIdx && spell.mapSfxIdx > 0) {
+        this.playUiSfx(`bank:80:${spell.mapSfxIdx}`);
+      } else {
+        this.playUiSfx(spell.targetType === 'ally' ? 'heal' : 'magic');
+      }
       for (let f = 0; f < spell.mapFxCount; f++) {
         const frameId = spell.mapFxStart + f;
         this.mapSpellFxOverlays = targets.map((t) => ({ x: t.unit.x, y: t.unit.y, frameId }));
@@ -3030,7 +3046,11 @@ class FlameDragonWebApp {
       }
       this.mapSpellFxOverlays = [];
     } else {
-      this.playUiSfx(spell.targetType === 'ally' ? 'heal' : 'magic');
+      if (spell.mapSfxIdx && spell.mapSfxIdx > 0) {
+        this.playUiSfx(`bank:80:${spell.mapSfxIdx}`);
+      } else {
+        this.playUiSfx(spell.targetType === 'ally' ? 'heal' : 'magic');
+      }
       await new Promise((r) => setTimeout(r, 220));
     }
 
