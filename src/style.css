@@ -266,27 +266,146 @@ img.pixel-crisp {
   height: 100%;
 }
 
-/* Floating Tactical Sub-Selection Popup (Magic / Item / Target Hint) */
+/* Floating Character-Anchored DOS Blue Tactical Popup (Magic / Item List / Target Hint) */
 .action-dock {
   position: absolute;
   left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  max-width: min(560px, calc(100% - 36px));
+  top: 50%;
+  min-width: 228px;
+  max-width: 310px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px 12px;
-  background: hsla(220, 20%, 10%, 0.94);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--border-brass);
-  border-radius: 8px;
-  box-shadow: var(--shadow-panel);
-  z-index: 12;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 8px;
+  background: linear-gradient(180deg, #1b459e 0%, #102b6e 100%);
+  border: 2px solid #e8f1ff;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 0 0 2px #091a46,
+    0 10px 26px rgba(0, 0, 0, 0.82);
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #071230;
+  z-index: 16;
+  pointer-events: auto;
+}
+
+.action-dock.hint-mode {
+  min-width: 0;
+  max-width: min(440px, calc(100% - 24px));
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 11px;
 }
 
 .action-dock.hidden {
   display: none;
+}
+
+.dos-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 5px 5px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(220, 236, 255, 0.38);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ffe680;
+  letter-spacing: 0.03em;
+}
+
+.dos-popup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 276px;
+  overflow-y: auto;
+}
+
+.dos-popup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  background: rgba(10, 26, 70, 0.38);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  text-shadow: 1px 1px 0 #06102c;
+  cursor: pointer;
+  transition: background 90ms ease, border-color 90ms ease;
+}
+
+.dos-popup-item-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dos-popup-cursor {
+  display: inline-block;
+  width: 11px;
+  color: #ffe680;
+  font-size: 11px;
+  opacity: 0;
+}
+
+.dos-popup-item:hover:not(:disabled),
+.dos-popup-item.focused:not(:disabled) {
+  background: linear-gradient(90deg, #2d6be4 0%, #1f4fb6 100%);
+  border-color: #ffe680;
+  color: #ffffff;
+}
+
+.dos-popup-item:hover:not(:disabled) .dos-popup-cursor,
+.dos-popup-item.focused:not(:disabled) .dos-popup-cursor {
+  opacity: 1;
+}
+
+.dos-popup-item:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.dos-popup-meta {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #cbe4ff;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dos-popup-item.equipped .dos-popup-meta {
+  color: #ffe680;
+}
+
+.dos-popup-back {
+  margin-top: 3px;
+  padding: 4px 8px;
+  border-radius: 2px;
+  border: 1px solid rgba(216, 234, 255, 0.35);
+  background: rgba(8, 20, 56, 0.65);
+  color: #dcebff;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dos-popup-back:hover {
+  background: #285ec8;
+  border-color: #ffe680;
+  color: #ffffff;
 }
 
 /* Pre-Combat Forecast Banner */

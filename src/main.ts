@@ -681,6 +681,37 @@ class FlameDragonWebApp {
         }
       }
 
+      if (!this.subPopupEl.classList.contains('hidden')) {
+        const items = Array.from(this.subPopupEl.querySelectorAll<HTMLButtonElement>('.dos-popup-item:not(:disabled)'));
+        if (items.length > 0) {
+          let curIdx = items.findIndex((b) => b.classList.contains('focused'));
+          if (curIdx < 0) curIdx = 0;
+          if (ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') {
+            ev.preventDefault();
+            items.forEach((b) => b.classList.remove('focused'));
+            const next = items[(curIdx - 1 + items.length) % items.length];
+            next.classList.add('focused');
+            next.scrollIntoView({ block: 'nearest' });
+            this.playUiSfx('cursor');
+            return;
+          }
+          if (ev.key === 'ArrowDown' || ev.key === 's' || ev.key === 'S') {
+            ev.preventDefault();
+            items.forEach((b) => b.classList.remove('focused'));
+            const next = items[(curIdx + 1) % items.length];
+            next.classList.add('focused');
+            next.scrollIntoView({ block: 'nearest' });
+            this.playUiSfx('cursor');
+            return;
+          }
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            items[curIdx]?.click();
+            return;
+          }
+        }
+      }
+
       if (this.uiState === 'busy') return;
 
       const step = 48;
@@ -771,6 +802,12 @@ class FlameDragonWebApp {
 
     this.camX = Math.max(minX, Math.min(maxX, this.camX));
     this.camY = Math.max(minY, Math.min(maxY, this.camY));
+    if (this.subPopupEl && !this.subPopupEl.classList.contains('hidden') && this.selectedUnit) {
+      this.positionSubPopupNearUnit(
+        this.selectedUnit,
+        this.subPopupEl.classList.contains('hint-mode') ? 'hint' : 'list'
+      );
+    }
   }
 
   private getCameraTopLeft(): [number, number] {
@@ -1573,8 +1610,62 @@ class FlameDragonWebApp {
 
   private hideSubPopupAndForecast(): void {
     this.subPopupEl.classList.add('hidden');
+    this.subPopupEl.classList.remove('hint-mode');
     this.subPopupEl.innerHTML = '';
     this.forecastEl.classList.add('hidden');
+  }
+
+  /**
+   * Positions the classic DOS-blue tactical popup (`#action-sub-popup`) directly next to the character `(u.x, u.y)`
+   * on the battlefield canvas (`mode === 'list'` immediately to the right/left of the unit; `mode === 'hint'` floating above/below).
+   */
+  private positionSubPopupNearUnit(u?: BattleUnit | null, mode: 'list' | 'hint' = 'list'): void {
+    const unit = u ?? this.selectedUnit;
+    this.subPopupEl.classList.toggle('hint-mode', mode === 'hint');
+    this.subPopupEl.classList.remove('hidden');
+
+    const W = this.battleCanvas.width || 800;
+    const H = this.battleCanvas.height || 600;
+    const tilePx = Math.round(24 * this.zoom);
+    const cx = unit ? (unit.x + 0.5) * tilePx - this.camX : W * 0.5;
+    const cy = unit ? (unit.y + 0.5) * tilePx - this.camY : H * 0.5;
+
+    const popW = this.subPopupEl.offsetWidth || (mode === 'hint' ? 280 : 246);
+    const popH = this.subPopupEl.offsetHeight || (mode === 'hint' ? 40 : 180);
+    const pad = 10;
+
+    let left: number;
+    let top: number;
+    if (mode === 'hint') {
+      left = Math.round(cx - popW * 0.5);
+      top = Math.round(cy - tilePx * 0.65 - popH - 10);
+      if (top < pad) {
+        top = Math.round(cy + tilePx * 0.65 + 10);
+      }
+    } else {
+      const gap = Math.round(tilePx * 0.58) + 8;
+      left = Math.round(cx + gap);
+      if (left + popW > W - pad) {
+        left = Math.round(cx - gap - popW);
+      }
+      top = Math.round(cy - Math.min(84, popH * 0.35));
+    }
+
+    left = Math.max(pad, Math.min(Math.max(pad, W - popW - pad), left));
+    top = Math.max(pad, Math.min(Math.max(pad, H - popH - pad), top));
+    this.subPopupEl.style.left = `${left}px`;
+    this.subPopupEl.style.top = `${top}px`;
+    this.subPopupEl.style.bottom = 'auto';
+    this.subPopupEl.style.transform = 'none';
+  }
+
+  private showUnitTargetingHint(u: BattleUnit, html: string): void {
+    this.subPopupEl.innerHTML = `
+      <span style="color:#ffffff; font-size:12.5px; font-weight:600;">${html}</span>
+      <button class="dos-popup-back" id="act-back" type="button" style="margin-top:0; padding:3px 9px;">${tr('取消', '取消', 'Cancel')}</button>
+    `;
+    this.positionSubPopupNearUnit(u, 'hint');
+    this.subPopupEl.querySelector('#act-back')?.addEventListener('click', () => this.handleRightClickCancel());
   }
 
   private handleRightClickCancel(): void {
@@ -1730,12 +1821,14 @@ class FlameDragonWebApp {
           this.crossMenu.close();
           this.uiState = 'targeting_attack';
           this.targetTiles = new Set(atkCoords.map(([x, y]) => coordKey(x, y)));
-          this.subPopupEl.innerHTML = `<span style="color:var(--gold-200); font-size:12.5px; padding:4px 8px;">${tr(
-            '請點選紅框內的敵軍發動攻擊（右鍵取消）',
-            '请点选红框内的敌军发动攻击（右键取消）',
-            'Click a highlighted enemy to attack (Right-click to cancel)'
-          )}</span>`;
-          this.subPopupEl.classList.remove('hidden');
+          this.showUnitTargetingHint(
+            u,
+            tr(
+              '請點選紅框內的敵軍發動攻擊（右鍵取消）',
+              '请点选红框内的敌军发动攻击（右键取消）',
+              'Click a highlighted enemy to attack (Right-click to cancel)'
+            )
+          );
         } else if (action === 'magic') {
           this.crossMenu.close();
           this.openSpellBookPopup(u);
@@ -2013,26 +2106,41 @@ class FlameDragonWebApp {
     const isTw = getLocale() === 'zh-TW';
     this.uiState = 'choosing_spell';
     const didMove = this.moveOrigin ? u.x !== this.moveOrigin[0] || u.y !== this.moveOrigin[1] : u.moved;
+    let firstActiveMarked = false;
     const btns = u.spells
       .map((sid) => {
         const sp = gd.spells[sid];
         if (!sp) return '';
         // `#23 傳送術` (Teleport Spell) can only be cast BEFORE moving (`!didMove`, matching `FD2.EXE` and Chiuinan line 1082)!
         const ok = u.mp >= sp.mpCost && (sp.id !== 23 || !didMove);
-        return `<button class="btn btn-sm ${ok ? 'btn-gold' : ''}" data-sp="${sid}" ${ok ? '' : 'disabled'} type="button">
-          ${this.assets.glyphsToHtml(sp.nameGlyphs, 'azure', 15, sp.nameZh)} <span>${isTw ? `${sp.nameZh} ` : ''}(${sp.mpCost}MP)</span>
+        const isFirstActive = ok && !firstActiveMarked;
+        if (isFirstActive) firstActiveMarked = true;
+        return `<button class="dos-popup-item ${isFirstActive ? 'active' : ''}" data-sp="${sid}" ${ok ? '' : 'disabled'} type="button">
+          <span class="dos-popup-item-main">
+            <span class="dos-popup-cursor">▶</span>
+            ${this.assets.glyphsToHtml(sp.nameGlyphs, 'ivory', 16, sp.nameZh)}
+            ${isTw ? `<span style="color:#ffffff;">${sp.nameZh}</span>` : ''}
+          </span>
+          <span class="dos-popup-meta">${sp.mpCost} MP</span>
         </button>`;
       })
       .join('');
     this.subPopupEl.innerHTML = `
-      <span style="color:var(--gold-200); font-size:12px; font-weight:600; margin-right:4px;">${tr('選擇法術：', '选择法术：', 'Select Spell:')}</span>
-      ${btns}
-      <button class="btn btn-sm" id="act-back" type="button">${tr('返回十字選單', '返回十字选单', 'Back')}</button>
+      <div class="dos-popup-header">
+        <span>${tr('選擇法術', '选择法术', 'Select Spell')}</span>
+        <span style="color:#7fe0ff;">MP ${u.mp}/${u.maxMp}</span>
+      </div>
+      <div class="dos-popup-list">${btns}</div>
+      <button class="dos-popup-back" id="act-back" type="button">✕ ${tr('返回選單 (右鍵)', '返回选单 (右键)', 'Back (Right-Click)')}</button>
     `;
-    this.subPopupEl.classList.remove('hidden');
+    this.positionSubPopupNearUnit(u, 'list');
 
     this.subPopupEl.querySelector('#act-back')?.addEventListener('click', () => this.handleRightClickCancel());
     this.subPopupEl.querySelectorAll<HTMLButtonElement>('[data-sp]').forEach((b) => {
+      b.addEventListener('mouseenter', () => {
+        this.subPopupEl.querySelectorAll('.dos-popup-item').forEach((el) => el.classList.remove('active'));
+        b.classList.add('active');
+      });
       b.addEventListener('click', () => {
         const sp = gd.spells[Number(b.dataset.sp)];
         if (!sp || !this.chapter) return;
@@ -2043,21 +2151,26 @@ class FlameDragonWebApp {
           // `#23 傳送術` Step 1: Select self (`dist === 0`) or an adjacent friendly unit (`dist === 1`)!
           const coords = getAttackableCoordinates(u.x, u.y, 0, Math.max(1, sp.castRange), this.chapter);
           this.targetTiles = new Set(coords.map(([x, y]) => coordKey(x, y)));
-          this.subPopupEl.innerHTML = `<span style="color:var(--ink-100); font-size:12.5px; padding:4px 6px;">${tr(
-            `施展 <strong>${sp.nameZh}</strong> —（步驟 1/2）請點選自身或相鄰我軍目標`,
-            `施展 <strong>${sp.nameZh}</strong> —（步骤 1/2）请点选自身或相邻我军目标`,
-            `Cast <strong>${sp.nameZh}</strong> — (Step 1/2) Select self or an adjacent ally`
-          )}</span> <button class="btn btn-sm" id="act-back" type="button">${tr('取消', '取消', 'Cancel')}</button>`;
+          this.showUnitTargetingHint(
+            u,
+            tr(
+              `施展 <strong>${sp.nameZh}</strong> —（步驟 1/2）請點選自身或相鄰我軍目標`,
+              `施展 <strong>${sp.nameZh}</strong> —（步骤 1/2）请点选自身或相邻我军目标`,
+              `Cast <strong>${sp.nameZh}</strong> — (Step 1/2) Select self or an adjacent ally`
+            )
+          );
         } else {
           const coords = getSpellCastCoordinates(u.x, u.y, sp, this.chapter);
           this.targetTiles = new Set(coords.map(([x, y]) => coordKey(x, y)));
-          this.subPopupEl.innerHTML = `<span style="color:var(--ink-100); font-size:12.5px; padding:4px 6px;">${tr(
-            `施展 <strong>${sp.nameZh}</strong>（範圍 ${sp.aoe}）— 請點選目標格`,
-            `施展 <strong>${sp.nameZh}</strong>（范围 ${sp.aoe}）— 请点选目标格`,
-            `Cast <strong>${sp.nameZh}</strong> (AoE ${sp.aoe}) — Click target tile`
-          )}</span> <button class="btn btn-sm" id="act-back" type="button">${tr('取消', '取消', 'Cancel')}</button>`;
+          this.showUnitTargetingHint(
+            u,
+            tr(
+              `施展 <strong>${sp.nameZh}</strong>（範圍 ${sp.aoe}）— 請點選目標格`,
+              `施展 <strong>${sp.nameZh}</strong>（范围 ${sp.aoe}）— 请点选目标格`,
+              `Cast <strong>${sp.nameZh}</strong> (AoE ${sp.aoe}) — Click target tile`
+            )
+          );
         }
-        this.subPopupEl.querySelector('#act-back')?.addEventListener('click', () => this.handleRightClickCancel());
       });
     });
   }
@@ -2072,11 +2185,12 @@ class FlameDragonWebApp {
       mode === 'use'
         ? tr('使用道具', '使用道具', 'Use Item')
         : mode === 'give'
-          ? tr('選擇要傳遞的道具', '选择要传递的道具', 'Select Item to Give')
+          ? tr('傳遞道具', '传递道具', 'Give Item')
           : mode === 'equip'
             ? tr('更換裝備', '更换装备', 'Equip Item')
             : tr('丟棄道具', '丢弃道具', 'Discard Item');
 
+    let firstActiveMarked = false;
     const btns = u.items
       .map((iid, idx) => {
         const it = gd.items[iid];
@@ -2085,22 +2199,43 @@ class FlameDragonWebApp {
         if (mode === 'use') enabled = isItemUsableInBattle(it);
         else if (mode === 'equip') enabled = (it.category === 'weapon' || it.category === 'armor') && canUnitEquipItem(u, it, gd);
 
-        const eqTag = idx === eq.weaponIdx || idx === eq.armorIdx ? tr(' [裝備中]', ' [装备中]', ' [Equipped]') : '';
-        return `<button class="btn btn-sm ${enabled ? '' : ''}" data-bag="${idx}" ${enabled ? '' : 'disabled'} type="button">
-          ${this.assets.glyphsToHtml(it.nameGlyphs, 'ivory', 15, it.nameZh)} <span>${isTw ? it.nameZh : ''}${eqTag}</span>
+        const isEq = idx === eq.weaponIdx || idx === eq.armorIdx;
+        const eqTag = isEq
+          ? tr('[裝備中]', '[装备中]', '[E]')
+          : it.category === 'weapon'
+            ? `AP+${it.ap}`
+            : it.category === 'armor'
+              ? `DP+${it.dp}`
+              : '';
+        const isFirstActive = enabled && !firstActiveMarked;
+        if (isFirstActive) firstActiveMarked = true;
+        return `<button class="dos-popup-item ${isFirstActive ? 'active' : ''}" data-bag="${idx}" ${enabled ? '' : 'disabled'} type="button">
+          <span class="dos-popup-item-main">
+            <span class="dos-popup-cursor">▶</span>
+            ${this.assets.glyphsToHtml(it.nameGlyphs, 'ivory', 16, it.nameZh)}
+            ${isTw ? `<span style="color:#ffffff;">${it.nameZh}</span>` : ''}
+          </span>
+          <span class="dos-popup-meta" style="${isEq ? 'color:#86efac;' : ''}">${eqTag}</span>
         </button>`;
       })
       .join('');
 
     this.subPopupEl.innerHTML = `
-      <span style="color:var(--gold-200); font-size:12px; font-weight:600; margin-right:4px;">${modeTitle}：</span>
-      ${btns}
-      <button class="btn btn-sm" id="act-back" type="button">${tr('返回', '返回', 'Back')}</button>
+      <div class="dos-popup-header">
+        <span>${modeTitle}</span>
+        <span style="color:#e8f1ff;">${u.items.length}/8</span>
+      </div>
+      <div class="dos-popup-list">${btns}</div>
+      <button class="dos-popup-back" id="act-back" type="button">✕ ${tr('返回選單 (右鍵)', '返回选单 (右键)', 'Back (Right-Click)')}</button>
     `;
-    this.subPopupEl.classList.remove('hidden');
+    this.positionSubPopupNearUnit(u, 'list');
 
     this.subPopupEl.querySelector('#act-back')?.addEventListener('click', () => this.handleRightClickCancel());
     this.subPopupEl.querySelectorAll<HTMLButtonElement>('[data-bag]').forEach((b) => {
+      b.addEventListener('mouseenter', () => {
+        this.subPopupEl.querySelectorAll('.dos-popup-item').forEach((el) => el.classList.remove('active'));
+        b.classList.add('active');
+      });
       b.addEventListener('click', () => {
         const slotIdx = Number(b.dataset.bag);
         const it = gd.items[u.items[slotIdx]];
@@ -2124,23 +2259,28 @@ class FlameDragonWebApp {
             const coords = getAttackableCoordinates(u.x, u.y, minR, Math.max(minR, useRange), this.chapter);
             this.targetTiles = new Set(coords.map(([cx, cy]) => coordKey(cx, cy)));
             if (it.useEffect === 23) {
-              this.subPopupEl.innerHTML = `<span style="color:var(--gold-200); font-size:12.5px;">${tr(
-                `使用 <strong>${it.nameZh}</strong> —（步驟 1/2）請點選相鄰我軍目標`,
-                `使用 <strong>${it.nameZh}</strong> —（步骤 1/2）请点选相邻我军目标`,
-                `Use <strong>${it.nameZh}</strong> — (Step 1/2) Select an adjacent ally`
-              )}</span> <button class="btn btn-sm" id="act-back" type="button">${tr('取消', '取消', 'Cancel')}</button>`;
+              this.showUnitTargetingHint(
+                u,
+                tr(
+                  `使用 <strong>${it.nameZh}</strong> —（步驟 1/2）請點選相鄰我軍目標`,
+                  `使用 <strong>${it.nameZh}</strong> —（步骤 1/2）请点选相邻我军目标`,
+                  `Use <strong>${it.nameZh}</strong> — (Step 1/2) Select an adjacent ally`
+                )
+              );
             } else {
               const aoeLabel =
                 (it.useAoe ?? 0) > 0
                   ? tr(`（射程 ${useRange} · 範圍 ${it.useAoe}）`, `（射程 ${useRange} · 范围 ${it.useAoe}）`, ` (RNG ${useRange} · AoE ${it.useAoe})`)
                   : tr(`（射程 ${useRange}）`, `（射程 ${useRange}）`, ` (RNG ${useRange})`);
-              this.subPopupEl.innerHTML = `<span style="color:var(--gold-200); font-size:12.5px;">${tr(
-                `請點選目標格使用 <strong>${it.nameZh}</strong>${aoeLabel}`,
-                `请点选目标格使用 <strong>${it.nameZh}</strong>${aoeLabel}`,
-                `Click target tile to use <strong>${it.nameZh}</strong>${aoeLabel}`
-              )}</span> <button class="btn btn-sm" id="act-back" type="button">${tr('取消', '取消', 'Cancel')}</button>`;
+              this.showUnitTargetingHint(
+                u,
+                tr(
+                  `請點選目標格使用 <strong>${it.nameZh}</strong>${aoeLabel}`,
+                  `请点选目标格使用 <strong>${it.nameZh}</strong>${aoeLabel}`,
+                  `Click target tile to use <strong>${it.nameZh}</strong>${aoeLabel}`
+                )
+              );
             }
-            this.subPopupEl.querySelector('#act-back')?.addEventListener('click', () => this.handleRightClickCancel());
           }
         } else if (mode === 'equip') {
           if (it.category === 'weapon') u.equippedWeaponIdx = slotIdx;
@@ -2169,12 +2309,14 @@ class FlameDragonWebApp {
               other.items.length < 8
           );
           this.targetTiles = new Set(adjAllies.map((a) => coordKey(a.x, a.y)));
-          this.subPopupEl.innerHTML = `<span style="color:var(--gold-200); font-size:12.5px;">${tr(
-            `請點選相鄰隊員傳遞 <strong>${it.nameZh}</strong>`,
-            `请点选相邻队员传递 <strong>${it.nameZh}</strong>`,
-            `Select an adjacent ally to give <strong>${it.nameZh}</strong>`
-          )}</span> <button class="btn btn-sm" id="act-back" type="button">${tr('取消', '取消', 'Cancel')}</button>`;
-          this.subPopupEl.querySelector('#act-back')?.addEventListener('click', () => this.handleRightClickCancel());
+          this.showUnitTargetingHint(
+            u,
+            tr(
+              `請點選相鄰隊員傳遞 <strong>${it.nameZh}</strong>`,
+              `请点选相邻队员传递 <strong>${it.nameZh}</strong>`,
+              `Select an adjacent ally to give <strong>${it.nameZh}</strong>`
+            )
+          );
         }
       });
     });
@@ -2203,13 +2345,14 @@ class FlameDragonWebApp {
       fromItemBagIdx !== null && this.selectedUnit
         ? this.assets.gameData.items[this.selectedUnit.items[fromItemBagIdx]]?.nameZh ?? tr('傳送法杖', '传送法杖', 'Warp Staff')
         : this.activeSpell?.nameZh ?? tr('傳送術', '传送术', 'Teleport');
-    this.subPopupEl.innerHTML = `<span style="color:var(--gold-200); font-size:12.5px;">${tr(
-      `<strong>${sourceLabel}</strong> —（步驟 2/2）請點選地圖上任意可通行空地傳送 <strong>${targetUnit.nameZh}</strong>`,
-      `<strong>${sourceLabel}</strong> —（步骤 2/2）请点选地图上任意可通行空地传送 <strong>${targetUnit.nameZh}</strong>`,
-      `<strong>${sourceLabel}</strong> — (Step 2/2) Click any open passable tile to warp <strong>${targetUnit.nameZh}</strong>`
-    )}</span> <button class="btn btn-sm" id="act-back" type="button">${tr('取消', '取消', 'Cancel')}</button>`;
-    this.subPopupEl.classList.remove('hidden');
-    this.subPopupEl.querySelector('#act-back')?.addEventListener('click', () => this.handleRightClickCancel());
+    this.showUnitTargetingHint(
+      targetUnit,
+      tr(
+        `<strong>${sourceLabel}</strong> —（步驟 2/2）請點選地圖上任意可通行空地傳送 <strong>${targetUnit.nameZh}</strong>`,
+        `<strong>${sourceLabel}</strong> —（步骤 2/2）请点选地图上任意可通行空地传送 <strong>${targetUnit.nameZh}</strong>`,
+        `<strong>${sourceLabel}</strong> — (Step 2/2) Click any open passable tile to warp <strong>${targetUnit.nameZh}</strong>`
+      )
+    );
   }
 
   /**
@@ -2706,29 +2849,37 @@ class FlameDragonWebApp {
         .map((cid, idx) => {
           const cit = gd.items[cid];
           const cName = cit?.nameZh ?? tr('道具', '道具', 'Item');
-          return `<button class="btn btn-sm" data-swap-slot="${idx}" type="button">
-            ${this.assets.glyphsToHtml(cit?.nameGlyphs ?? [], 'ivory', 14, cName)}${isTw ? ` <span>${cName}</span>` : ''}
+          return `<button class="dos-popup-item ${idx === 0 ? 'active' : ''}" data-swap-slot="${idx}" type="button">
+            <span class="dos-popup-item-main">
+              <span class="dos-popup-cursor">▶</span>
+              ${this.assets.glyphsToHtml(cit?.nameGlyphs ?? [], 'ivory', 15, cName)}
+              ${isTw ? `<span style="color:#ffffff;">${cName}</span>` : ''}
+            </span>
           </button>`;
         })
         .join('');
       this.subPopupEl.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:6px; max-width:540px;">
-          <div style="color:var(--gold-200); font-size:12.5px;">
-            ${this.assets.glyphsToHtml(incoming?.nameGlyphs ?? [], 'gold', 15, incoming?.nameZh ?? '')} ${messageZh}
+        <div class="dos-popup-header" style="flex-direction:column; align-items:flex-start; gap:3px;">
+          <div style="display:flex; align-items:center; gap:5px; color:#fde68a;">
+            ${this.assets.glyphsToHtml(incoming?.nameGlyphs ?? [], 'gold', 15, incoming?.nameZh ?? '')}
+            <span>${incoming?.nameZh ?? ''}</span>
           </div>
-          <div style="display:flex; flex-wrap:wrap; gap:5px;">
-            ${btns}
-            <button class="btn btn-sm" id="btn-cancel-fullbag" type="button">${tr('放棄 / 保持原狀', '放弃 / 保持原状', 'Leave It / Cancel')}</button>
-          </div>
+          <span style="color:#ffffff; font-size:11.5px; font-weight:500;">${messageZh}</span>
         </div>
+        <div class="dos-popup-list">${btns}</div>
+        <button class="dos-popup-back" id="btn-cancel-fullbag" type="button">✕ ${tr('放棄 / 保持原狀', '放弃 / 保持原状', 'Leave It / Cancel')}</button>
       `;
-      this.subPopupEl.classList.remove('hidden');
+      this.positionSubPopupNearUnit(unit, 'list');
       const finish = (choice: number | null) => {
         this.hideSubPopupAndForecast();
         resolve(choice);
       };
       this.subPopupEl.querySelector('#btn-cancel-fullbag')?.addEventListener('click', () => finish(null));
       this.subPopupEl.querySelectorAll<HTMLButtonElement>('[data-swap-slot]').forEach((b) => {
+        b.addEventListener('mouseenter', () => {
+          this.subPopupEl.querySelectorAll('.dos-popup-item').forEach((el) => el.classList.remove('active'));
+          b.classList.add('active');
+        });
         b.addEventListener('click', () => finish(Number(b.dataset.swapSlot)));
       });
     });
