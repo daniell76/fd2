@@ -1977,9 +1977,9 @@ export class ScenarioDirector {
       case 75: {
         // EV 75 (Ch 29 step at `(15, 21)` — `#9 悠妮` Dragon Seal Awakening, `fn_154800`!):
         if (this.flags[17] !== 0) return false;
-        const isYuni = triggerUnit && (triggerUnit.slotIndex === 1 || (triggerUnit.baseHeroId ?? triggerUnit.uid) === 9);
-        if (!isYuni) {
-          // Non-Yuni unit steps on `(15, 21)`: plays `dlg[0]` and leaves `flag[17] = 0` so `#9 悠妮` can still step on it!
+        const isUni = triggerUnit && (triggerUnit.slotIndex === 1 || (triggerUnit.baseHeroId ?? triggerUnit.uid) === 9);
+        if (!isUni) {
+          // Non-Uni unit steps on `(15, 21)`: plays `dlg[0]` and leaves `flag[17] = 0` so `#9 悠妮` can still step on it!
           await this.host.playDialogueIndex(0);
           return false;
         }
@@ -1987,20 +1987,20 @@ export class ScenarioDirector {
         this.flags[16] = 4;
         await this.host.playDialogueIndex(1);
         this.scheduleTurnEventSlot(0, this.host.getTurn(), 0); // EV 74 waves 4..7 starting this Enemy Phase!
-        this.scheduleTurnEventSlot(1, this.host.getTurn() + 1, 2); // EV 76 3-turn Yuni channeling & 3-Dragon awakening!
+        this.scheduleTurnEventSlot(1, this.host.getTurn() + 1, 2); // EV 76 3-turn Uni channeling & 3-Dragon awakening!
         break;
       }
 
       case 76: {
-        // EV 76 (Ch 29 Scheduled 3-Turn Yuni Channeling & Awakening of `#104 火龍`, `#127 暗黑龍`, `#105 雷龍` — `fn_154990`!):
+        // EV 76 (Ch 29 Scheduled 3-Turn Uni Channeling & Awakening of `#104 火龍`, `#127 暗黑龍`, `#105 雷龍` — `fn_154990`!):
         if (this.flags[17] < 4) {
           // Turns 1..3 of channeling (`flag[17] === 1, 2, 3`): `#9 悠妮` (`slot 1`) is paralyzed/channeling (`fn_13586(1)`)!
-          const yuni =
+          const uni =
             this.host.getSlots()[1] ??
             this.host.getSlots().find((u) => u && (u.baseHeroId ?? u.uid) === 9);
-          if (yuni && yuni.hp > 0 && !yuni.hidden) {
-            yuni.acted = true;
-            yuni.moved = true;
+          if (uni && uni.hp > 0 && !uni.hidden) {
+            uni.acted = true;
+            uni.moved = true;
           }
           this.flags[17] += 1;
           this.scheduleTurnEventSlot(1, this.host.getTurn() + 1, 2);
@@ -2560,7 +2560,7 @@ export class ScenarioDirector {
           return { kind: 'next_chapter', nextChapterId: 27 };
         }
 
-        // NORMAL ENDING (`L86856..87138`): Without `#100 天空之鑰`, Yuni stays behind to halt Golden Castle!
+        // NORMAL ENDING (`L86856..87138`): Without `#100 天空之鑰`, Uni stays behind to halt Golden Castle!
         await this.host.playDialogueIndex(13);
         await this.playChoreo(84);
         await this.host.playDialogueIndex(14);

@@ -892,7 +892,7 @@ export function buildPartyForChapter(chapterId: number, gd: GameData): PartyMemb
     }
 
     // Grant key story relics for late-game Chapter Replay testing:
-    // - Ch 21 (`effCh === 20`): distribute the 6 Sacred Artifacts (`209..214`) across Sol & Yuni so Ch 21 Post-Battle forges `#100 天空之鑰`!
+    // - Ch 21 (`effCh === 20`): distribute the 6 Sacred Artifacts (`209..214`) across Thor & Uni so Ch 21 Post-Battle forges `#100 天空之鑰`!
     // - Ch 22+ (`effCh >= 21`): give Sol `#100 天空之鑰` (Sky Key), and in Ch 18..26 (`17 <= effCh <= 25`) give `#208 控制中樞` (for Ch 26 EV 61)!
     if (hid === 0) {
       if (effCh === 20) {
@@ -1860,8 +1860,8 @@ export function evaluateChapterBattleStatus(
 
   // - Ch 26..30 (`id >= 25`): `#9 悠妮` (`baseHeroId === 9`) must survive (`fn_68412..fn_68597`)!
   if (chapter.id >= 25) {
-    const yuni = findHeroUnit(9);
-    if (yuni && yuni.hp <= 0) return 'defeat';
+    const uni = findHeroUnit(9);
+    if (uni && uni.hp <= 0) return 'defeat';
   }
 
   // - Ch 2 (`id === 1`, `羅德鎮`): Defeat if ALL 6 villagers (`#133 / #134`, `slots[5..10]`) are killed (`fn_67269`)!

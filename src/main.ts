@@ -154,6 +154,13 @@ class FlameDragonWebApp {
   private forecastEl!: HTMLElement;
   private turnBannerEl!: HTMLElement;
   private battleLogEl!: HTMLElement;
+  private hideTargetingHint = (() => {
+    try {
+      return localStorage.getItem('fd2_web_hide_targeting_hint') === '1';
+    } catch {
+      return false;
+    }
+  })();
 
   /** Returns all currently alive, non-hidden battlefield units in deterministic slot order. */
   private get activeUnits(): BattleUnit[] {
@@ -1715,11 +1722,10 @@ class FlameDragonWebApp {
     let left: number;
     let top: number;
     if (mode === 'hint') {
-      left = Math.round(cx - popW * 0.5);
-      top = Math.round(cy - tilePx * 0.65 - popH - 10);
-      if (top < pad) {
-        top = Math.round(cy + tilePx * 0.65 + 10);
-      }
+      // Dock targeting hint banner cleanly at the top-center of the viewport (or bottom-center if the unit is near the top edge)
+      // so it never covers the unit's adjacent attack/spell/item target tiles!
+      left = Math.round((W - popW) * 0.5);
+      top = cy < popH + tilePx + pad * 2 ? Math.round(H - popH - pad) : pad;
     } else {
       const gap = Math.round(tilePx * 0.58) + 8;
       left = Math.round(cx + gap);
@@ -1738,12 +1744,27 @@ class FlameDragonWebApp {
   }
 
   private showUnitTargetingHint(u: BattleUnit, html: string): void {
+    if (this.hideTargetingHint) {
+      this.hideSubPopupAndForecast();
+      return;
+    }
     this.subPopupEl.innerHTML = `
       <span style="color:#ffffff; font-size:12.5px; font-weight:600;">${html}</span>
       <button class="dos-popup-back" id="act-back" type="button" style="margin-top:0; padding:3px 9px;">${tr('取消', '取消', 'Cancel')}</button>
+      <button class="dos-popup-back" id="act-dismiss-hint" type="button" title="${tr('關閉操作提示且不再顯示', '关闭操作提示且不再显示', 'Close instruction hint and do not show again')}" style="margin-top:0; padding:3px 8px; opacity:0.85;">✕ ${tr('不再顯示', '不再显示', 'Hide Hint')}</button>
     `;
     this.positionSubPopupNearUnit(u, 'hint');
     this.subPopupEl.querySelector('#act-back')?.addEventListener('click', () => this.handleRightClickCancel());
+    this.subPopupEl.querySelector('#act-dismiss-hint')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.hideTargetingHint = true;
+      try {
+        localStorage.setItem('fd2_web_hide_targeting_hint', '1');
+      } catch {
+        // ignore storage errors
+      }
+      this.hideSubPopupAndForecast();
+    });
   }
 
   private handleRightClickCancel(): void {
