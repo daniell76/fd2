@@ -192,7 +192,7 @@ export const UNIT_LOCALES: Record<number, [string, string, string]> = {
   63: HERO_LOCALES[13],
   64: HERO_LOCALES[14],
   65: HERO_LOCALES[15],
-  66: ['王后', '王后', 'Queen'],
+  66: ['米蘭王后', '米兰王后', 'Queen Milan'],
   67: ['保留空位#67', '保留空位#67', 'Reserved #67'],
   68: ['士兵', '士兵', 'Soldier'],
   69: ['騎兵', '骑兵', 'Cavalry'],
