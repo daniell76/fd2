@@ -902,25 +902,31 @@ class MappingGalleryApp {
               <canvas id="duel-stage-canvas" class="duel-canvas pixel-crisp" width="320" height="200"></canvas>
             </div>
 
-            <!-- Playback Controls & Frame Scrubber -->
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-              <button class="gal-btn sm gold" id="duel-btn-replay" type="button">↻ ${tr('重播攻擊', '重播攻击', 'Replay Attack')}</button>
-              <button class="gal-btn sm" id="duel-btn-playpause" type="button">
-                ${this.getPlayPauseLabel()}
-              </button>
-              <button class="gal-btn sm ${this.duelLoop ? 'active' : ''}" id="duel-btn-loop" type="button">
-                🔁 ${tr('自動循環：', '自动循环：', 'Auto-Loop: ')}${this.duelLoop ? tr('開', '开', 'On') : tr('關', '关', 'Off')}
-              </button>
-              <span class="mono-tag" id="duel-step-label" style="min-width:255px; color:var(--gold-200);">
-                Step 1 / ${Math.max(1, this.duelTimeline.length)}
-              </span>
+            <!-- Playback Controls & Frame Scrubber (Fixed 2-row layout prevents any hit/recoil label wrap or layout shift) -->
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap; min-width:0;">
+                <button class="gal-btn sm gold" id="duel-btn-replay" type="button" style="flex-shrink:0;">↻ ${tr('重播攻擊', '重播攻击', 'Replay Attack')}</button>
+                <button class="gal-btn sm" id="duel-btn-playpause" type="button" style="flex-shrink:0; min-width:118px;">
+                  ${this.getPlayPauseLabel()}
+                </button>
+                <button class="gal-btn sm ${this.duelLoop ? 'active' : ''}" id="duel-btn-loop" type="button" style="flex-shrink:0;">
+                  🔁 ${tr('自動循環：', '自动循环：', 'Auto-Loop: ')}${this.duelLoop ? tr('開', '开', 'On') : tr('關', '关', 'Off')}
+                </button>
+                <span
+                  class="mono-tag"
+                  id="duel-step-label"
+                  style="flex:1; min-width:0; color:var(--gold-200); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;"
+                >
+                  Step 1 / ${Math.max(1, this.duelTimeline.length)}
+                </span>
+              </div>
               <input
                 type="range"
                 id="duel-scrubber"
                 min="0"
                 max="${maxStep}"
                 value="${Math.min(maxStep, this.manualStepIdx)}"
-                style="flex:1; min-width:140px; accent-color: #e0b456;"
+                style="width:100%; accent-color: #e0b456; cursor:pointer;"
               />
             </div>
           </div>
