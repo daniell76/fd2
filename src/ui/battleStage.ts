@@ -186,22 +186,24 @@ export function getUnitMoveCapabilities(uid: number, gd: GameData, isHeroInitiat
   }
   const hasRanged = rangedSlot !== null;
 
-  // Gather known spells up to the exact selected promotion tier (not future promotions!)
+  // Gather known spells for the exact selected profession (Tier 1 base + active promotion branch only;
+  // in FD2.EXE, Lv 20 promotion branches directly from Tier 1 to EITHER Tier 2 OR Tier 3, never Tier 1 -> Tier 2 -> Tier 3!).
   const spellIdSet = new Set<number>();
   if (entry) {
     const baseHid = entry.baseHeroId ?? (uid < 32 ? uid : null);
     if (baseHid !== null && gd.heroes[baseHid]) {
       const h = gd.heroes[baseHid];
       h.spells.forEach((s) => spellIdSet.add(s));
-      const selectedPromo = h.promotions.find((p) => p.unitId === uid);
-      const maxTier = selectedPromo?.tier ?? 1;
       for (const pr of h.promotions) {
-        if (pr.tier < maxTier || pr.unitId === uid) {
+        if (pr.tier === 1) {
+          pr.growth?.learnableSpells.forEach((ls) => {
+            if (ls.level > h.level) spellIdSet.add(ls.spellId);
+          });
+        } else if (pr.unitId === uid) {
           pr.growth?.learnableSpells.forEach((ls) => spellIdSet.add(ls.spellId));
         }
       }
-    }
-    if (entry.growth?.learnableSpells) {
+    } else if (entry.growth?.learnableSpells) {
       entry.growth.learnableSpells.forEach((ls) => spellIdSet.add(ls.spellId));
     }
     const ec = entry.enemyStats;

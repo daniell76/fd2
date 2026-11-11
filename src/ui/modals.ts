@@ -6,6 +6,7 @@ import {
   getLocalizedChapterLose,
   getLocalizedChapterTitle,
   getLocalizedChapterWin,
+  getLocalizedSpellName,
   getLocalizedUnitName,
   tr,
 } from '../i18n';
@@ -600,6 +601,45 @@ export class ModalController {
                 })
                 .join('');
 
+        const memberBaseHid = member.baseHeroId ?? gd.unitDex[member.uid]?.baseHeroId ?? member.uid;
+        const memberBaseLv = gd.heroes[memberBaseHid]?.level ?? 1;
+        const activeGrowth = gd.unitDex[member.uid]?.growth;
+        const activeLearnable = (activeGrowth?.learnableSpells ?? []).filter(
+          (ls) => member.uid >= 32 || ls.level > memberBaseLv
+        );
+        const knownSpellsHtml =
+          member.spells.length > 0
+            ? member.spells
+                .map((sid) => {
+                  const sp = gd.spells[sid];
+                  if (!sp) return '';
+                  const sName = getLocalizedSpellName(sid, sp.nameZh);
+                  return `<span style="display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:4px; background:rgba(212,175,55,0.12); border:1px solid var(--border-brass); font-size:11.5px; color:var(--gold-200);">${sName} <span style="color:var(--ink-400); font-size:10.5px;">(${sp.mpCost}MP)</span></span>`;
+                })
+                .join(' ')
+            : `<span style="color:var(--ink-400); font-size:12px;">${tr('尚未習得法術或必殺技', '尚未习得法术或必杀技', 'No spells or techniques learned yet')}</span>`;
+        const skillTreeHtml =
+          activeLearnable.length > 0
+            ? `<div style="margin-top:8px; font-size:11.5px; color:var(--ink-300);">${tr('本職業技能樹：', '本职业技能树：', 'Class Skill Tree: ')}${activeLearnable
+                .map((ls) => {
+                  const sp = gd.spells[ls.spellId];
+                  const sName = getLocalizedSpellName(ls.spellId, sp?.nameZh ?? ls.spellNameZh);
+                  const learned = member.spells.includes(ls.spellId) || ls.level <= member.level;
+                  return `<span style="color:${learned ? 'var(--gold-300)' : 'var(--ink-300)'};">Lv${ls.level}:${sName}${learned ? '✓' : ''}</span>`;
+                })
+                .join(' · ')}</div>`
+            : '';
+        const magicPanelHtml =
+          member.spells.length > 0 || activeLearnable.length > 0
+            ? `
+              <div class="panel-section">
+                <div class="panel-heading"><span>${tr('習得法術與職業技能樹', '习得法术与职业技能树', 'Magic & Class Skill Tree')}</span></div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">${knownSpellsHtml}</div>
+                ${skillTreeHtml}
+              </div>
+            `
+            : '';
+
         this.bodyEl.innerHTML = `
           <div class="shop-layout">
             <div style="display:flex; flex-direction:column; gap:8px;">
@@ -628,6 +668,7 @@ export class ModalController {
                 <div class="panel-heading"><span>${tr('持有道具與裝備', '持有道具与装备', 'Hero Inventory')} (${member.items.length}/8)</span></div>
                 <div class="item-chip-list">${invHtml}</div>
               </div>
+              ${magicPanelHtml}
             </div>
           </div>
         `;
@@ -765,6 +806,17 @@ export class ModalController {
                         `Requires Lv 20 + ${p.reqItemNameZh} ${hasItem ? '(In Bag ✓)' : '(Missing)'}`
                       )
                     : tr('需達 Lv 20 (一般教會轉職)', '需达 Lv 20 (一般教会转职)', 'Requires Lv 20 (Standard Promotion)');
+                const promoSpells = p.growth?.learnableSpells ?? [];
+                const promoTreeText =
+                  promoSpells.length > 0
+                    ? `${tr('技能樹：', '技能树：', 'Skill Tree: ')}${promoSpells
+                        .map((ls) => {
+                          const sp = gd.spells[ls.spellId];
+                          return `Lv${ls.level}:${getLocalizedSpellName(ls.spellId, sp?.nameZh ?? ls.spellNameZh)}`;
+                        })
+                        .join(' · ')}`
+                    : tr('技能樹：(物理專精，無新增法術)', '技能树：(物理专精，无新增法术)', 'Skill Tree: (Physical specialist, no new spells)');
+                const mvText = p.mvBonus ? ` · MV +${p.mvBonus}` : '';
                 return `
                   <div class="item-chip" style="padding:10px;">
                     <div style="display:flex; align-items:center; gap:10px;">
@@ -772,9 +824,10 @@ export class ModalController {
                       <div>
                         <div>
                           ${this.renderGlyphWithSub(p.classGlyphs, 'gold', 16, p.classNameZh, 'font-weight:700; margin-left:6px;')}
-                          <span style="font-size:11.5px; color:var(--gold-300); margin-left:4px;">(Tier ${p.tier})</span>
+                          <span style="font-size:11.5px; color:var(--gold-300); margin-left:4px;">(Tier ${p.tier}${mvText})</span>
                         </div>
                         <div style="font-size:11.5px; color:var(--ink-400);">${reqText}</div>
+                        <div style="font-size:11px; color:var(--gold-200); margin-top:2px;">${promoTreeText}</div>
                       </div>
                     </div>
                     <button class="btn ${ready ? 'btn-gold' : ''}" data-promo-idx="${pidx}" ${ready ? '' : 'disabled'} type="button">
@@ -825,6 +878,18 @@ export class ModalController {
             picked.mvBonus !== undefined
               ? member.mv + picked.mvBonus
               : hc?.mv ?? Math.min(8, member.mv + 1);
+          // Exact FD2.EXE fn_136706 (L136860..L136950): Church Promotion immediately rolls 1 level
+          // of the new promoted class's stat growth (AP, DP, DX, HP, MP) before resetting Level=1, EXP=0!
+          const pg = picked.growth ?? gd.unitDex[picked.unitId]?.growth;
+          if (pg) {
+            const roll = (pair: [number, number]) =>
+              pair[0] + Math.floor(Math.random() * Math.max(1, pair[1] - pair[0] + 1));
+            member.baseAp += roll(pg.ap);
+            member.baseDp += roll(pg.dp);
+            member.baseDx += roll(pg.dx);
+            member.maxHp += roll(pg.hp);
+            member.maxMp += roll(pg.mp);
+          }
           member.level = 1;
           member.exp = 0;
           this.sound.playSfx('levelup');

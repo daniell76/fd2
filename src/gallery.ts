@@ -6,6 +6,7 @@ import {
   applyLocaleToGameState,
   decodeGlyphsToText,
   getLocale,
+  getLocalizedSpellName,
   setLocale,
   tr,
   type LocaleCode,
@@ -1048,8 +1049,15 @@ class MappingGalleryApp {
       })
       .join('');
 
+    const gd = this.assets.gameData;
     const g: GrowthDef | null = entry.growth ?? ownerHero?.growth ?? null;
     const ec = entry.enemyStats;
+    const initSpellsList = ownerHero
+      ? ownerHero.spells.map((sid) => getLocalizedSpellName(sid, gd.spells[sid]?.nameZh ?? `#${sid}`))
+      : [];
+    const activeLearnList = (g?.learnableSpells ?? [])
+      .filter((ls) => !ownerHero || entry.id >= 32 || ls.level > ownerHero.level)
+      .map((ls) => `Lv${ls.level}:${getLocalizedSpellName(ls.spellId, gd.spells[ls.spellId]?.nameZh ?? ls.spellNameZh)}`);
     const statsHtml = ownerHero
       ? `
         <div class="kv-grid">
@@ -1061,6 +1069,16 @@ class MappingGalleryApp {
         ${
           g
             ? `<div class="mono-tag" style="margin-top:6px;">${tr('成長範圍：', '成长范围：', 'Growth: ')}HP+${g.hp[0]}~${g.hp[1]} · MP+${g.mp[0]}~${g.mp[1]} · AP+${g.ap[0]}~${g.ap[1]} · DP+${g.dp[0]}~${g.dp[1]}</div>`
+            : ''
+        }
+        ${
+          initSpellsList.length > 0
+            ? `<div class="mono-tag" style="margin-top:4px; color:var(--gold-200);">${tr('初始法術：', '初始法术：', 'Initial Magic: ')}${initSpellsList.join(' · ')}</div>`
+            : ''
+        }
+        ${
+          activeLearnList.length > 0
+            ? `<div class="mono-tag" style="margin-top:4px; color:var(--gold-300);">${tr('本職業技能樹：', '本职业技能树：', 'Class Skill Tree: ')}${activeLearnList.join(' · ')}</div>`
             : ''
         }
       `

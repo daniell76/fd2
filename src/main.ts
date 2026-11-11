@@ -1250,10 +1250,35 @@ class FlameDragonWebApp {
     };
   }
 
+  private reconcileHeroSpells(
+    unit: { uid: number; baseHeroId?: number; level: number; spells: number[] }
+  ): void {
+    const gd = this.assets.gameData;
+    const baseHid = unit.baseHeroId ?? gd.unitDex[unit.uid]?.baseHeroId ?? (unit.uid < 32 ? unit.uid : undefined);
+    if (baseHid === undefined || !gd.heroes[baseHid]) return;
+    const h = gd.heroes[baseHid];
+    let sp = [...unit.spells];
+    // Remove premature Lv 7 Detoxify (#20) on unpromoted Marin (#10) below Lv 7, or unreachable List 8 spells (#2, #7) on Archmage (#29)
+    if (baseHid === 10 && unit.uid === 10 && unit.level < 7) {
+      sp = sp.filter((s) => s !== 20);
+    } else if (baseHid === 29 && unit.uid === 29) {
+      sp = sp.filter((s) => s !== 2 && s !== 7);
+    }
+    const missingInit = h.spells.filter((s) => !sp.includes(s));
+    if (missingInit.length > 0) {
+      sp = [...missingInit, ...sp];
+    }
+    unit.spells = sp;
+  }
+
   private async loadFromSaveData(save: SaveSlotData): Promise<void> {
     this.currentChapterId = save.chapterId;
     this.gold = save.gold;
-    this.party = save.party;
+    this.party = save.party.map((m) => {
+      const copy = { ...m, items: [...m.items], spells: [...m.spells] };
+      this.reconcileHeroSpells(copy);
+      return copy;
+    });
     this.titleScreenEl.classList.add('hidden');
 
     if (save.inBattle && save.battleUnits && save.battleUnits.length > 0) {
@@ -1286,7 +1311,11 @@ class FlameDragonWebApp {
       let maxSlot = 0;
       for (const bu of save.battleUnits) {
         const sIdx = bu.slotIndex ?? maxSlot;
-        this.slots[sIdx] = { ...bu, slotIndex: sIdx, items: [...bu.items], spells: [...bu.spells] };
+        const unitCopy = { ...bu, slotIndex: sIdx, items: [...bu.items], spells: [...bu.spells] };
+        if (unitCopy.faction === 'player') {
+          this.reconcileHeroSpells(unitCopy);
+        }
+        this.slots[sIdx] = unitCopy;
         maxSlot = Math.max(maxSlot, sIdx + 1);
       }
       this.nextSlotIndex = maxSlot;

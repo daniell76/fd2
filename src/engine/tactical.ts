@@ -693,18 +693,50 @@ export function spawnChapterWave(
 }
 
 /**
- * Canonical map-spawned join base overrides where `FDFIELD.DAT` `urec` replaces unused `HERO_BASE` placeholder levels:
- *  - `#1 哈諾` joins in Ch 1 Turn 3 (`Wave 3` `urec[9]`) at `Lv 1` (`HP 36, AP 7, DP 4`, `[32 手斧, 128 布衣]`), whereas `HERO_BASE[1]` had `Lv 3`!
- *  - `#10 瑪琳` joins in Ch 5 at `Lv 6` (`HERO_BASE[10]` had `Lv 8`).
- *  - `#14 珊` joins in Ch 11 at `Lv 15` (`HERO_BASE[14]` had `Lv 16`).
+ * Canonical map-spawned join base overrides where `FDFIELD.DAT` `player` `urec` (`align_byte == 2` + `fn_5382()`)
+ * replaces unused `HERO_BASE` placeholder levels, equipment, and initial spells:
+ *  - `#1 哈諾` joins in Ch 1 Turn 3 (`Wave 3` `urec[9]`) at `Lv 1` (`HP 36, AP 7, DP 4`, `[32 手斧, 128 布衣]`).
+ *  - `#10 瑪琳` joins in Ch 5 (`urec[34]`) at `Lv 6` with `[53 釘頭鎚, 165 法師袍]` and initial spell `[#13 治療術]` (Heal).
+ *  - `#19 羅德曼` joins in Ch 23 (`urec[1]`) at `Lv 20` with `[8 流水劍, 143 雷神服]` and initial technique `[#28 淒煌斬]`.
+ *  - `#24 希爾法` joins in Ch 21 (`urec[0]`) at `Lv 8` with `[58 力之杖, 169 霧之袍]` and all 8 High Priest spells `[13, 14, 15, 16, 19, 20, 21, 22]`.
+ *  - `#25 謝多` joins in Ch 20 (`urec[36]`) at `Lv 7` with `[17 護手刀, 141 黑暗之衣, 195 神聖之水, 195 神聖之水]` and 4 Ninja spells `[2, 6, 11, 19]`.
  */
 const MAP_JOIN_BASE_OVERRIDES: Record<
   number,
-  { level: number; maxHp: number; maxMp: number; baseAp: number; baseDp: number; baseDx: number; items: number[] }
+  {
+    level: number;
+    maxHp: number;
+    maxMp: number;
+    baseAp: number;
+    baseDp: number;
+    baseDx: number;
+    items: number[];
+    spells?: number[];
+  }
 > = {
   1: { level: 1, maxHp: 36, maxMp: 0, baseAp: 7, baseDp: 4, baseDx: 1, items: [32, 128] },
-  10: { level: 6, maxHp: 58, maxMp: 32, baseAp: 18, baseDp: 12, baseDx: 6, items: [53, 165] },
-  14: { level: 15, maxHp: 150, maxMp: 96, baseAp: 45, baseDp: 30, baseDx: 15, items: [54, 168] },
+  10: { level: 6, maxHp: 58, maxMp: 32, baseAp: 18, baseDp: 12, baseDx: 6, items: [53, 165], spells: [13] },
+  19: { level: 20, maxHp: 500, maxMp: 114, baseAp: 360, baseDp: 250, baseDx: 80, items: [8, 143], spells: [28] },
+  24: {
+    level: 8,
+    maxHp: 253,
+    maxMp: 276,
+    baseAp: 98,
+    baseDp: 92,
+    baseDx: 52,
+    items: [58, 169],
+    spells: [13, 14, 15, 16, 19, 20, 21, 22],
+  },
+  25: {
+    level: 7,
+    maxHp: 452,
+    maxMp: 44,
+    baseAp: 250,
+    baseDp: 152,
+    baseDx: 71,
+    items: [17, 141, 195, 195],
+    spells: [2, 6, 11, 19],
+  },
 };
 
 /** Builds a `PartyMemberSave` from a base `HeroDef` (`0..31`) at `minLevel`. */
@@ -716,10 +748,12 @@ export function createPartyMemberFromHeroDef(hero: HeroDef, gd: GameData, minLev
   const g = hero.growth;
   const avg = (pair: [number, number] | undefined, fb: number) => (pair ? (pair[0] + pair[1]) * 0.5 : fb);
 
-  const spells = [...hero.spells];
+  const spells = [...(joinBase?.spells ?? hero.spells)];
   if (g?.learnableSpells) {
     for (const ls of g.learnableSpells) {
-      if (ls.level <= effLv && !spells.includes(ls.spellId)) {
+      // Exact FD2.EXE fn_4773 + fn_58002: a hero starts with their initial spell mask at `baseLv`,
+      // and only learns spells from `SPELL_LEARN_BASE` on level-ups strictly after `baseLv` (`ls.level > baseLv`).
+      if (ls.level > baseLv && ls.level <= effLv && !spells.includes(ls.spellId)) {
         spells.push(ls.spellId);
       }
     }
@@ -1220,7 +1254,8 @@ export function applyExpAndCheckLevelUp(unit: BattleUnit, expGain: number, gd: G
   const learnedSpellIds: number[] = [];
   if (g?.learnableSpells) {
     for (const ls of g.learnableSpells) {
-      if (ls.level <= unit.level && !unit.spells.includes(ls.spellId)) {
+      // Exact FD2.EXE fn_58002 L58546 (`if (a2[4] == *v0)`): learns spell only when new level matches `ls.level`.
+      if (ls.level === unit.level && !unit.spells.includes(ls.spellId)) {
         unit.spells.push(ls.spellId);
         learnedSpellIds.push(ls.spellId);
       }

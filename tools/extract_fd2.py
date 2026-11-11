@@ -1530,6 +1530,9 @@ def main():
     unit_chapter_occ: dict[int, list[dict]] = {u: [] for u in range(136)}
     unit_cutscene_occ: dict[int, list[dict]] = {u: [] for u in range(136)}
     unit_chapter_spells: dict[int, set[int]] = {u: set() for u in range(136)}
+    for h_init in heroes:
+        if h_init["spells"]:
+            unit_chapter_spells[h_init["id"]].update(h_init["spells"])
     speaker_occ: dict[int, dict] = {u: {"count": 0, "chapters": set()} for u in range(136)}
 
     for m in range(33):
@@ -1657,6 +1660,21 @@ def main():
                     inv = list(h["items"])
                 if not sp_ids:
                     sp_ids = list(h["spells"])
+                # In FD2.EXE, heroes who spawn as `player` (`align_byte == 2`) on a playable map (except Ch 1 temporary
+                # guest `#3 哈瓦特`, who permanently joins in Ch 13 via `HERO_BASE[3]`) are recruited via `fn_4773(uid)`
+                # followed by `fn_5382()`, which overwrites `HERO_BASE[uid]` dummy placeholders (`items=[0, 128/129], spells=[]`)
+                # with their authentic battlefield `urec` level, stats, items, and initial spells (e.g. `#10 瑪琳` Lv 6 `[#13 治療術]`,
+                # `#19 羅德曼` Lv 20 `[#28 淒煌斬]`, `#24 希爾法` Lv 8 8 spells, `#25 謝多` Lv 7 4 spells).
+                if not is_cutscene_map and faction == "player" and uid != 3:
+                    h["level"] = lv
+                    h["maxHp"] = max_hp
+                    h["maxMp"] = max_mp
+                    h["baseAp"] = base_ap
+                    h["baseDp"] = base_dp
+                    h["baseDx"] = base_dx
+                    h["items"] = list(inv)
+                    h["spells"] = list(sp_ids)
+                    unit_chapter_spells[uid].update(sp_ids)
             elif 68 <= uid <= 135:
                 ec = enemy_classes[uid - 68]
                 # Exact FD2.EXE GLOBAL_3_6905 spawn formula: stat = lv * perLv!
