@@ -639,7 +639,8 @@ export class ScenarioDirector {
 
   /**
    * Authentic `FD2.EXE` `fn_147868(startSlot, endSlotInclusive, newAiMode)` (`Obj 1 + 147868`):
-   * Loops `s = startSlot .. endSlotInclusive` and sets `u[s].aiMode = newAiMode` (`u+52`).
+   * Loops `s = startSlot .. endSlotInclusive` and updates `u[s].aiMode` (`u+52`),
+   * preserving the high nibble (`0x80 | 0x40` heal/attack flags) when `newAiMode < 0x10` (`L147915: v3_lo &= -16; v3_lo |= newAiMode`)!
    */
   setSlotsAiMode(startSlot: number, endSlotInclusive: number, newAiMode: number): void {
     const slots = this.host.getSlots();
@@ -647,7 +648,7 @@ export class ScenarioDirector {
     for (let s = Math.max(0, startSlot); s <= maxS; s++) {
       const u = slots[s];
       if (u && u.hp > 0 && !u.hidden) {
-        u.aiMode = newAiMode & 0xff;
+        u.aiMode = newAiMode < 0x10 ? ((u.aiMode & 0xf0) | (newAiMode & 0x0f)) : (newAiMode & 0xff);
       }
     }
   }
@@ -1206,9 +1207,9 @@ export class ScenarioDirector {
       }
 
       case 3: {
-        // EV 3 (Ch 1 Turn 6): Wave 6 imperial patrol arrives (`fn_2894(6)`) + `Choreo 6` + `dlg[6]`!
+        // EV 3 (Ch 1 Turn 6): Wave 6 imperial patrol arrives (`GLOBAL_2_15098 = 1`, `fn_2894(6)`) + `Choreo 6` + `dlg[6]`!
         await this.host.panCameraSmooth(15, 14, 380);
-        this.spawnWave(6, false);
+        this.spawnWave(6, true);
         await this.playChoreo(6);
         await this.host.playDialogueIndex(6);
         break;
@@ -1235,10 +1236,10 @@ export class ScenarioDirector {
       }
 
       case 6: {
-        // EV 6 (Ch 2 Turn 3): Northern brigand reinforcements (`Wave 3`, `Choreo 13`, `dlg[4]`),
+        // EV 6 (Ch 2 Turn 3): Northern brigand reinforcements (`GLOBAL_2_15098 = 1`, `Wave 3`, `Choreo 13`, `dlg[4]`),
         // and updates villagers `slots[5..10]` (`#133/#134`) escape destination to `(26, 15)`!
         await this.host.panCameraSmooth(9, 1, 380);
-        this.spawnWave(3, false);
+        this.spawnWave(3, true);
         await this.playChoreo(13);
         await this.host.playDialogueIndex(4);
         for (const u of this.host.getSlots()) {
@@ -1251,9 +1252,9 @@ export class ScenarioDirector {
       }
 
       case 7: {
-        // EV 7 (Ch 13 Turn 9): `pan(12, 3)` + `Wave 2` + `Choreo 46` + `dlg[8]`!
+        // EV 7 (Ch 13 Turn 9): `pan(12, 3)` + `Wave 2` (`GLOBAL_2_15098 = 1`) + `Choreo 46` + `dlg[8]`!
         await this.host.panCameraSmooth(12, 3, 380);
-        this.spawnWave(2, false);
+        this.spawnWave(2, true);
         await this.playChoreo(46);
         await this.host.playDialogueIndex(8);
         break;
@@ -1354,8 +1355,8 @@ export class ScenarioDirector {
       }
 
       case 15: {
-        // EV 15 (Ch 5 Turn 4): Spawns `Wave 2`, pans `(14, 0)`, plays `Choreo 23`, wakes `slots[7..12]` & `slots[33..35]`, plays `dlg[4]`!
-        this.spawnWave(2, false);
+        // EV 15 (Ch 5 Turn 4): Spawns `Wave 2` (`GLOBAL_2_15098 = 1`), pans `(14, 0)`, plays `Choreo 23`, wakes `slots[7..12]` & `slots[33..35]`, plays `dlg[4]`!
+        this.spawnWave(2, true);
         await this.host.panCameraSmooth(14, 0, 380);
         await this.playChoreo(23);
         this.setSlotsAiMode(7, 12, 0);
@@ -1452,9 +1453,9 @@ export class ScenarioDirector {
       }
 
       case 25: {
-        // EV 25 (Ch 7 Turn 10 Phase 0): ONLY spawns Wave 2 (`slot 43` `#12 凱麗`) if road step `EV 26` set `flag[16] === 1`!
+        // EV 25 (Ch 7 Turn 10 Phase 0): ONLY spawns Wave 2 (`slot 43` `#12 凱麗`, `GLOBAL_2_15098 = 1`) if road step `EV 26` set `flag[16] === 1`!
         if (this.flags[16] === 1) {
-          this.spawnWave(2, false);
+          this.spawnWave(2, true);
           await this.host.panCameraSmooth(16, 10, 380);
           await this.playChoreo(30);
           await this.host.playDialogueIndex(2);
@@ -1552,9 +1553,9 @@ export class ScenarioDirector {
       }
 
       case 35: {
-        // EV 35 (Ch 11 Turn 3): `pan(9, 4)` + `Wave 2` + `Choreo 39` + `dlg[2]`!
+        // EV 35 (Ch 11 Turn 3): `pan(9, 4)` + `Wave 2` (`GLOBAL_2_15098 = 1`) + `Choreo 39` + `dlg[2]`!
         await this.host.panCameraSmooth(9, 4, 360);
-        this.spawnWave(2, false);
+        this.spawnWave(2, true);
         await this.playChoreo(39);
         await this.host.playDialogueIndex(2);
         break;
@@ -1567,16 +1568,16 @@ export class ScenarioDirector {
       }
 
       case 37: {
-        // EV 37 (Ch 12 Turn 6): `dlg[1]` + `Wave 2 (Choreo 42)` + `Wave 3 (Choreo 43)` + `Wave 4 (Choreo 44)` + `dlg[2]`!
+        // EV 37 (Ch 12 Turn 6): `dlg[1]` + `Wave 2 (Choreo 42)` + `Wave 3 (Choreo 43)` + `Wave 4 (Choreo 44)` (`GLOBAL_2_15098 = 1`) + `dlg[2]`!
         await this.host.playDialogueIndex(1);
         await this.host.panCameraSmooth(12, 30, 340);
-        this.spawnWave(2, false);
+        this.spawnWave(2, true);
         await this.playChoreo(42);
         await this.host.panCameraSmooth(0, 22, 340);
-        this.spawnWave(3, false);
+        this.spawnWave(3, true);
         await this.playChoreo(43);
         await this.host.panCameraSmooth(18, 22, 340);
-        this.spawnWave(4, false);
+        this.spawnWave(4, true);
         await this.playChoreo(44);
         await this.host.playDialogueIndex(2);
         break;
@@ -1748,7 +1749,7 @@ export class ScenarioDirector {
 
       case 56: {
         await this.host.panCameraSmooth(10, 38, 360);
-        this.spawnWave(1, false);
+        this.spawnWave(1, true);
         await this.playChoreo(74);
         await this.host.playDialogueIndex(this.CreateSafeDlgIdx(ch, 5));
         break;

@@ -635,6 +635,8 @@ export function initChapterSlots(
     if (cu.waveGroup !== 0) continue;
     if (nextSlot >= 96) break;
     if (cu.faction === 'player' && deployedBaseHids.has(gd.unitDex[cu.uid]?.baseHeroId ?? cu.uid)) {
+      slots[nextSlot] = null;
+      nextSlot++;
       continue;
     }
     slots[nextSlot] = createBattleUnitFromChapterDef(cu, nextSlot, cu.x, cu.y, gd);
@@ -671,6 +673,8 @@ export function spawnChapterWave(
     if (cu.waveGroup !== targetWave) continue;
     if (cursor >= 96) break;
     if (cu.faction === 'player' && deployedBaseHids.has(gd.unitDex[cu.uid]?.baseHeroId ?? cu.uid)) {
+      slots[cursor] = null;
+      cursor++;
       continue;
     }
 
@@ -2331,38 +2335,14 @@ export function chooseAiAction(
     return { destX: step.x, destY: step.y };
   }
 
-  // Mode 5: Treasure Thief (`#98 影之忍者` in Ch 16/19, `#102/#103` in Ch 11/13) — pathfind to unopened chest `aiChestIdx`!
-  if (mode === 5) {
-    const targetChestIdx = unit.aiChestIdx ?? 0;
-    let chestCoord: [number, number] | null = null;
-    for (let y = 0; y < chapter.height && !chestCoord; y++) {
-      for (let x = 0; x < chapter.width; x++) {
-        const [, evid, , , flags] = chapter.cells[y][x];
-        if ((flags & 2) !== 0 && evid === targetChestIdx) {
-          chestCoord = [x, y];
-          break;
-        }
-      }
-    }
-    if (chestCoord) {
-      const step = pickBestStepTowardGoals(unit, reachable, chapter, units, gd, [chestCoord], 0);
-      const onChest = step.x === chestCoord[0] && step.y === chestCoord[1];
-      return { destX: step.x, destY: step.y, lootChestAtDest: onChest };
-    }
-    // Chest already opened -> switch to Mode 7 escape toward `(aiTargetX, aiTargetY)`!
-    unit.aiMode = 7;
-    const gx = Math.max(0, Math.min(chapter.width - 1, unit.aiTargetX));
-    const gy = Math.max(0, Math.min(chapter.height - 1, unit.aiTargetY));
-    const step = pickBestStepTowardGoals(unit, reachable, chapter, units, gd, [[gx, gy]], 0);
-    return { destX: step.x, destY: step.y, escapedMap: step.x === gx && step.y === gy };
-  }
-
-  // Mode 9 (`0x89` Ch 18 `#21 約拿 / #7 蘭斯洛特`): follow character `uid === aiTargetX` if specified!
-  if (mode === 9 && unit.aiTargetX > 0) {
+  // Mode 9 (`fn_15007 @15776..15840`, e.g. Ch 18 `#21 約拿` `0x89` following `#0 索爾` `aiTargetX = 0` & `#7 蘭斯洛特` following `#21 約拿` `aiTargetX = 21`):
+  // Calls `fn_11360(unit.aiTargetX)` and walks directly toward `leader` via `fn_19320` (or rests via `fn_16340` when adjacent) without initiating combat;
+  // only if `leader` is not found on the map (`v0 == -1`, `goto L15091`) does Mode 9 fall back to Mode 0!
+  if (mode === 9 && unit.aiTargetX >= 0) {
     const leader = units.find(
       (u) => isUnitActiveOnMap(u) && !areHostile(unit.faction, u.faction) && (u.uid === unit.aiTargetX || u.baseHeroId === unit.aiTargetX)
     );
-    if (leader && manhattan(unit.x, unit.y, leader.x, leader.y) > 2) {
+    if (leader) {
       const step = pickBestStepTowardGoals(unit, reachable, chapter, units, gd, [[leader.x, leader.y]], 1);
       return { destX: step.x, destY: step.y };
     }
@@ -2373,10 +2353,12 @@ export function chooseAiAction(
   const friendlyUnits = units.filter((u) => isUnitActiveOnMap(u) && !areHostile(unit.faction, u.faction));
   const opponents = units.filter((u) => isUnitActiveOnMap(u) && areHostile(unit.faction, u.faction));
 
-  // Mode 2 (`0x02 / 0x82 / 0xC2`): Stationary Guard — NEVER moves from `(unit.x, unit.y)`!
-  const isHoldGuard = mode === 2 || unit.mv <= 0;
+  // In `FD2.EXE` (`fn_15007 @15174..15204` -> `fn_20208` -> `fn_16951 @17090..17225`):
+  // ALL combat modes (`0, 1, 2, 3, 5, 10, 11`) evaluate `fn_16951` across all reachable tiles within `unit.mv`!
+  // Mode 2 (`0x02 / 0x82 / 0xC2`) moves within `unit.mv` to attack any opponent within `unit.mv + maxRange`,
+  // and ONLY holds position at `(unit.x, unit.y)` if `fn_20208` finds no action (`maxActionScore < 6`)!
   const stayNode: MoveNode = { x: unit.x, y: unit.y, cost: 0, parent: null };
-  const candidateNodes: MoveNode[] = isHoldGuard ? [stayNode] : Array.from(reachable.values());
+  const candidateNodes: MoveNode[] = unit.mv <= 0 ? [stayNode] : Array.from(reachable.values());
 
   // =========================================================================
   // Exact `FD2.EXE` `fn_20208` Unified 3-Way Action Arbiter (`Obj1 + 20208`):
@@ -2384,36 +2366,25 @@ export function chooseAiAction(
   //      - Evaluates HP-healing items (`192 藥草, 193 回復劑, 194 再生藥, 195 神聖之水`) strictly from `(unit.x, unit.y)`
   //        on `self` (`dist === 0`) or an already-adjacent friendly unit (`dist === 1`, without walking!).
   //      - `hp > floor(maxHp / 2)` -> `0`; `floor(maxHp / 3) < hp <= floor(maxHp / 2)` -> `3`; `hp <= floor(maxHp / 3)` -> `8`.
-  //      - When healing `self` AND `(unit.aiMode & 0x80) !== 0` (`@22739`, e.g. Ch 3 `#2 鐵諾` `0x81`, bosses, elite guards,
-  //        and `#68/#69/#70/#72` ally troops), self-heal score is multiplied by `3` (`3 -> 9`, `8 -> 24`)!
+  //      - When target `ally` has `(ally.aiMode & 0x80) !== 0` (`@22737: test(M1[v3+52], 128)`), heal score is multiplied by `3` (`3 -> 9`, `8 -> 24`)!
   //   2. `fn_22922 / fn_23415` -> `magicScore` (`GLOBAL_2_15395`):
   //      - Cast strictly from `(unit.x, unit.y)` (`fn_20565 / fn_21265` never walk, except Sword Saints `#18/#19/#34` if move+cast).
-  //      - Healing (`13..16`): `3` at `<= 50%` HP (`9` on self with `0x80`), `8` at `<= 33%` HP (`24` on self with `0x80`).
-  //      - Support / Status (`18 魔鎧術`, `20 解毒術`, `21 祛麻術`, `22 封咒術` vs un-silenced spellcaster): `6`.
-  //      - Offensive (`0..12, 24, 28..35`): `24` (+ multi-target / damage tie-break).
+  //      - Healing (`13..16`): `3` at `<= 50%` HP (`9` with `0x80` / `6` with `0x01`), `8` at `<= 33%` HP (`24` with `0x80` / `16` with `0x01`).
+  //      - Support / Status (`17..22`, `26`, `27`): `6` per valid target.
+  //      - Offensive (`0..12, 24, 28..33`): `8` per non-lethal hit (`12` on `#0 索爾`), `24` per lethal hit (`opp.hp < power`).
   //   3. `fn_16951`            -> `attackScore` (`GLOBAL_2_15439`):
   //      - Evaluates reachable weapon attacks (`candidateNodes`): non-lethal hit = `8`, lethal kill (`dmg >= opp.hp`) = `18`!
-  //   Minimum action gate in `fn_20208` is `score >= 4` (`> 3`):
-  //   - `0x80` units (`#2 鐵諾`) heal at `<= 50%` HP (`9 > 8` normal attack, `< 18` lethal blow) and ALWAYS heal at `<= 33%` HP (`24 > 18`)!
-  //   - `0x00` grunts skip `score = 3` at `50%` HP (`< 4`) and heal at `<= 33%` HP (`8 >= 8`, Item/Support tie-break beats normal attack)!
+  //   Minimum action gate in `fn_20208 @20322..20347` is `score >= 6`!
   // =========================================================================
   const hasSelfPreservationFlag = (unit.aiMode & 0x80) !== 0;
+  const hasAttackPreferenceFlag = (unit.aiMode & 0x40) !== 0;
 
   // --- A. Usable / Consumable Item Evaluator (`fn_22142 / fn_22656`) ---
-  // Supports:
-  //   1. Single-target & Ranged AoE HP-healing items (`useEffect === 5` or `13`):
-  //      - `#192..#195` (`藥草/回復劑/再生藥/神聖之水`): `useRange = 1, useAoe = 0` (`+40/+120/+300/+999 HP`)
-  //      - `#102 修理套件` (carried 6x by `#115 機甲守衛` in Ch 23, 26..29!): `useRange = 4, useAoe = 2, +500 HP`
-  //        (reaches up to `4 + 2 = 6` tiles and sums `fn_22656` scores across all hurt friendly units in the radius-2 diamond!)
-  //      - `#40 光之斧 / #58 力之杖 / #61 光之杖` reusable healing weapons (`useEffect === 13`).
-  //      - Note: story relic `#211 光之眼` (`itemType === 34`) is held as spoils by Ch 15 fleeing `#102 獸人` (`Mode 7`), never used by AI.
-  //   2. Reusable offensive spell-casting weapons (`useEffect === 20, 21`: `#56 魔法杖`, `#60 龍之杖`, `#99 雷神鞭`, etc.):
-  //      - Evaluated from `(unit.x, unit.y)` (`score = 8` for tier-0/1 `#56/#38`, `18` for tier-2/6/7 `#11/#29/#51/#60/#99`).
   let bestItemScore = 0;
   let bestItemSubTie = -1e9;
   let bestItemDecision: AiDecision | null = null;
 
-  // Mode 11 (`fn_15007 @15938`) only calls `fn_22922` (Magic) + `fn_16951` (Attack), whereas Modes `0,1,2,3,5,10` call full `fn_20208`
+  // Mode 11 (`fn_15007 @15874`) only calls `fn_22922` (Magic) + `fn_16951` (Attack), whereas Modes `0,1,2,3,5,10` call full `fn_20208`
   if (mode !== 11 && !options?.stationaryMagicOnly && !options?.skipMagicAndItems) {
     const evaluatedHealItemIds = new Set<number>();
     for (let bagIdx = 0; bagIdx < unit.items.length; bagIdx++) {
@@ -2439,7 +2410,8 @@ export function chooseAiAction(
             if (rawScore <= 0) continue;
 
             const isSelf = ally.runtimeId === unit.runtimeId;
-            const itemScore = isSelf && hasSelfPreservationFlag ? rawScore * 3 : rawScore;
+            const targetHas0x80 = (ally.aiMode & 0x80) !== 0 || (isSelf && hasSelfPreservationFlag);
+            const itemScore = targetHas0x80 ? rawScore * 3 : rawScore;
             const subTie = (isSelf ? 1 : 0) + (1 - ally.hp / Math.max(1, ally.maxHp));
             if (itemScore > bestItemScore || (itemScore === bestItemScore && subTie > bestItemSubTie)) {
               bestItemScore = itemScore;
@@ -2477,7 +2449,7 @@ export function chooseAiAction(
                 else if (ally.hp <= halfHp) s = 3;
                 if (s <= 0) continue;
                 const isSelf = ally.runtimeId === unit.runtimeId;
-                if (isSelf && hasSelfPreservationFlag) s *= 3;
+                if ((ally.aiMode & 0x80) !== 0 || (isSelf && hasSelfPreservationFlag)) s *= 3;
                 sumScore += s;
                 const ratio = ally.hp / Math.max(1, ally.maxHp);
                 subTie += 1 - ratio;
@@ -2559,7 +2531,7 @@ export function chooseAiAction(
             let magSub = 0;
 
             if (sp.power > 0) {
-              // Healing spells (`13 治療術, 14 回復術, 15 再生術, 16 神恩術`)
+              // Healing spells (`13 治療術, 14 回復術, 15 再生術, 16 神恩術` — `fn_23415 @23585..23726`)
               const blast = new Set(
                 getSpellBlastTiles(node.x, node.y, ally.x, ally.y, sp, chapter).map(([bx, by]) => coordKey(bx, by))
               );
@@ -2570,8 +2542,12 @@ export function chooseAiAction(
                 let s = 0;
                 if (u.hp <= thirdHp) s = 8;
                 else if (u.hp <= halfHp) s = 3;
-                if (s > 0 && u.runtimeId === unit.runtimeId && hasSelfPreservationFlag) {
-                  s *= 3;
+                if (s > 0) {
+                  if ((u.aiMode & 0x80) !== 0 || (u.runtimeId === unit.runtimeId && hasSelfPreservationFlag)) {
+                    s *= 3;
+                  } else if ((u.aiMode & 1) !== 0) {
+                    s *= 2;
+                  }
                 }
                 magScore += s;
                 magSub += 1 - u.hp / Math.max(1, u.maxHp);
@@ -2636,14 +2612,22 @@ export function chooseAiAction(
                 bestMagicDecision = { destX: node.x, destY: node.y, targetUnit: opp, spell: sp };
               }
             } else if (sp.power > 0 || sp.spellCategory === 'special_tech') {
-              // Offensive spells (`0..12, 24, 28..33`): `fn_23415` scores `~24` per target (`> 18` single kill & `> 8` normal hit)
+              // Offensive spells (`0..12, 24, 28..33` — `fn_23415 @23467..23583`):
+              // Each hit target scores `24` if lethal (`o.hp < effPower`) or `8` if non-lethal (`1.5x` if hitting `#0 索爾`)!
               const nonImmuneHits =
                 sp.id >= 10 && sp.id <= 12 ? hitOpps.filter((o) => o.moveMode !== 'fly') : hitOpps;
               if (nonImmuneHits.length === 0) continue;
               const swordMult = SWORD_TECH_AP_MULTIPLIERS[sp.id];
               const effPower =
-                swordMult !== undefined ? Math.floor(getEquippedStats(unit, gd).ap * swordMult) : Math.max(18, sp.power);
-              const magScore = 24 * nonImmuneHits.length;
+                swordMult !== undefined ? Math.floor(stats.ap * swordMult) : Math.max(18, sp.power);
+              let magScore = 0;
+              for (const o of nonImmuneHits) {
+                let s = o.hp < effPower ? 24 : 8;
+                if ((o.baseHeroId ?? o.uid) === 0) {
+                  s = Math.floor(s * 1.5);
+                }
+                magScore += s;
+              }
               const magSub = effPower * nonImmuneHits.length * (Math.max(55, sp.hit) / 100);
               if (magScore > bestMagicScore || (magScore === bestMagicScore && magSub > bestMagicSubTie)) {
                 bestMagicScore = magScore;
@@ -2658,7 +2642,7 @@ export function chooseAiAction(
     }
   }
 
-  const MIN_AI_ACTION_SCORE = 4;
+  const MIN_AI_ACTION_SCORE = 6;
   if (options?.stationaryMagicOnly) {
     if (bestMagicDecision && bestMagicScore >= MIN_AI_ACTION_SCORE) {
       return bestMagicDecision;
@@ -2669,6 +2653,7 @@ export function chooseAiAction(
   // --- C. Physical Weapon Attack Evaluator (`fn_16951`) ---
   let bestAttackScore = 0;
   let bestAttackSubTie = -1e9;
+  let bestAttackRawDiff = 0;
   let bestAttackDecision: AiDecision | null = null;
 
   if (hasWeapon && opponents.length > 0) {
@@ -2680,15 +2665,18 @@ export function chooseAiAction(
         if (d >= stats.minRange && d <= stats.maxRange) {
           const tempAtk = { ...unit, x: node.x, y: node.y };
           const fc = predictCombat(tempAtk, opp, chapter, gd);
-          // Exact `FD2.EXE` `fn_16951` discrete action scores: `18` for lethal blow, `8` for non-lethal blow!
+          // Exact `FD2.EXE` `fn_16951 @17529..17818`: if `rawDmg <= 2` -> `0`; if `dmg > opp.hp` -> `18`; else `8`!
+          if (fc.attackerDmg <= 2) continue;
           const atkScore = fc.attackerDmg >= opp.hp ? 18 : 8;
           const expectedDmg = (fc.attackerDmg * fc.attackerHitPct) / 100;
           const counterPenalty = fc.canCounter ? (fc.defenderDmg * fc.defenderHitPct) / 220 : 0;
           const tBonus = getTerrainInfo(chapter, node.x, node.y).defBonus * 0.4;
-          const subTie = expectedDmg - counterPenalty + tBonus - node.cost * 0.01;
+          const isSolBonus = (opp.baseHeroId ?? opp.uid) === 0 ? 1.5 : 1.0;
+          const subTie = (expectedDmg - counterPenalty) * isSolBonus + tBonus - node.cost * 0.01;
           if (atkScore > bestAttackScore || (atkScore === bestAttackScore && subTie > bestAttackSubTie)) {
             bestAttackScore = atkScore;
             bestAttackSubTie = subTie;
+            bestAttackRawDiff = stats.ap - getEquippedStats(opp, gd).dp;
             bestAttackDecision = { destX: node.x, destY: node.y, targetUnit: opp };
           }
         }
@@ -2696,17 +2684,61 @@ export function chooseAiAction(
     }
   }
 
-  // --- D. Exact `fn_20208` Winner Selection (Minimum Gate `>= 4`; Tie-Break: Item > Magic > Attack) ---
+  // --- D. Exact `fn_20208 @20322..20545` Winner Selection (Minimum Gate `>= 6`) ---
   const maxActionScore = Math.max(bestItemScore, bestMagicScore, bestAttackScore);
   if (maxActionScore >= MIN_AI_ACTION_SCORE) {
-    if (bestItemDecision && bestItemScore === maxActionScore) {
-      return bestItemDecision;
+    // 1. Strictly highest score wins (`L20356..20384`, `L20493..20542`)
+    if (bestAttackDecision && bestAttackScore > bestMagicScore && bestAttackScore > bestItemScore) {
+      return bestAttackDecision;
     }
-    if (bestMagicDecision && bestMagicScore === maxActionScore && (bestMagicIsSupport || bestMagicScore >= bestAttackScore)) {
+    if (bestMagicDecision && bestMagicScore > bestAttackScore && bestMagicScore >= bestItemScore) {
       return bestMagicDecision;
     }
-    if (bestAttackDecision && bestAttackScore === maxActionScore) {
-      return bestAttackDecision;
+    if (bestItemDecision && bestItemScore > bestAttackScore && bestItemScore > bestMagicScore) {
+      return bestItemDecision;
+    }
+    // 2. Attack == Item > Magic (`L20459..20491`): `0x40` (`v5 != 0`) prefers Attack, else Item!
+    if (bestAttackScore === bestItemScore && bestAttackScore > bestMagicScore) {
+      if (hasAttackPreferenceFlag && bestAttackDecision) return bestAttackDecision;
+      if (bestItemDecision) return bestItemDecision;
+    }
+    // 3. Attack == Magic >= Item (`L20389..20457`):
+    //    For single-target offensive spells (`id < 11`), compare `spell.power < (unit.ap - target.dp)`;
+    //    for `id >= 11`, `0x40` (`v5 != 0`) prefers Attack unless support magic, else Magic!
+    if (bestAttackScore === bestMagicScore && bestAttackScore >= bestItemScore) {
+      const sp = bestMagicDecision?.spell;
+      if (sp && sp.id < 11) {
+        if (sp.power < bestAttackRawDiff && bestAttackDecision) return bestAttackDecision;
+        if (bestMagicDecision) return bestMagicDecision;
+      } else {
+        if (hasAttackPreferenceFlag && !bestMagicIsSupport && bestAttackDecision) return bestAttackDecision;
+        if (bestMagicDecision) return bestMagicDecision;
+      }
+    }
+    if (bestItemDecision && bestItemScore === maxActionScore) return bestItemDecision;
+    if (bestMagicDecision && bestMagicScore === maxActionScore) return bestMagicDecision;
+    if (bestAttackDecision && bestAttackScore === maxActionScore) return bestAttackDecision;
+  }
+
+  // Mode 5 (`fn_15007 @15385..15652`, Treasure Thief `#98 影之忍者` in Ch 16/19, `#102/#103` in Ch 11/13):
+  // If `fn_20208` found no combat/heal action (`< 6`), pathfind to unopened chest `aiChestIdx`!
+  // If the chest was ALREADY opened (`L15437 / L15459: goto L15109`), fall through to Mode 0 to attack the player!
+  if (mode === 5) {
+    const targetChestIdx = unit.aiChestIdx ?? 0;
+    let chestCoord: [number, number] | null = null;
+    for (let y = 0; y < chapter.height && !chestCoord; y++) {
+      for (let x = 0; x < chapter.width; x++) {
+        const [, evid, , , flags] = chapter.cells[y][x];
+        if ((flags & 2) !== 0 && evid === targetChestIdx) {
+          chestCoord = [x, y];
+          break;
+        }
+      }
+    }
+    if (chestCoord) {
+      const step = pickBestStepTowardGoals(unit, reachable, chapter, units, gd, [chestCoord], 0);
+      const onChest = step.x === chestCoord[0] && step.y === chestCoord[1];
+      return { destX: step.x, destY: step.y, lootChestAtDest: onChest };
     }
   }
 
@@ -2714,11 +2746,13 @@ export function chooseAiAction(
     return { destX: unit.x, destY: unit.y };
   }
 
-  if (isHoldGuard) {
+  // Mode 2 (`fn_15007 @15174..15204`): holds position when `fn_20208` finds no reachable target within `unit.mv + maxRange`!
+  if (mode === 2 || unit.mv <= 0) {
     return { destX: unit.x, destY: unit.y };
   }
 
   // 3. Mode 3: Escort / Follow / Hunt Character `uid === aiTargetX` (`fn_11360 -> fn_19320`, including `aiTargetX === 0` `#0 索爾`)!
+  //    If target character is not found (`v0 == -1`, `L15244: goto L15109`), falls through to Mode 0!
   if (mode === 3 && unit.aiTargetX >= 0) {
     const targetChar = units.find(
       (u) => isUnitActiveOnMap(u) && (u.uid === unit.aiTargetX || u.baseHeroId === unit.aiTargetX)
@@ -2738,9 +2772,9 @@ export function chooseAiAction(
     return { destX: step.x, destY: step.y };
   }
 
-  // 5. Mode 1 & Mode 11 (Proximity / Boss Engage `fn_16673`): only advance when an opponent is within `2 * mv + maxRange + 2`!
+  // 5. Mode 1 & Mode 11 (Proximity Engage `fn_16673 @16808`): advances toward any opponent within `28` movement cost!
   const nearestOppDist = Math.min(...opponents.map((o) => manhattan(unit.x, unit.y, o.x, o.y)));
-  if ((mode === 1 || mode === 11 || unit.isBoss) && nearestOppDist > Math.max(8, unit.mv * 2 + stats.maxRange + 2)) {
+  if ((mode === 1 || mode === 11) && nearestOppDist > 28) {
     return { destX: unit.x, destY: unit.y };
   }
 
