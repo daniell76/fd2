@@ -352,7 +352,7 @@ export class AssetManager {
     greyedOut = false
   ): void {
     const row = Math.max(0, Math.min(this.gameData.unitsAtlas.rows - 1, spriteGroup));
-    // 3-frame NPC rows in `FDICON.B24` (`#48 渥特王`, `#66 王后`, `#67`, `#74`, `#75 米蘭`) only populate `col 0..2` (`dir = 0`)!
+    // 3-frame NPC rows in `FDICON.B24` (`#48 雷特王`, `#66 王后`, `#67`, `#74`, `#75 米蘭`) only populate `col 0..2` (`dir = 0`)!
     const rawFrames = this.gameData.unitDex?.[row]?.rawSpriteFrames ?? 12;
     const effDir = rawFrames > 0 && rawFrames <= 3 ? 0 : (dir & 3);
     const col = effDir * 3 + (animFrame % 3);

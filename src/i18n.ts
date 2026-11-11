@@ -174,7 +174,7 @@ export const UNIT_LOCALES: Record<number, [string, string, string]> = {
   45: HERO_LOCALES[13],
   46: HERO_LOCALES[14],
   47: HERO_LOCALES[15],
-  48: ['渥特王', '渥特王', 'King Walt'],
+  48: ['雷特王', '雷特王', 'King Leit'],
   49: HERO_LOCALES[17],
   50: HERO_LOCALES[0],
   51: HERO_LOCALES[1],
