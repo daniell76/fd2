@@ -1271,7 +1271,13 @@ export class ScenarioDirector {
           const isSol = triggerUnit && (triggerUnit.slotIndex === 0 || (triggerUnit.baseHeroId ?? triggerUnit.uid) === 0);
           if (!isSol) return false;
           if (triggerUnit.items.length >= 8) {
-            this.host.logMessage('索爾的道具袋已滿（8/8），無法拾取地上閃光的物品！');
+            this.host.logMessage(
+              tr(
+                '索爾的道具袋已滿（8/8），無法拾取地上閃光的物品！',
+                '索尔的道具袋已满（8/8），无法拾取地上闪光的物品！',
+                "Sol's item bag is full (8/8); cannot pick up the sparkling item on the ground!"
+              )
+            );
             return false;
           }
           this.flags[16] = 1;

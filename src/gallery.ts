@@ -1,8 +1,18 @@
 import './gallery.css';
 import { AssetManager } from './engine/assets';
+import {
+  SUPPORTED_LOCALES,
+  applyLocaleToGameState,
+  decodeGlyphsToText,
+  getLocale,
+  setLocale,
+  tr,
+  type LocaleCode,
+} from './i18n';
 import type {
   ChapterData,
   CharacterDexData,
+  GameData,
   GrowthDef,
   HeroDef,
   UnitDexEntry,
@@ -73,7 +83,11 @@ class MappingGalleryApp {
     root.innerHTML = `
       <div style="min-height:100vh; display:grid; place-items:center; padding:32px; text-align:center;">
         <div>
-          <div class="gal-title" style="font-size:22px; margin-bottom:8px;">載入炎龍騎士團II 原始檔案與戰鬥動畫圖鑑...</div>
+          <div class="gal-title" style="font-size:22px; margin-bottom:8px;">${tr(
+            '載入炎龍騎士團II 原始檔案與戰鬥動畫圖鑑...',
+            '载入炎龙骑士团II 原始档案与战斗动画图鉴...',
+            'Loading Flame Dragon II Archives & Battle Animation Gallery...'
+          )}</div>
           <div id="gal-loading-msg" style="color:var(--ink-400); font-family:var(--font-mono); font-size:12.5px;">Initializing atlases...</div>
         </div>
       </div>
@@ -88,8 +102,13 @@ class MappingGalleryApp {
     ]);
     this.dex = dexRes;
 
-    // Support URL deep-links (`?hero=9&tier=41&enemy=90&init=hero&move=magic&spell=2`)
+    // Support URL deep-links (`?hero=9&tier=41&enemy=90&init=hero&move=magic&spell=2&lang=en`)
     const params = new URLSearchParams(window.location.search);
+    const langParam = params.get('lang') as LocaleCode | null;
+    if (langParam && SUPPORTED_LOCALES.some((l) => l.code === langParam)) {
+      setLocale(langParam);
+    }
+    this.applyLocaleToGalleryData();
     const tabParam = params.get('tab');
     if (tabParam === 'catalog' || tabParam === 'chapters') {
       this.activeTab = tabParam;
@@ -159,10 +178,21 @@ class MappingGalleryApp {
     if (this.activeTab === 'chapters') {
       const { data } = await this.assets.loadChapter(this.selectedChapterId);
       this.loadedChapter = data;
+      this.applyLocaleToGalleryData();
     }
 
     this.renderShell();
     requestAnimationFrame((t) => this.animLoop(t));
+  }
+
+  private applyLocaleToGalleryData(): void {
+    applyLocaleToGameState(this.assets.gameData, this.loadedChapter);
+    applyLocaleToGameState(this.dex as unknown as GameData, this.loadedChapter);
+    document.title = tr(
+      '炎龍騎士團II：黃金城之謎 — 角色、戰鬥動畫與圖像對照驗證圖鑑',
+      '炎龙骑士团II：黄金城之谜 — 角色、战斗动画与图像对照验证图鉴',
+      'Flame Dragon II: Legend of Golden Castle — Character, Battle Animation & Asset Verification Gallery'
+    );
   }
 
   private runAuditSummary() {
@@ -402,7 +432,9 @@ class MappingGalleryApp {
 
   private renderShell(): void {
     this.captureRosterScrollPositions();
+    this.applyLocaleToGalleryData();
     const audit = this.runAuditSummary();
+    const curLoc = getLocale();
 
     this.rootEl.innerHTML = `
       <header class="gal-header">
@@ -412,38 +444,81 @@ class MappingGalleryApp {
               <img src="./favicon.ico" width="20" height="20" class="pixel-crisp" alt="FD2" />
             </div>
             <div>
-              <div class="gal-title">炎龍騎士團II · 戰鬥演武與全單位圖鑑總覽 (Battle & Asset Gallery)</div>
-              <div class="gal-subtitle">0-Indexed Clean FD2.EXE + DATO.DAT + FDICON.B24 + FIGANI.DAT + FDOTHER.DAT (法術特效)</div>
+              <div class="gal-title">${tr(
+                '炎龍騎士團II · 戰鬥演武與全單位圖鑑總覽 (Battle & Asset Gallery)',
+                '炎龙骑士团II · 战斗演武与全单位图鉴总览 (Battle & Asset Gallery)',
+                'Flame Dragon II · Battle Animation & Complete Asset Gallery'
+              )}</div>
+              <div class="gal-subtitle">${tr(
+                '0-Indexed Clean FD2.EXE + DATO.DAT + FDICON.B24 + FIGANI.DAT + FDOTHER.DAT (法術特效)',
+                '0-Indexed Clean FD2.EXE + DATO.DAT + FDICON.B24 + FIGANI.DAT + FDOTHER.DAT (法术特效)',
+                '0-Indexed Clean FD2.EXE + DATO.DAT + FDICON.B24 + FIGANI.DAT + FDOTHER.DAT (Spell FX)'
+              )}</div>
             </div>
           </div>
 
           <nav class="gal-nav-tabs" aria-label="Gallery Sections">
             <button class="gal-btn ${this.activeTab === 'duel' ? 'active' : ''}" data-gtab="duel" type="button">
-              ⚔ 戰鬥演武與全單位圖鑑 (0..135)
+              ⚔ ${tr('戰鬥演武與全單位圖鑑 (0..135)', '战斗演武与全单位图鉴 (0..135)', 'Battle Stage & All Units (0..135)')}
             </button>
             <button class="gal-btn ${this.activeTab === 'catalog' ? 'active' : ''}" data-gtab="catalog" type="button">
-              道具 · 法術 · 職業 (${audit.totalItems}/${audit.totalSpells})
+              ${tr('道具 · 法術 · 職業', '道具 · 法术 · 职业', 'Items · Spells · Classes')} (${audit.totalItems}/${audit.totalSpells})
             </button>
             <button class="gal-btn ${this.activeTab === 'chapters' ? 'active' : ''}" data-gtab="chapters" type="button">
-              33 章對話與出場驗證
+              ${tr('33 章對話與出場驗證', '33 章对话与出场验证', '33 Chapters Dialogue & Spawns')}
             </button>
-            <a class="gal-btn gold" href="./index.html" id="link-back-to-game">進入戰棋主遊戲 · Launch Game →</a>
+            <div style="display:inline-flex; gap:3px; align-items:center; padding:2px 4px; border-radius:6px; background:var(--bg-deep); border:1px solid var(--border-subtle);" aria-label="Language Switcher">
+              ${SUPPORTED_LOCALES.map(
+                (loc) =>
+                  `<button class="gal-btn sm ${curLoc === loc.code ? 'active' : ''}" data-gal-locale="${loc.code}" type="button" style="padding:4px 8px;">${loc.shortLabel}</button>`
+              ).join('')}
+            </div>
+            <a class="gal-btn gold" href="./index.html" id="link-back-to-game">${tr('進入戰棋主遊戲 · Launch Game →', '进入战棋主游戏 · Launch Game →', 'Launch Tactical Game →')}</a>
           </nav>
         </div>
 
         <div class="audit-strip">
           <div class="audit-strip-inner">
-            <span class="audit-pill">✓ 左側敵方 (BG) vs 右側我方 (TAI) 實機演武</span>
-            <span class="audit-pill">✓ ${audit.portraitsOk}/136 DATO 頭像 · ${audit.spritesOk} 組地圖走圖</span>
-            <span class="audit-pill">✓ ${audit.figOk} 單位 FIGANI + ${audit.spellAnimsCount} 組 FDOTHER 法術/召喚特效</span>
-            <span class="audit-pill">✓ 打擊幀 (b4=1) 同步扣血 + 原版擊退歸位曲線 (14→18→14→9→4→0 px)</span>
-            <span class="audit-pill info">來源：乾淨原版 FD2.EXE (已忽略 FD2.EX_)</span>
+            <span class="audit-pill">✓ ${tr('左側敵方 (BG) vs 右側我方 (TAI) 實機演武', '左侧敌方 (BG) vs 右侧我方 (TAI) 实机演武', 'Left Enemy (BG) vs Right Hero (TAI) Live Stage')}</span>
+            <span class="audit-pill">✓ ${tr(
+              `${audit.portraitsOk}/136 DATO 頭像 · ${audit.spritesOk} 組地圖走圖`,
+              `${audit.portraitsOk}/136 DATO 头像 · ${audit.spritesOk} 组地图走图`,
+              `${audit.portraitsOk}/136 DATO Portraits · ${audit.spritesOk} Map Sprite Groups`
+            )}</span>
+            <span class="audit-pill">✓ ${tr(
+              `${audit.figOk} 單位 FIGANI + ${audit.spellAnimsCount} 組 FDOTHER 法術/召喚特效`,
+              `${audit.figOk} 单位 FIGANI + ${audit.spellAnimsCount} 组 FDOTHER 法术/召唤特效`,
+              `${audit.figOk} Unit FIGANI + ${audit.spellAnimsCount} FDOTHER Spell/Summon FX`
+            )}</span>
+            <span class="audit-pill">✓ ${tr(
+              '打擊幀 (b4=1) 同步扣血 + 原版擊退歸位曲線 (14→18→14→9→4→0 px)',
+              '打击帧 (b4=1) 同步扣血 + 原版击退归位曲线 (14→18→14→9→4→0 px)',
+              'Hit-Frame (b4=1) Synced HP Drain + Authentic Recoil Curve (14→18→14→9→4→0 px)'
+            )}</span>
+            <span class="audit-pill info">${tr(
+              '來源：乾淨原版 FD2.EXE (已忽略 FD2.EX_)',
+              '来源：干净原版 FD2.EXE (已忽略 FD2.EX_)',
+              'Source: Clean Original FD2.EXE (FD2.EX_ Ignored)'
+            )}</span>
           </div>
         </div>
       </header>
 
       <main class="gal-main" id="gal-tab-body"></main>
     `;
+
+    this.rootEl.querySelectorAll<HTMLButtonElement>('[data-gal-locale]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const nextLoc = btn.dataset.galLocale as LocaleCode;
+        if (!nextLoc || nextLoc === getLocale()) return;
+        setLocale(nextLoc);
+        this.applyLocaleToGalleryData();
+        if (this.activeTab === 'duel') {
+          await this.rebuildDuelTimeline();
+        }
+        this.renderShell();
+      });
+    });
 
     this.rootEl.querySelectorAll<HTMLButtonElement>('[data-gtab]').forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -519,14 +594,14 @@ class MappingGalleryApp {
               <div class="hero-roster-meta">
                 <div class="hero-roster-top">
                   <span>
-                    ${this.assets.glyphsToHtml(h.nameGlyphs, isSel ? 'gold' : 'ivory', 15, h.nameZh)}
+                    ${this.assets.glyphsToHtml(h.nameGlyphs, isSel ? 'gold' : 'ivory', 15, h.nameZh, true)}
                     <strong style="margin-left:4px; font-size:13px;">${h.nameZh}</strong>
                   </span>
                   <span class="mono-tag">#${String(h.id).padStart(2, '0')}</span>
                 </div>
                 <div style="font-size:11.5px; color:var(--ink-400); margin-top:2px; display:flex; justify-content:space-between;">
                   <span>${h.raceZh} · ${h.classNameZh}</span>
-                  <span>${h.promotions.length}階轉職</span>
+                  <span>${tr(`${h.promotions.length}階轉職`, `${h.promotions.length}阶转职`, `${h.promotions.length} Tiers`)}</span>
                 </div>
               </div>
             </button>
@@ -553,17 +628,17 @@ class MappingGalleryApp {
         .map((u) => {
           const isSel = u.id === this.selectedRightUid;
           const subTag = !u.appearsOnBattlefield
-            ? '非戰場NPC'
+            ? tr('非戰場NPC', '非战场NPC', 'Town/Story NPC')
             : !u.canAttack
-              ? '受保護(僅受擊)'
-              : '戰場友軍';
+              ? tr('受保護(僅受擊)', '受保护(仅受击)', 'Protected (Defend)')
+              : tr('戰場友軍', '战场友军', 'Allied Unit');
           return `
             <button class="hero-roster-item ${isSel ? 'selected' : ''}" data-ruid="${u.id}" type="button">
               <img class="hero-thumb pixel-crisp" src="${this.assets.portraitToDataUrl(u.portraitId, 0)}" alt="${u.nameZh}" />
               <div class="hero-roster-meta">
                 <div class="hero-roster-top">
                   <span>
-                    ${this.assets.glyphsToHtml(u.nameGlyphs, isSel ? 'gold' : 'ivory', 15, u.nameZh)}
+                    ${this.assets.glyphsToHtml(u.nameGlyphs, isSel ? 'gold' : 'ivory', 15, u.nameZh, true)}
                     <strong style="margin-left:4px; font-size:13px;">${u.nameZh}</strong>
                   </span>
                   <span class="mono-tag">#${String(u.id).padStart(3, '0')}</span>
@@ -588,7 +663,7 @@ class MappingGalleryApp {
             <div class="hero-roster-meta">
               <div class="hero-roster-top">
                 <span>
-                  ${this.assets.glyphsToHtml(u.nameGlyphs, isSel ? 'crimson' : 'ivory', 15, u.nameZh)}
+                  ${this.assets.glyphsToHtml(u.nameGlyphs, isSel ? 'crimson' : 'ivory', 15, u.nameZh, true)}
                   <strong style="margin-left:4px; font-size:13px;">${u.nameZh}</strong>
                 </span>
                 <span class="mono-tag">#${String(u.id).padStart(3, '0')}</span>
@@ -615,7 +690,7 @@ class MappingGalleryApp {
     const promoStripHtml = ownerHero
       ? `
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 10px; border-radius:8px; background:var(--bg-deep); border:1px solid var(--border-subtle);">
-          <span class="mono-tag" style="color:var(--gold-300);">右側英雄轉職切換 (${ownerHero.nameZh})：</span>
+          <span class="mono-tag" style="color:var(--gold-300);">${tr('右側英雄轉職切換', '右侧英雄转职切换', 'Hero Promotion Tier')} (${ownerHero.nameZh})：</span>
           ${ownerHero.promotions
             .map((p) => {
               const active = p.unitId === rightEntry.id;
@@ -638,7 +713,7 @@ class MappingGalleryApp {
       caps.hasMagic && caps.spells.length > 0
         ? `
           <div style="display:flex; align-items:center; gap:6px; margin-left:auto;">
-            <span class="mono-tag" style="color:var(--azure);">施放攻擊法術：</span>
+            <span class="mono-tag" style="color:var(--azure);">${tr('施放攻擊法術：', '施放攻击法术：', 'Attack Spell:')}</span>
             <select class="gal-select" id="duel-spell-select" style="width:auto; min-width:175px; padding:5px 9px; font-size:12.5px;">
               ${caps.spells
                 .map(
@@ -651,20 +726,21 @@ class MappingGalleryApp {
         `
         : '';
 
+    const joinSep = tr('、', '、', ', ');
     const nonCutawayNotes: string[] = [];
     if (caps.mapOnlyAttackSpells.length > 0) {
       nonCutawayNotes.push(
-        `地圖範圍法術 (原版無切入動畫)：${caps.mapOnlyAttackSpells.map((s) => s.nameZh).join('、')}`
+        `${tr('地圖範圍法術 (原版無切入動畫)：', '地图范围法术 (原版无切入动画)：', 'Map-Only AoE Spells (No Cutaway): ')}${caps.mapOnlyAttackSpells.map((s) => s.nameZh).join(joinSep)}`
       );
     }
     if (caps.supportSpells.length > 0) {
       nonCutawayNotes.push(
-        `輔助/治療/狀態 (非攻擊動畫)：${caps.supportSpells.map((s) => s.nameZh).join('、')}`
+        `${tr('輔助/治療/狀態 (非攻擊動畫)：', '辅助/治疗/状态 (非攻击动画)：', 'Support / Heal / Status: ')}${caps.supportSpells.map((s) => s.nameZh).join(joinSep)}`
       );
     }
     if (caps.specialTechniques.length > 0) {
       nonCutawayNotes.push(
-        `必殺戰技 (歸屬必殺/劍氣)：${caps.specialTechniques.map((s) => s.nameZh).join('、')}`
+        `${tr('必殺戰技 (歸屬必殺/劍氣)：', '必杀战技 (归属必杀/剑气)：', 'Special Techniques (Under Special): ')}${caps.specialTechniques.map((s) => s.nameZh).join(joinSep)}`
       );
     }
     const nonCutawayHintHtml =
@@ -674,7 +750,7 @@ class MappingGalleryApp {
 
     const bgOptions = Array.from({ length: this.assets.gameData.bgCount }, (_, bid) => {
       const hasTai = this.assets.gameData.taiPlatforms[bid]?.valid;
-      return `<option value="${bid}" ${bid === this.previewBgId ? 'selected' : ''}>戰場背景 BG/TAI #${bid}${hasTai ? ' (含戰台)' : ''}</option>`;
+      return `<option value="${bid}" ${bid === this.previewBgId ? 'selected' : ''}>${tr('戰場背景 BG/TAI', '战场背景 BG/TAI', 'Battle BG/TAI')} #${bid}${hasTai ? tr(' (含戰台)', ' (含战台)', ' (w/ TAI)') : ''}</option>`;
     }).join('');
 
     const maxStep = Math.max(0, this.duelTimeline.length - 1);
@@ -687,8 +763,8 @@ class MappingGalleryApp {
       isRightTargetOnlyNpc || isLeftTargetOnlyNpc
         ? `
           <div style="padding:8px 12px; border-radius:8px; background:rgba(224,180,86,0.12); border:1px solid var(--border-brass); font-size:12.5px; color:var(--gold-200);">
-            🛡 <strong>受保護戰場NPC (${isRightTargetOnlyNpc ? `#${rightEntry.id} ${rightEntry.nameZh}` : `#${leftEntry.id} ${leftEntry.nameZh}`})</strong>：
-            ${(isRightTargetOnlyNpc ? rightEntry.usageNoteZh : leftEntry.usageNoteZh) ?? '在戰場上僅作為受保護/撤離目標承受敵軍攻擊，無武器且絕不主動攻擊或反擊。'}
+            🛡 <strong>${tr('受保護戰場NPC', '受保护战场NPC', 'Protected Battlefield NPC')} (${isRightTargetOnlyNpc ? `#${rightEntry.id} ${rightEntry.nameZh}` : `#${leftEntry.id} ${leftEntry.nameZh}`})</strong>：
+            ${(isRightTargetOnlyNpc ? rightEntry.usageNoteZh : leftEntry.usageNoteZh) ?? tr('在戰場上僅作為受保護/撤離目標承受敵軍攻擊，無武器且絕不主動攻擊或反擊。', '在战场上仅作为受保护/撤离目标承受敌军攻击，无武器且绝不主动攻击或反击。', 'Protected/escort battlefield NPC; can only be targeted by enemies and never initiates or counterattacks.')}
           </div>
         `
         : '';
@@ -698,12 +774,12 @@ class MappingGalleryApp {
           <div class="duel-stage-card">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
               <div>
-                <div class="card-title">非戰場角色檢視模式 (Non-Battlefield Town / Story / Unused Slot)</div>
+                <div class="card-title">${tr('非戰場角色檢視模式 (Non-Battlefield Town / Story / Unused Slot)', '非战场角色检视模式 (Non-Battlefield Town / Story / Unused Slot)', 'Non-Battlefield Character Inspector (Town / Story / Unused Slot)')}</div>
                 <div class="mono-tag" style="margin-top:2px; color:var(--gold-200);">
-                  檢視編號：<strong>#${nonBattlefieldEntry.id} (${nonBattlefieldEntry.hexId}) · ${nonBattlefieldEntry.nameZh} (${nonBattlefieldEntry.classNameZh})</strong>
+                  ${tr('檢視編號：', '检视编号：', 'Inspecting Slot: ')}<strong>#${nonBattlefieldEntry.id} (${nonBattlefieldEntry.hexId}) · ${nonBattlefieldEntry.nameZh} (${nonBattlefieldEntry.classNameZh})</strong>
                 </div>
               </div>
-              <span class="role-badge role-npc">絕不上戰場 (appearsOnBattlefield = false)</span>
+              <span class="role-badge role-npc">${tr('絕不上戰場 (appearsOnBattlefield = false)', '绝不上战场 (appearsOnBattlefield = false)', 'Non-Battlefield (appearsOnBattlefield = false)')}</span>
             </div>
 
             <div style="padding:18px; border-radius:10px; background:var(--bg-deep); border:1px solid var(--border-brass); display:flex; gap:18px; align-items:center; flex-wrap:wrap;">
@@ -717,13 +793,13 @@ class MappingGalleryApp {
               />
               <div style="flex:1; min-width:240px;">
                 <div style="font-size:15px; font-weight:700; color:var(--gold-200); margin-bottom:6px;">
-                  #${nonBattlefieldEntry.id} ${nonBattlefieldEntry.nameZh} — 原版 FD2.EXE 用途考證
+                  #${nonBattlefieldEntry.id} ${nonBattlefieldEntry.nameZh} — ${tr('原版 FD2.EXE 用途考證', '原版 FD2.EXE 用途考证', 'Original FD2.EXE Role & Usage')}
                 </div>
                 <div style="font-size:13px; line-height:1.6; color:var(--ink-200);">
-                  ${nonBattlefieldEntry.usageNoteZh ?? '非戰鬥角色，不會出現在第 1～30 章戰術地圖或 320×200 戰鬥畫面中。'}
+                  ${nonBattlefieldEntry.usageNoteZh ?? tr('非戰鬥角色，不會出現在第 1～30 章戰術地圖或 320×200 戰鬥畫面中。', '非战斗角色，不会出现在第 1～30 章战术地图或 320×200 战斗画面中。', 'Non-combat character; never appears on Chapters 1–30 tactical maps or the 320×200 combat stage.')}
                 </div>
                 <div class="mono-tag" style="margin-top:8px;">
-                  戰術地圖出場：0 章 ｜ 過場劇情地圖：${nonBattlefieldEntry.cutsceneAppearances?.length ?? 0} 幕 ｜ 對話台詞：${nonBattlefieldEntry.dialogueSegments} 段 (${nonBattlefieldEntry.dialogueChapters.length > 0 ? nonBattlefieldEntry.dialogueChapters.map((c) => `Ch${c}`).join(', ') : '城鎮商店/營地介面'})
+                  ${tr('戰術地圖出場：0 章', '战术地图出场：0 章', 'Tactical Maps: 0')} ｜ ${tr(`過場劇情地圖：${nonBattlefieldEntry.cutsceneAppearances?.length ?? 0} 幕`, `过场剧情地图：${nonBattlefieldEntry.cutsceneAppearances?.length ?? 0} 幕`, `Cutscene Maps: ${nonBattlefieldEntry.cutsceneAppearances?.length ?? 0}`)} ｜ ${tr(`對話台詞：${nonBattlefieldEntry.dialogueSegments} 段`, `对话台词：${nonBattlefieldEntry.dialogueSegments} 段`, `Dialogue Lines: ${nonBattlefieldEntry.dialogueSegments}`)} (${nonBattlefieldEntry.dialogueChapters.length > 0 ? nonBattlefieldEntry.dialogueChapters.map((c) => `Ch${c}`).join(', ') : tr('城鎮商店/營地介面', '城镇商店/营地界面', 'Town Shop / Camp UI')})
                 </div>
               </div>
             </div>
@@ -733,11 +809,15 @@ class MappingGalleryApp {
           <div class="duel-stage-card">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
               <div>
-                <div class="card-title">實機引擎戰鬥動畫演武台 (320×200 原生對戰 · 單目標法術滑入 · 打擊幀同步扣血)</div>
+                <div class="card-title">${tr(
+                  '實機引擎戰鬥動畫演武台 (320×200 原生對戰 · 單目標法術滑入 · 打擊幀同步扣血)',
+                  '实机引擎战斗动画演武台 (320×200 原生对战 · 单目标法术滑入 · 打击帧同步扣血)',
+                  'Live 320×200 Combat Animation Stage (Authentic Spell Slide-In & Hit-Frame Synced HP Drain)'
+                )}</div>
                 <div class="mono-tag" style="margin-top:2px;">
-                  左側敵方：<strong>#${leftEntry.id} ${leftEntry.nameZh} (${leftEntry.classNameZh})</strong>
+                  ${tr('左側敵方：', '左侧敌方：', 'Left Enemy: ')}<strong>#${leftEntry.id} ${leftEntry.nameZh} (${leftEntry.classNameZh})</strong>
                   &nbsp;VS&nbsp;
-                  右側我方：<strong>#${rightEntry.id} ${rightEntry.nameZh} (${rightEntry.classNameZh})</strong>
+                  ${tr('右側我方：', '右侧我方：', 'Right Hero: ')}<strong>#${rightEntry.id} ${rightEntry.nameZh} (${rightEntry.classNameZh})</strong>
                 </div>
               </div>
               <select class="gal-select" id="duel-bg-select" style="width:auto; padding:5px 9px; font-size:12px;">
@@ -753,25 +833,25 @@ class MappingGalleryApp {
               <button
                 class="init-toggle-btn ${!isHeroInit ? 'active-enemy' : ''}"
                 data-init="enemy"
-                ${isLeftTargetOnlyNpc ? 'disabled title="受保護戰場NPC (#133-#135) 絕不主動攻擊"' : ''}
+                ${isLeftTargetOnlyNpc ? `disabled title="${tr('受保護戰場NPC (#133-#135) 絕不主動攻擊', '受保护战场NPC (#133-#135) 绝不主动攻击', 'Protected Battlefield NPCs (#133-#135) never initiate attacks')}"` : ''}
                 type="button"
               >
-                <span>⚔ ${isLeftTargetOnlyNpc ? '左側為受保護NPC (不可攻擊)' : '敵方發動攻擊 (Left Enemy Initiates →)'}</span>
+                <span>⚔ ${isLeftTargetOnlyNpc ? tr('左側為受保護NPC (不可攻擊)', '左侧为受保护NPC (不可攻击)', 'Left is Protected NPC (Cannot Attack)') : tr('敵方發動攻擊 (Left Enemy Initiates →)', '敌方发动攻击 (Left Enemy Initiates →)', 'Left Enemy Initiates Attack →')}</span>
               </button>
               <button
                 class="init-toggle-btn ${isHeroInit ? 'active-hero' : ''}"
                 data-init="hero"
-                ${isRightTargetOnlyNpc ? 'disabled title="受保護戰場NPC (#133-#135) 僅承受敵方攻擊，絕不主動攻擊或反擊"' : ''}
+                ${isRightTargetOnlyNpc ? `disabled title="${tr('受保護戰場NPC (#133-#135) 僅承受敵方攻擊，絕不主動攻擊或反擊', '受保护战场NPC (#133-#135) 仅承受敌方攻击，绝不主动攻击或反击', 'Protected Battlefield NPCs (#133-#135) only receive attacks')}"` : ''}
                 type="button"
               >
-                <span>✦ ${isRightTargetOnlyNpc ? '右側為受保護NPC (僅承受攻擊)' : '我方發動攻擊 (← Right Hero Initiates)'}</span>
+                <span>✦ ${isRightTargetOnlyNpc ? tr('右側為受保護NPC (僅承受攻擊)', '右侧为受保护NPC (仅承受攻击)', 'Right is Protected NPC (Defend Only)') : tr('我方發動攻擊 (← Right Hero Initiates)', '我方发动攻击 (← Right Hero Initiates)', '← Right Hero Initiates Attack')}</span>
               </button>
             </div>
 
             <!-- Move Type Buttons: Hero has 4 (Melee, Ranged, Special, Magic); Enemy has 3 (Melee, Ranged, Magic) -->
             <div class="move-buttons-row">
               <span class="mono-tag" style="margin-right:4px;">
-                ${isHeroInit ? '我方招式：' : '敵方招式：'}
+                ${isHeroInit ? tr('我方招式：', '我方招式：', 'Hero Move:') : tr('敵方招式：', '敌方招式：', 'Enemy Move:')}
               </span>
               <button
                 class="move-btn ${this.selectedMove === 'melee' && caps.hasMelee ? 'active' : ''}"
@@ -779,7 +859,7 @@ class MappingGalleryApp {
                 ${caps.hasMelee ? '' : 'disabled'}
                 type="button"
               >
-                近戰攻擊 (Melee)
+                ${tr('近戰攻擊 (Melee)', '近战攻击 (Melee)', 'Melee Attack')}
               </button>
               <button
                 class="move-btn ${this.selectedMove === 'ranged' && caps.hasRanged ? 'active' : ''}"
@@ -787,7 +867,7 @@ class MappingGalleryApp {
                 ${caps.hasRanged ? '' : 'disabled'}
                 type="button"
               >
-                遠程攻擊 (Ranged)
+                ${tr('遠程攻擊 (Ranged)', '远程攻击 (Ranged)', 'Ranged Attack')}
               </button>
               ${
                 isHeroInit
@@ -798,7 +878,7 @@ class MappingGalleryApp {
                       ${caps.hasSpecial ? '' : 'disabled'}
                       type="button"
                     >
-                      必殺/劍氣 (Special)
+                      ${tr('必殺/劍氣 (Special)', '必杀/剑气 (Special)', 'Special Technique')}
                     </button>
                   `
                   : ''
@@ -809,7 +889,7 @@ class MappingGalleryApp {
                 ${caps.hasMagic ? '' : 'disabled'}
                 type="button"
               >
-                法術攻擊 (Magic)
+                ${tr('法術攻擊 (Magic)', '法术攻击 (Magic)', 'Magic Attack')}
               </button>
 
               ${spellSelectHtml}
@@ -824,12 +904,12 @@ class MappingGalleryApp {
 
             <!-- Playback Controls & Frame Scrubber -->
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-              <button class="gal-btn sm gold" id="duel-btn-replay" type="button">↻ 重播攻擊</button>
+              <button class="gal-btn sm gold" id="duel-btn-replay" type="button">↻ ${tr('重播攻擊', '重播攻击', 'Replay Attack')}</button>
               <button class="gal-btn sm" id="duel-btn-playpause" type="button">
                 ${this.getPlayPauseLabel()}
               </button>
               <button class="gal-btn sm ${this.duelLoop ? 'active' : ''}" id="duel-btn-loop" type="button">
-                🔁 自動循環：${this.duelLoop ? '開' : '關'}
+                🔁 ${tr('自動循環：', '自动循环：', 'Auto-Loop: ')}${this.duelLoop ? tr('開', '开', 'On') : tr('關', '关', 'Off')}
               </button>
               <span class="mono-tag" id="duel-step-label" style="min-width:255px; color:var(--gold-200);">
                 Step 1 / ${Math.max(1, this.duelTimeline.length)}
@@ -852,23 +932,23 @@ class MappingGalleryApp {
         <aside class="roster-panel">
           <div class="duel-column-header">
             <div class="duel-side-title enemy">
-              <span>← 左側戰場敵陣 (Standing on BG)</span>
+              <span>${tr('← 左側戰場敵陣 (Standing on BG)', '← 左侧战场敌阵 (Standing on BG)', '← Left Enemy Side (Standing on BG)')}</span>
               <span class="mono-tag">#${leftEntry.id}</span>
             </div>
             <div class="duel-filter-pills">
-              <button class="gal-btn sm ${this.enemyFilter === 'enemy_boss' ? 'active' : ''}" data-efilt="enemy_boss" type="button">敵軍/Boss (52)</button>
-              <button class="gal-btn sm ${this.enemyFilter === 'all_battlefield' ? 'active' : ''}" data-efilt="all_battlefield" type="button">全戰場單位 (124)</button>
+              <button class="gal-btn sm ${this.enemyFilter === 'enemy_boss' ? 'active' : ''}" data-efilt="enemy_boss" type="button">${tr('敵軍/Boss (52)', '敌军/Boss (52)', 'Enemies / Bosses (52)')}</button>
+              <button class="gal-btn sm ${this.enemyFilter === 'all_battlefield' ? 'active' : ''}" data-efilt="all_battlefield" type="button">${tr('全戰場單位 (124)', '全战场单位 (124)', 'All Battlefield Units (124)')}</button>
             </div>
             <input
               type="search"
               class="gal-input"
               id="enemy-search-input"
-              placeholder="搜尋左側戰場敵軍 / Boss / ID..."
+              placeholder="${tr('搜尋左側戰場敵軍 / Boss / ID...', '搜索左侧战场敌军 / Boss / ID...', 'Search left enemy / Boss / ID...')}"
               value="${this.escapeAttr(this.enemySearch)}"
             />
           </div>
           <div class="roster-list" id="enemy-roster-list">
-            ${leftListHtml || `<div style="padding:16px; color:var(--ink-400); text-align:center;">無符合條件的戰場單位</div>`}
+            ${leftListHtml || `<div style="padding:16px; color:var(--ink-400); text-align:center;">${tr('無符合條件的戰場單位', '无符合条件的战场单位', 'No matching battlefield units')}</div>`}
           </div>
         </aside>
 
@@ -887,24 +967,24 @@ class MappingGalleryApp {
         <aside class="roster-panel">
           <div class="duel-column-header">
             <div class="duel-side-title hero">
-              <span>右側我方 / NPC 檢視 →</span>
+              <span>${tr('右側我方 / NPC 檢視 →', '右侧我方 / NPC 检视 →', 'Right Hero / NPC Side →')}</span>
               <span class="mono-tag">#${rightEntry.id}</span>
             </div>
             <div class="duel-filter-pills">
-              <button class="gal-btn sm ${this.heroFilter === 'heroes_32' ? 'active' : ''}" data-hfilt="heroes_32" type="button">32名英雄</button>
-              <button class="gal-btn sm ${this.heroFilter === 'battlefield_allies_npcs' ? 'active' : ''}" data-hfilt="battlefield_allies_npcs" type="button">戰場友軍/受保護NPC</button>
-              <button class="gal-btn sm ${this.heroFilter === 'non_battlefield_npcs' ? 'active' : ''}" data-hfilt="non_battlefield_npcs" type="button">非戰場NPC (商店/劇情)</button>
+              <button class="gal-btn sm ${this.heroFilter === 'heroes_32' ? 'active' : ''}" data-hfilt="heroes_32" type="button">${tr('32名英雄', '32名英雄', '32 Heroes')}</button>
+              <button class="gal-btn sm ${this.heroFilter === 'battlefield_allies_npcs' ? 'active' : ''}" data-hfilt="battlefield_allies_npcs" type="button">${tr('戰場友軍/受保護NPC', '战场友军/受保护NPC', 'Battle Allies / Escorts')}</button>
+              <button class="gal-btn sm ${this.heroFilter === 'non_battlefield_npcs' ? 'active' : ''}" data-hfilt="non_battlefield_npcs" type="button">${tr('非戰場NPC (商店/劇情)', '非战场NPC (商店/剧情)', 'Town / Story NPCs')}</button>
             </div>
             <input
               type="search"
               class="gal-input"
               id="hero-search-input"
-              placeholder="搜尋右側英雄 / 友軍 / 商店劇情NPC..."
+              placeholder="${tr('搜尋右側英雄 / 友軍 / 商店劇情NPC...', '搜索右侧英雄 / 友军 / 商店剧情NPC...', 'Search right hero / ally / town NPC...')}"
               value="${this.escapeAttr(this.heroSearch)}"
             />
           </div>
           <div class="roster-list" id="hero-roster-list">
-            ${rightListHtml || `<div style="padding:16px; color:var(--ink-400); text-align:center;">無符合條件的角色</div>`}
+            ${rightListHtml || `<div style="padding:16px; color:var(--ink-400); text-align:center;">${tr('無符合條件的角色', '无符合条件的角色', 'No matching characters')}</div>`}
           </div>
         </aside>
       </div>
@@ -932,7 +1012,12 @@ class MappingGalleryApp {
       )
       .join('');
 
-    const dirLabels = ['↓南', '←西', '↑北', '→東'];
+    const dirLabels = [
+      tr('↓南', '↓南', '↓S'),
+      tr('←西', '←西', '←W'),
+      tr('↑北', '↑北', '↑N'),
+      tr('→東', '→东', '→E'),
+    ];
     const spriteRows = [0, 1, 2, 3]
       .map((dir) => {
         const cells = [0, 1, 2]
@@ -953,22 +1038,22 @@ class MappingGalleryApp {
     const statsHtml = ownerHero
       ? `
         <div class="kv-grid">
-          <div class="kv-box"><div class="kv-label">初始HP</div><div class="kv-val">${ownerHero.maxHp}</div></div>
-          <div class="kv-box"><div class="kv-label">初始MP</div><div class="kv-val">${ownerHero.maxMp}</div></div>
+          <div class="kv-box"><div class="kv-label">${tr('初始HP', '初始HP', 'Base HP')}</div><div class="kv-val">${ownerHero.maxHp}</div></div>
+          <div class="kv-box"><div class="kv-label">${tr('初始MP', '初始MP', 'Base MP')}</div><div class="kv-val">${ownerHero.maxMp}</div></div>
           <div class="kv-box"><div class="kv-label">AP / DP</div><div class="kv-val">${ownerHero.baseAp}/${ownerHero.baseDp}</div></div>
           <div class="kv-box"><div class="kv-label">DX / MV</div><div class="kv-val">${ownerHero.baseDx}/${ownerHero.mv}</div></div>
         </div>
         ${
           g
-            ? `<div class="mono-tag" style="margin-top:6px;">成長範圍：HP+${g.hp[0]}~${g.hp[1]} · MP+${g.mp[0]}~${g.mp[1]} · AP+${g.ap[0]}~${g.ap[1]} · DP+${g.dp[0]}~${g.dp[1]}</div>`
+            ? `<div class="mono-tag" style="margin-top:6px;">${tr('成長範圍：', '成长范围：', 'Growth: ')}HP+${g.hp[0]}~${g.hp[1]} · MP+${g.mp[0]}~${g.mp[1]} · AP+${g.ap[0]}~${g.ap[1]} · DP+${g.dp[0]}~${g.dp[1]}</div>`
             : ''
         }
       `
       : ec
         ? `
           <div class="kv-grid">
-            <div class="kv-box"><div class="kv-label">HP成長</div><div class="kv-val">${ec.hpGrowth}</div></div>
-            <div class="kv-box"><div class="kv-label">MP成長</div><div class="kv-val">${ec.mpGrowth}</div></div>
+            <div class="kv-box"><div class="kv-label">${tr('HP成長', 'HP成长', 'HP Grw')}</div><div class="kv-val">${ec.hpGrowth}</div></div>
+            <div class="kv-box"><div class="kv-label">${tr('MP成長', 'MP成长', 'MP Grw')}</div><div class="kv-val">${ec.mpGrowth}</div></div>
             <div class="kv-box"><div class="kv-label">AP / DP</div><div class="kv-val">${ec.apGrowth}/${ec.dpGrowth}</div></div>
             <div class="kv-box"><div class="kv-label">DX / MV</div><div class="kv-val">${ec.dxGrowth}/${ec.mv}</div></div>
           </div>
@@ -988,7 +1073,7 @@ class MappingGalleryApp {
             <div>
               <div class="mono-tag">${side === 'left' ? 'LEFT ENEMY' : 'RIGHT HERO'} · SLOT #${entry.id} (${entry.hexId})</div>
               <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
-                ${this.assets.glyphsToHtml(entry.nameGlyphs, side === 'left' ? 'crimson' : 'gold', 17, entry.nameZh)}
+                ${this.assets.glyphsToHtml(entry.nameGlyphs, side === 'left' ? 'crimson' : 'gold', 17, entry.nameZh, true)}
                 <strong>${entry.nameZh}</strong>
                 <span class="mono-tag">(${entry.classNameZh})</span>
               </div>
@@ -997,13 +1082,13 @@ class MappingGalleryApp {
         </div>
 
         <div class="mono-tag">
-          DATO[${entry.portraitId}] · FDICON[${entry.effectiveSpriteGroup}] · FIGANI(Idle:${figIdle}f, Atk:${figAtk}f${entry.figani?.attack?.isRemote ? '·遠程' : entry.id === 113 ? '·單屏光束砲' : ''}, Slot2:${figRng}f${figRng > 0 ? (entry.id === 18 || entry.id === 19 || entry.id === 25 || entry.id === 32 || entry.id === 34 ? '·必殺技' : entry.id === 50 ? '·必殺/詠唱' : '·施法詠唱') : ''})
+          DATO[${entry.portraitId}] · FDICON[${entry.effectiveSpriteGroup}] · FIGANI(Idle:${figIdle}f, Atk:${figAtk}f${entry.figani?.attack?.isRemote ? tr('·遠程', '·远程', '·Ranged') : entry.id === 113 ? tr('·單屏光束砲', '·单屏光束炮', '·Beam Cannon') : ''}, Slot2:${figRng}f${figRng > 0 ? (entry.id === 18 || entry.id === 19 || entry.id === 25 || entry.id === 32 || entry.id === 34 ? tr('·必殺技', '·必杀技', '·Special') : entry.id === 50 ? tr('·必殺/詠唱', '·必杀/咏唱', '·Special/Cast') : tr('·施法詠唱', '·施法咏唱', '·Spell Cast')) : ''})
         </div>
 
         <div class="portrait-frames-strip">${portraitStrip}</div>
 
         <div class="sprite-matrix">
-          <div>方向</div><div style="text-align:center;">F0</div><div style="text-align:center;">F1</div><div style="text-align:center;">F2</div>
+          <div>${tr('方向', '方向', 'Dir')}</div><div style="text-align:center;">F0</div><div style="text-align:center;">F1</div><div style="text-align:center;">F2</div>
           ${spriteRows}
         </div>
 
@@ -1016,7 +1101,7 @@ class MappingGalleryApp {
         }
 
         <div class="mono-tag">
-          戰場出場：${entry.chapterAppearances.length} 章${entry.cutsceneAppearances && entry.cutsceneAppearances.length > 0 ? ` · 過場劇情：${entry.cutsceneAppearances.length} 幕` : ''} · 對話台詞：${entry.dialogueSegments} 段
+          ${tr(`戰場出場：${entry.chapterAppearances.length} 章`, `战场出场：${entry.chapterAppearances.length} 章`, `Battle Maps: ${entry.chapterAppearances.length}`)}${entry.cutsceneAppearances && entry.cutsceneAppearances.length > 0 ? ` · ${tr(`過場劇情：${entry.cutsceneAppearances.length} 幕`, `过场剧情：${entry.cutsceneAppearances.length} 幕`, `Cutscenes: ${entry.cutsceneAppearances.length}`)}` : ''} · ${tr(`對話台詞：${entry.dialogueSegments} 段`, `对话台词：${entry.dialogueSegments} 段`, `Dialogues: ${entry.dialogueSegments}`)}
         </div>
       </div>
     `;
@@ -1277,13 +1362,13 @@ class MappingGalleryApp {
             <thead>
               <tr>
                 <th>Item ID</th>
-                <th>FDTXT 字模</th>
-                <th>UTF-8 名稱</th>
-                <th>分類 (Type)</th>
+                <th>${tr('FDTXT 字模', 'FDTXT 字模', 'FDTXT Bitmap')}</th>
+                <th>${tr('UTF-8 名稱', 'UTF-8 名称', 'Localized Name')}</th>
+                <th>${tr('分類 (Type)', '分类 (Type)', 'Category (Type)')}</th>
                 <th>AP / DP</th>
                 <th>HIT / EV</th>
-                <th>射程</th>
-                <th>價格 (G)</th>
+                <th>${tr('射程', '射程', 'Range')}</th>
+                <th>${tr('價格 (G)', '价格 (G)', 'Price (G)')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1292,7 +1377,7 @@ class MappingGalleryApp {
                   (it) => `
                     <tr>
                       <td class="mono-tag">#${it.id} (sys[${it.sysStringIndex}])</td>
-                      <td>${this.assets.glyphsToHtml(it.nameGlyphs, 'gold', 16, it.nameZh)}</td>
+                      <td>${this.assets.glyphsToHtml(it.nameGlyphs, 'gold', 16, it.nameZh, true)}</td>
                       <td><strong>${it.nameZh || '—'}</strong></td>
                       <td><span class="mono-tag">${it.category.toUpperCase()} (t=${it.itemType})</span></td>
                       <td class="mono-tag">+${it.ap} / +${it.dp}</td>
@@ -1314,11 +1399,11 @@ class MappingGalleryApp {
       });
 
       const categoryLabelMap: Record<string, { label: string; cls: string }> = {
-        cutaway_attack: { label: '戰鬥切入攻擊 (Func_108221)', cls: 'role-hero' },
-        map_attack: { label: '地圖範圍攻擊 (無切入動畫)', cls: 'role-promo' },
-        special_tech: { label: '必殺戰技 (Func_95980)', cls: 'role-hero' },
-        support: { label: '輔助/治療/召喚 (非攻擊)', cls: 'role-npc' },
-        unused: { label: '保留空位', cls: 'role-npc' },
+        cutaway_attack: { label: tr('戰鬥切入攻擊 (Func_108221)', '战斗切入攻击 (Func_108221)', 'Cutaway Attack (Func_108221)'), cls: 'role-hero' },
+        map_attack: { label: tr('地圖範圍攻擊 (無切入動畫)', '地图范围攻击 (无切入动画)', 'Map AoE Attack (No Cutaway)'), cls: 'role-promo' },
+        special_tech: { label: tr('必殺戰技 (Func_95980)', '必杀战技 (Func_95980)', 'Special Technique (Func_95980)'), cls: 'role-hero' },
+        support: { label: tr('輔助/治療/召喚 (非攻擊)', '辅助/治疗/召唤 (非攻击)', 'Support / Heal / Summon'), cls: 'role-npc' },
+        unused: { label: tr('保留空位', '保留空位', 'Reserved Slot'), cls: 'role-npc' },
       };
 
       tableHtml = `
@@ -1327,13 +1412,13 @@ class MappingGalleryApp {
             <thead>
               <tr>
                 <th>Spell ID</th>
-                <th>FDTXT[441+id] 字模</th>
-                <th>UTF-8 名稱</th>
-                <th>原版引擎動畫分類</th>
-                <th>耗魔 MP</th>
-                <th>威力 Power</th>
-                <th>FDOTHER 特效塊</th>
-                <th>射程 / 範圍 AoE</th>
+                <th>${tr('FDTXT[441+id] 字模', 'FDTXT[441+id] 字模', 'FDTXT[441+id] Bitmap')}</th>
+                <th>${tr('UTF-8 名稱', 'UTF-8 名称', 'Localized Name')}</th>
+                <th>${tr('原版引擎動畫分類', '原版引擎动画分类', 'Engine Animation Category')}</th>
+                <th>${tr('耗魔 MP', '耗魔 MP', 'MP Cost')}</th>
+                <th>${tr('威力 Power', '威力 Power', 'Power')}</th>
+                <th>${tr('FDOTHER 特效塊', 'FDOTHER 特效块', 'FDOTHER FX Block')}</th>
+                <th>${tr('射程 / 範圍 AoE', '射程 / 范围 AoE', 'Range / AoE')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1346,17 +1431,17 @@ class MappingGalleryApp {
                   const stripTxt =
                     sp.animEnemyStripId !== null || sp.animHeroStripId !== null
                       ? `OTHER[${sp.animEnemyStripId ?? '—'}/${sp.animHeroStripId ?? '—'}]`
-                      : '— (無切入特效塊)';
+                      : tr('— (無切入特效塊)', '— (无切入特效块)', '— (No Cutaway FX)');
                   return `
                     <tr>
                       <td class="mono-tag">#${sp.id} (sys[${sp.sysStringIndex}])</td>
-                      <td>${this.assets.glyphsToHtml(sp.nameGlyphs, 'azure', 16, sp.nameZh)}</td>
-                      <td><strong>${sp.nameZh || '(保留空位)'}</strong></td>
+                      <td>${this.assets.glyphsToHtml(sp.nameGlyphs, 'azure', 16, sp.nameZh, true)}</td>
+                      <td><strong>${sp.nameZh || tr('(保留空位)', '(保留空位)', '(Reserved Slot)')}</strong></td>
                       <td><span class="role-badge ${catInfo.cls}">${catInfo.label}</span></td>
                       <td class="mono-tag" style="color:var(--azure);">${sp.mpCost} MP</td>
                       <td class="mono-tag">${sp.power}</td>
                       <td class="mono-tag">${stripTxt}</td>
-                      <td class="mono-tag">Rng ${sp.castRange} · AoE ${sp.aoe}${sp.isLinear ? ' (直線穿透)' : ''}</td>
+                      <td class="mono-tag">Rng ${sp.castRange} · AoE ${sp.aoe}${sp.isLinear ? tr(' (直線穿透)', ' (直线穿透)', ' (Linear Beam)') : ''}</td>
                     </tr>
                   `;
                 })
@@ -1372,10 +1457,10 @@ class MappingGalleryApp {
             <thead>
               <tr>
                 <th>Class ID</th>
-                <th>FDTXT[150+id] 字模</th>
-                <th>UTF-8 職業名稱</th>
-                <th>基礎移動力 MV</th>
-                <th>移動模式 MoveMode</th>
+                <th>${tr('FDTXT[150+id] 字模', 'FDTXT[150+id] 字模', 'FDTXT[150+id] Bitmap')}</th>
+                <th>${tr('UTF-8 職業名稱', 'UTF-8 职业名称', 'Localized Class Name')}</th>
+                <th>${tr('基礎移動力 MV', '基础移动力 MV', 'Base MV')}</th>
+                <th>${tr('移動模式 MoveMode', '移动模式 MoveMode', 'Move Mode')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1384,7 +1469,7 @@ class MappingGalleryApp {
                   (c) => `
                     <tr>
                       <td class="mono-tag">#${c.id} (sys[${c.sysStringIndex}])</td>
-                      <td>${this.assets.glyphsToHtml(c.nameGlyphs, 'gold', 16, c.nameZh)}</td>
+                      <td>${this.assets.glyphsToHtml(c.nameGlyphs, 'gold', 16, c.nameZh, true)}</td>
                       <td><strong>${c.nameZh}</strong></td>
                       <td class="mono-tag">${c.mv}</td>
                       <td class="mono-tag">${c.moveMode.toUpperCase()}</td>
@@ -1401,9 +1486,9 @@ class MappingGalleryApp {
     container.innerHTML = `
       <div class="filter-bar">
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <button class="gal-btn sm ${this.catalogSubTab === 'items' ? 'active' : ''}" data-csub="items" type="button">武器與道具 (${this.dex.items.length})</button>
-          <button class="gal-btn sm ${this.catalogSubTab === 'spells' ? 'active' : ''}" data-csub="spells" type="button">法術與召喚 (${this.dex.spells.length})</button>
-          <button class="gal-btn sm ${this.catalogSubTab === 'classes' ? 'active' : ''}" data-csub="classes" type="button">職業定義 (${this.dex.heroClasses.length})</button>
+          <button class="gal-btn sm ${this.catalogSubTab === 'items' ? 'active' : ''}" data-csub="items" type="button">${tr('武器與道具', '武器与道具', 'Weapons & Items')} (${this.dex.items.length})</button>
+          <button class="gal-btn sm ${this.catalogSubTab === 'spells' ? 'active' : ''}" data-csub="spells" type="button">${tr('法術與召喚', '法术与召唤', 'Spells & Summons')} (${this.dex.spells.length})</button>
+          <button class="gal-btn sm ${this.catalogSubTab === 'classes' ? 'active' : ''}" data-csub="classes" type="button">${tr('職業定義', '职业定义', 'Hero Classes')} (${this.dex.heroClasses.length})</button>
 
           ${
             this.catalogSubTab === 'items'
@@ -1424,7 +1509,7 @@ class MappingGalleryApp {
             type="search"
             class="gal-input"
             id="catalog-search-input"
-            placeholder="搜尋道具或法術名稱 / ID..."
+            placeholder="${tr('搜尋道具或法術名稱 / ID...', '搜索道具或法术名称 / ID...', 'Search item, spell, or class name / ID...')}"
             value="${this.escapeAttr(this.catalogSearch)}"
           />
         </div>
@@ -1467,6 +1552,7 @@ class MappingGalleryApp {
     this.selectedChapterId = chapterId;
     const { data } = await this.assets.loadChapter(chapterId);
     this.loadedChapter = data;
+    this.applyLocaleToGalleryData();
     this.renderShell();
   }
 
@@ -1474,13 +1560,13 @@ class MappingGalleryApp {
     const chOptions = this.dex.chapters
       .map(
         (c) =>
-          `<option value="${c.id}" ${c.id === this.selectedChapterId ? 'selected' : ''}>Chapter ${c.chapterNumber}${c.isCutsceneMap ? ' [過場劇情地圖]' : ''} — ${c.titleZh} (${c.width}×${c.height})</option>`
+          `<option value="${c.id}" ${c.id === this.selectedChapterId ? 'selected' : ''}>Chapter ${c.chapterNumber}${c.isCutsceneMap ? tr(' [過場劇情地圖]', ' [过场剧情地图]', ' [Cutscene Map]') : ''} — ${c.titleZh} (${c.width}×${c.height})</option>`
       )
       .join('');
 
     const ch = this.loadedChapter;
     if (!ch) {
-      container.innerHTML = `<div class="gal-card">載入章節資料中...</div>`;
+      container.innerHTML = `<div class="gal-card">${tr('載入章節資料中...', '载入章节数据中...', 'Loading chapter data...')}</div>`;
       void this.selectChapterForValidation(this.selectedChapterId);
       return;
     }
@@ -1506,6 +1592,7 @@ class MappingGalleryApp {
       })
       .join('');
 
+    const curLoc = getLocale();
     const scenesHtml = ch.dialogues
       .map((scene, sIdx) => {
         if (!scene || scene.length === 0) return '';
@@ -1514,18 +1601,44 @@ class MappingGalleryApp {
             const isNarrator = seg.speaker === null || seg.speaker < 0;
             const pid = seg.portraitId !== undefined && seg.portraitId >= 0 ? seg.portraitId : seg.speaker ?? -1;
             const dexSpeaker = !isNarrator && seg.speaker !== null ? this.dex.unitDex[seg.speaker] : null;
-            const spkZh = isNarrator ? '旁白 (無說話者標記)' : seg.speakerNameZh ?? dexSpeaker?.nameZh ?? `Speaker #${seg.speaker}`;
+            const spkZh = isNarrator
+              ? tr('旁白 (無說話者標記)', '旁白 (无说话者标记)', 'Narrator (No Speaker Tag)')
+              : seg.speakerNameZh ?? dexSpeaker?.nameZh ?? `Speaker #${seg.speaker}`;
             const spkGlyphs = isNarrator ? [] : seg.speakerGlyphs ?? dexSpeaker?.nameGlyphs ?? [];
 
+            const locLines =
+              curLoc === 'en'
+                ? seg.linesEn && seg.linesEn.length > 0
+                  ? seg.linesEn
+                  : seg.lines.map((ln) => decodeGlyphsToText(ln, 'en'))
+                : curLoc === 'zh-CN'
+                  ? seg.linesZhCn && seg.linesZhCn.length > 0
+                    ? seg.linesZhCn
+                    : seg.lines.map((ln) => decodeGlyphsToText(ln, 'zh-CN'))
+                  : seg.linesZhTw && seg.linesZhTw.length > 0
+                    ? seg.linesZhTw
+                    : seg.lines.map((ln) => decodeGlyphsToText(ln, 'zh-TW'));
+
             const linesHtml = seg.lines
-              .map((ln) => `<div style="margin-top:3px;">${this.assets.glyphsToHtml(ln, 'ivory', 17, '')}</div>`)
+              .map((ln, idx) => {
+                const lineTxt = locLines[idx] ?? '';
+                if (curLoc === 'zh-TW') {
+                  return `<div style="margin-top:3px;">${this.assets.glyphsToHtml(ln, 'ivory', 17, lineTxt, true)}</div>`;
+                }
+                return `
+                  <div style="margin-top:4px; display:flex; flex-direction:column; gap:2px;">
+                    <div style="font-size:13.5px; color:var(--ink-100); font-weight:600; line-height:1.45;">${lineTxt}</div>
+                    <div style="opacity:0.72;">${this.assets.glyphsToHtml(ln, 'ivory', 14, '', true)}</div>
+                  </div>
+                `;
+              })
               .join('');
 
             return `
               <div class="dlg-row">
                 ${
                   isNarrator
-                    ? `<div class="dlg-narrator-box">旁白<br/>NULL</div>`
+                    ? `<div class="dlg-narrator-box">${tr('旁白', '旁白', 'NARR')}<br/>NULL</div>`
                     : `<img class="dlg-portrait pixel-crisp" src="${this.assets.portraitToDataUrl(pid, 0)}" alt="${spkZh}" />`
                 }
                 <div style="flex:1; min-width:0;">
@@ -1534,7 +1647,7 @@ class MappingGalleryApp {
                     <span class="role-badge ${isNarrator ? 'role-npc' : seg.speaker === 0 ? 'role-hero' : 'role-promo'}">
                       ${isNarrator ? 'speaker: null' : `speaker: ${seg.speaker} -> DATO[${pid}]`}
                     </span>
-                    ${spkGlyphs.length > 0 ? this.assets.glyphsToHtml(spkGlyphs, 'gold', 16, spkZh) : ''}
+                    ${spkGlyphs.length > 0 ? this.assets.glyphsToHtml(spkGlyphs, 'gold', 16, spkZh, true) : ''}
                     <strong style="color:var(--gold-200);">${spkZh}</strong>
                   </div>
                   <div>${linesHtml}</div>
@@ -1547,8 +1660,8 @@ class MappingGalleryApp {
         return `
           <div class="dlg-scene-block">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <strong style="color:var(--gold-300);">劇情事件段落 Scene #${sIdx}</strong>
-              <span class="mono-tag">${scene.length} 個對話框</span>
+              <strong style="color:var(--gold-300);">${tr('劇情事件段落', '剧情事件段落', 'Dialogue Scene')} #${sIdx}</strong>
+              <span class="mono-tag">${tr(`${scene.length} 個對話框`, `${scene.length} 个对话框`, `${scene.length} Dialogue Boxes`)}</span>
             </div>
             <div class="dlg-line-list">${rows}</div>
           </div>
@@ -1559,29 +1672,33 @@ class MappingGalleryApp {
     container.innerHTML = `
       <div class="filter-bar">
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-          <span style="font-weight:600; color:var(--gold-200);">選擇檢視章節：</span>
+          <span style="font-weight:600; color:var(--gold-200);">${tr('選擇檢視章節：', '选择检视章节：', 'Select Chapter:')}</span>
           <select class="gal-select" id="chapter-val-select" style="width:auto; min-width:290px;">
             ${chOptions}
           </select>
           <span class="mono-tag">
-            地圖尺寸 ${ch.width}×${ch.height} · 我方出擊上限 ${ch.maxDeploy} · 地圖預設單位 ${ch.units.length} 名
+            ${tr(
+              `地圖尺寸 ${ch.width}×${ch.height} · 我方出擊上限 ${ch.maxDeploy} · 地圖預設單位 ${ch.units.length} 名`,
+              `地图尺寸 ${ch.width}×${ch.height} · 我方出击上限 ${ch.maxDeploy} · 地图预设单位 ${ch.units.length} 名`,
+              `Map ${ch.width}×${ch.height} · Max Deploy ${ch.maxDeploy} · Preset Units: ${ch.units.length}`
+            )}
           </span>
         </div>
         <div style="display:flex; align-items:center; gap:10px;">
-          <span>章節標題字模：${this.assets.glyphsToHtml(ch.titleGlyphs, 'gold', 18, ch.titleZh)}</span>
+          <span>${tr('章節標題字模：', '章节标题字模：', 'Chapter Title Bitmap: ')}${this.assets.glyphsToHtml(ch.titleGlyphs, 'gold', 18, ch.titleZh, true)} <strong style="color:var(--gold-200); margin-left:4px;">${ch.titleZh}</strong></span>
         </div>
       </div>
 
       <div class="gal-card" style="margin-bottom:16px;">
         <div class="card-header-row">
-          <div class="card-title">本章地圖配置單位驗證 (FDFIELD.DAT Units — 0-Indexed uid)</div>
-          <span class="mono-tag">共 ${ch.units.length} 名預設出場單位</span>
+          <div class="card-title">${tr('本章地圖配置單位驗證 (FDFIELD.DAT Units — 0-Indexed uid)', '本章地图配置单位验证 (FDFIELD.DAT Units — 0-Indexed uid)', 'Chapter Preset Unit Spawns (FDFIELD.DAT Units — 0-Indexed uid)')}</div>
+          <span class="mono-tag">${tr(`共 ${ch.units.length} 名預設出場單位`, `共 ${ch.units.length} 名预设出场单位`, `${ch.units.length} Preset Spawn Units`)}</span>
         </div>
         <div class="tag-list">${unitRosterHtml}</div>
       </div>
 
       <div>
-        ${scenesHtml || `<div class="gal-card">本章無對話事件。</div>`}
+        ${scenesHtml || `<div class="gal-card">${tr('本章無對話事件。', '本章无对话事件。', 'No dialogue events in this chapter.')}</div>`}
       </div>
     `;
 
@@ -1680,7 +1797,7 @@ class MappingGalleryApp {
 
         const lbl = document.getElementById('duel-step-label');
         if (lbl) {
-          const doneTag = !this.duelPlaying && stepIdx >= lastIdx ? ' · 已完成' : '';
+          const doneTag = !this.duelPlaying && stepIdx >= lastIdx ? tr(' · 已完成', ' · 已完成', ' · Done') : '';
           lbl.textContent = `${step.stageLabel} (Step ${stepIdx + 1}/${this.duelTimeline.length}${doneTag})`;
         }
       }
@@ -1699,9 +1816,11 @@ class MappingGalleryApp {
   }
 
   private getPlayPauseLabel(): string {
-    if (this.duelPlaying) return '⏸ 暫停逐格檢視';
+    if (this.duelPlaying) return tr('⏸ 暫停逐格檢視', '⏸ 暂停逐格检视', '⏸ Pause Frame');
     const lastIdx = Math.max(0, this.duelTimeline.length - 1);
-    return this.manualStepIdx >= lastIdx ? '▶ 播放攻擊' : '▶ 繼續播放';
+    return this.manualStepIdx >= lastIdx
+      ? tr('▶ 播放攻擊', '▶ 播放攻击', '▶ Play Attack')
+      : tr('▶ 繼續播放', '▶ 继续播放', '▶ Resume');
   }
 
   private syncPlaybackControlsUi(): void {
@@ -1712,7 +1831,7 @@ class MappingGalleryApp {
     const loopBtn = document.getElementById('duel-btn-loop');
     if (loopBtn) {
       loopBtn.classList.toggle('active', this.duelLoop);
-      loopBtn.textContent = `🔁 自動循環：${this.duelLoop ? '開' : '關'}`;
+      loopBtn.textContent = `🔁 ${tr('自動循環：', '自动循环：', 'Auto-Loop: ')}${this.duelLoop ? tr('開', '开', 'On') : tr('關', '关', 'Off')}`;
     }
     const scrub = document.getElementById('duel-scrubber') as HTMLInputElement | null;
     if (scrub && document.activeElement !== scrub) {

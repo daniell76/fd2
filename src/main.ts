@@ -460,6 +460,24 @@ class FlameDragonWebApp {
     setTxt('btn-skip-dialogue', tr('略過對話 / 演出', '跳过对话 / 演出', 'Skip Cutscene'));
     setTxt('btn-close-modal', tr('關閉', '关闭', 'Close'));
 
+    document.title = tr(
+      '炎龍騎士團II：黃金城之謎 — Web Tactical Edition',
+      '炎龙骑士团II：黄金城之谜 — Web Tactical Edition',
+      'Flame Dragon II: Legend of Golden Castle — Web Tactical Edition'
+    );
+    const setAttrTitle = (id: string, text: string) => {
+      const el = document.getElementById(id);
+      if (el) el.title = text;
+    };
+    setAttrTitle('btn-next-hero', tr('切換至下一名尚未行動的我軍隊員 (Tab)', '切换至下一名尚未行动的我军队员 (Tab)', 'Focus next unacted hero (Tab)'));
+    setAttrTitle('btn-situation-top', tr('開啟戰況一覽 (S)', '开启战况一览 (S)', 'Open Battle Situation Overview (S)'));
+    setAttrTitle('btn-end-turn', tr('結束我軍回合 (E)', '结束我军回合 (E)', 'End Player Turn (E)'));
+
+    this.modals.refreshIfOpen();
+    if (this.uiState === 'choosing_spell' && this.selectedUnit) {
+      this.openSpellBookPopup(this.selectedUnit);
+    }
+
     const hoveredUnit = this.activeUnits.find((u) => u.x === this.hoverTile[0] && u.y === this.hoverTile[1]);
     const unitToInspect = this.selectedUnit ?? hoveredUnit ?? this.activeUnits.find((u) => u.faction === 'player') ?? null;
     if (unitToInspect) {

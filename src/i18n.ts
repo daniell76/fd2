@@ -699,6 +699,28 @@ export function getLocalizedSpeakerName(speakerId: number | null, fallbackZh = '
   return getLocalizedUnitName(speakerId, fallbackZh);
 }
 
+export function getLocalizedUnitUsageNote(u: { id: number; role?: string; usageNoteZh?: string }): string {
+  const id = u.id;
+  if (id === 39) return tr('劇情 NPC（瑪琳村長老，第1～2章）', '剧情 NPC（玛琳村长老，第1～2章）', 'Story NPC (Marin Village Elder, Ch. 1–2)');
+  if (id === 48) return tr('劇情 NPC（羅特帝亞國王 雷特，第3～4章）', '剧情 NPC（罗特帝亚国王 雷特，第3～4章）', 'Story NPC (King Leite of Lotedia, Ch. 3–4)');
+  if (id === 66) return tr('劇情 NPC（羅特帝亞王后 米蘭，第3～4章）', '剧情 NPC（罗特帝亚王后 米兰，第3～4章）', 'Story NPC (Queen Milan of Lotedia, Ch. 3–4)');
+  if (id === 57 || id === 67) return tr('未使用之預留轉職槽位', '未使用之预留转职槽位', 'Unused Reserved Promotion Slot');
+  if (id >= 0 && id <= 31) return tr('我方登場角色（32名夥伴槽位 0..31）', '我方登场角色（32名伙伴槽位 0..31）', 'Playable Hero (32 Party Slots 0..31)');
+  if (id >= 32 && id <= 49) return tr('英雄轉職後形態（神殿一般轉職 32..49）', '英雄转职后形态（神殿一般转职 32..49）', 'Promoted Hero Form (Sanctuary Promotion 32..49)');
+  if (id >= 50 && id <= 65) return tr('英雄隱藏轉職形態（特殊道具轉職 50..65）', '英雄隐藏转职形态（特殊道具转职 50..65）', 'Secret Promoted Form (Special Item Promotion 50..65)');
+  if (id >= 68 && id <= 73) return tr('友軍／王國守軍／市民單位', '友军／王国守军／市民单位', 'Allied / Kingdom Guard / Citizen Unit');
+  if (id === 74) return tr('友軍／劇情事件特殊角色', '友军／剧情事件特殊角色', 'Allied / Special Story Event Unit');
+  if (id === 75) return tr('系統介面角色（戰場存檔／系統選單代言人）', '系统界面角色（战场存档／系统菜单代言人）', 'System UI Character (Battle Save / Menu Attendant)');
+  if (id === 128) return tr('城鎮設施 NPC（武器店老闆）', '城镇设施 NPC（武器店老板）', 'Town Facility NPC (Weapon Shopkeeper)');
+  if (id === 129) return tr('城鎮設施 NPC（道具店店員）', '城镇设施 NPC（道具店店员）', 'Town Facility NPC (Item Shop Clerk)');
+  if (id === 130) return tr('城鎮設施 NPC（教會神父 — 復活／轉職／記錄）', '城镇设施 NPC（教会神父 — 复活／转职／记录）', 'Town Facility NPC (Church Priest — Revive / Promote / Save)');
+  if (id === 131) return tr('城鎮設施 NPC（旅店／情報屋掌櫃）', '城镇设施 NPC（旅店／情报屋掌柜）', 'Town Facility NPC (Inn / Tavern Keeper)');
+  if (id === 132) return tr('城鎮設施 NPC（教會修女／神殿侍女）', '城镇设施 NPC（教会修女／神殿侍女）', 'Town Facility NPC (Church Sister / Sanctuary Attendant)');
+  if (id >= 133 && id <= 135) return tr('戰場護衛／劇情保護目標 NPC', '战场护卫／剧情保护目标 NPC', 'Battlefield Escort / Protected Story NPC');
+  if (u.role === 'boss') return tr('敵軍首領／劇情頭目單位', '敌军首领／剧情头目单位', 'Enemy Commander / Story Boss Unit');
+  return tr('敵軍一般部隊單位', '敌军一般部队单位', 'Standard Enemy Troop Unit');
+}
+
 /**
  * Applies the active locale in-place to `gameData`, any active `ChapterData`,
  * live `BattleUnit[]`, and `PartyMemberSave[]`, so all downstream rendering
@@ -710,6 +732,10 @@ export function applyLocaleToGameState(
   battleUnits?: BattleUnit[],
   party?: PartyMemberSave[]
 ): void {
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang =
+      currentLocale === 'zh-TW' ? 'zh-Hant' : currentLocale === 'zh-CN' ? 'zh-Hans' : 'en';
+  }
   if (!gameData) return;
 
   for (const r of gameData.races ?? []) {
@@ -735,6 +761,7 @@ export function applyLocaleToGameState(
   for (const u of gameData.unitDex ?? []) {
     u.nameZh = getLocalizedUnitName(u.id, u.nameZh);
     u.raceZh = getLocalizedRaceName(u.raceId, u.raceZh);
+    u.usageNoteZh = getLocalizedUnitUsageNote(u);
     // Find matching class ID if hero/promoted
     const matchingClass = (gameData.heroClasses ?? []).find(
       (c) => JSON.stringify(c.nameGlyphs) === JSON.stringify(u.classGlyphs)

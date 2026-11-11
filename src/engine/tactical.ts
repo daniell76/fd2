@@ -53,7 +53,7 @@ export function getUnitClassLabel(uid: number, classId: number, gd: GameData): s
   const dex = gd.unitDex[uid];
   if (dex?.classNameZh) return dex.classNameZh;
   const hc = gd.heroClasses.find((c) => c.id === classId);
-  return hc?.nameZh ?? '戰士';
+  return hc?.nameZh ?? tr('戰士', '战士', 'Fighter');
 }
 
 /**
@@ -285,7 +285,7 @@ export function getTerrainInfo(chapter: ChapterData, x: number, y: number): {
   const cell = chapter.cells[y]?.[x];
   if (!cell) {
     return {
-      name: '地圖邊界',
+      name: tr('地圖邊界', '地图边界', 'Map Boundary'),
       apBonus: 0,
       defBonus: 0,
       bonusIdx: 5,
@@ -314,7 +314,7 @@ export function getTerrainInfo(chapter: ChapterData, x: number, y: number): {
 
   if (isBlocked) {
     return {
-      name: '城牆 / 障壁 (不可通行)',
+      name: tr('城牆 / 障壁 (不可通行)', '城墙 / 障壁 (不可通行)', 'Wall / Barrier (Impassable)'),
       apBonus,
       defBonus,
       bonusIdx,
@@ -1649,7 +1649,7 @@ export function resolveAreaItemUse(
 } {
   const itemId = actor.items[itemIdxInBag];
   const item = gd.items[itemId];
-  if (!item) return { item: undefined, healed: [], summaryZh: '無效果' };
+  if (!item) return { item: undefined, healed: [], summaryZh: tr('無效果', '无效果', 'No effect') };
 
   // Self-only permanent stat potions (`useRange === 0`: `#94..#96`, `#198..#200`) delegate directly to `useConsumable`
   if ((item.useRange ?? 1) === 0) {

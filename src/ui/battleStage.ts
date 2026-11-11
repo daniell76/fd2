@@ -1,4 +1,5 @@
 import type { AssetManager } from '../engine/assets';
+import { tr } from '../i18n';
 import type { FigAniStrip, GameData, SpellDef, UnitDexEntry } from '../types';
 
 export type BattleMoveKind = 'melee' | 'ranged' | 'special' | 'magic';
@@ -427,7 +428,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: 1,
           mode: actorMode,
-          stageLabel: `[1/3 砲座就位] ${s + 1}/${SLIDE_IN_STEPS}`,
+          stageLabel: `${tr('[1/3 砲座就位]', '[1/3 炮座就位]', '[1/3 Turret Slide-In]')} ${s + 1}/${SLIDE_IN_STEPS}`,
           leftPack: actor.isHeroSide ? targetIdle : (actorIdle ?? actPack),
           leftFrameIdx: 0,
           leftSlideX: actor.isHeroSide ? 0 : slideX,
@@ -447,7 +448,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: dly,
           mode: actorMode,
-          stageLabel: `[1/3 光束砲發射] F${i + 1}/${frames.length}${isBeamFire ? ' ★BEAM' : ''}`,
+          stageLabel: `${tr('[1/3 光束砲發射]', '[1/3 光束炮发射]', '[1/3 Beam Cannon Fire]')} F${i + 1}/${frames.length}${isBeamFire ? ' ★BEAM' : ''}`,
           leftPack: actor.isHeroSide ? targetIdle : actPack,
           leftFrameIdx: actor.isHeroSide ? 0 : i,
           rightPack: actor.isHeroSide ? actPack : targetIdle,
@@ -463,7 +464,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: 2,
           mode: 'bridge',
-          stageLabel: `[2/3 光束貫穿] BG[${b % 3}] (${b + 1}/${REMOTE_BRIDGE_STEPS})`,
+          stageLabel: `${tr('[2/3 光束貫穿]', '[2/3 光束贯穿]', '[2/3 Beam Transit]')} BG[${b % 3}] (${b + 1}/${REMOTE_BRIDGE_STEPS})`,
           bridgeStep: b,
         })
       );
@@ -493,13 +494,14 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
 
       const dx = PHYSICAL_HIT_RECOIL_CURVE[recoilV6];
       const signedRecoilX = target.isHeroSide ? dx : -dx;
-      const recoilNote = dx > 0 ? ` · 擊退 ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
+      const recoilNote =
+        dx > 0 ? ` · ${tr('擊退', '击退', 'Recoil')} ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
 
       steps.push(
         makeStep({
           delay: 1,
           mode: targetMode,
-          stageLabel: `[3/3 光束命中] T${tick + 1}/${impactTicks}${tick === 1 ? ' ★HIT 1/1' : ''}${recoilNote}`,
+          stageLabel: `${tr('[3/3 光束命中]', '[3/3 光束命中]', '[3/3 Beam Impact]')} T${tick + 1}/${impactTicks}${tick === 1 ? ' ★HIT 1/1' : ''}${recoilNote}`,
           leftSlideX: !target.isHeroSide ? signedRecoilX : 0,
           rightSlideX: target.isHeroSide ? signedRecoilX : 0,
           leftFlash: !target.isHeroSide && isFlashTick,
@@ -520,7 +522,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: 1,
           mode: targetMode,
-          stageLabel: `[結算] 總傷害 -${inp.hit ? inp.totalDamage : 0} (1 Hit)`,
+          stageLabel: `${tr('[結算] 總傷害', '[结算] 总伤害', '[Result] Total DMG')} -${inp.hit ? inp.totalDamage : 0} (1 Hit)`,
           leftSlideX: !target.isHeroSide ? signedRecoilX : 0,
           rightSlideX: target.isHeroSide ? signedRecoilX : 0,
         })
@@ -549,7 +551,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: dly,
           mode: actorMode,
-          stageLabel: `[1/3 攻方發動] F${i + 1}/${frames.length}`,
+          stageLabel: `${tr('[1/3 攻方發動]', '[1/3 攻方发动]', '[1/3 Attacker Launch]')} F${i + 1}/${frames.length}`,
           leftPack: actor.isHeroSide ? targetIdle : actPack,
           leftFrameIdx: actor.isHeroSide ? 0 : i,
           rightPack: actor.isHeroSide ? actPack : targetIdle,
@@ -565,7 +567,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: 2,
           mode: 'bridge',
-          stageLabel: `[2/3 遠程過場] BG[${b % 3}] (${b + 1}/${REMOTE_BRIDGE_STEPS})`,
+          stageLabel: `${tr('[2/3 遠程過場]', '[2/3 远程过场]', '[2/3 Ranged Transit]')} BG[${b % 3}] (${b + 1}/${REMOTE_BRIDGE_STEPS})`,
           bridgeStep: b,
         })
       );
@@ -604,13 +606,14 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         const dx = PHYSICAL_HIT_RECOIL_CURVE[recoilV6];
         const signedRecoilX = target.isHeroSide ? dx : -dx;
         const isFlashTick = isHitFrame && tick === 0;
-        const recoilNote = dx > 0 ? ` · 擊退 ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
+        const recoilNote =
+          dx > 0 ? ` · ${tr('擊退', '击退', 'Recoil')} ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
 
         steps.push(
           makeStep({
             delay: 1,
             mode: targetMode,
-            stageLabel: `[3/3 命中目標] F${i + 1}/${frames.length} (T${tick + 1}/${dly})${hitInfo && tick === 0 ? ` ★HIT ${hitInfo.idx + 1}/${hitFrames.length}` : ''}${recoilNote}`,
+            stageLabel: `${tr('[3/3 命中目標]', '[3/3 命中目标]', '[3/3 Target Impact]')} F${i + 1}/${frames.length} (T${tick + 1}/${dly})${hitInfo && tick === 0 ? ` ★HIT ${hitInfo.idx + 1}/${hitFrames.length}` : ''}${recoilNote}`,
             leftSlideX: !target.isHeroSide ? signedRecoilX : 0,
             rightSlideX: target.isHeroSide ? signedRecoilX : 0,
             leftFlash: !target.isHeroSide && isFlashTick,
@@ -629,12 +632,13 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
     for (let h = 0; h < settleTicks; h++) {
       const dx = PHYSICAL_HIT_RECOIL_CURVE[recoilV6];
       const signedRecoilX = target.isHeroSide ? dx : -dx;
-      const recoilNote = dx > 0 ? ` · 歸位 ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
+      const recoilNote =
+        dx > 0 ? ` · ${tr('歸位', '归位', 'Return')} ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
       steps.push(
         makeStep({
           delay: 1,
           mode: targetMode,
-          stageLabel: `[結算] 總傷害 -${inp.hit ? inp.totalDamage : 0} (${hitFrames.length} Hits)${recoilNote}`,
+          stageLabel: `${tr('[結算] 總傷害', '[结算] 总伤害', '[Result] Total DMG')} -${inp.hit ? inp.totalDamage : 0} (${hitFrames.length} Hits)${recoilNote}`,
           leftSlideX: !target.isHeroSide ? signedRecoilX : 0,
           rightSlideX: target.isHeroSide ? signedRecoilX : 0,
         })
@@ -665,7 +669,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
             delay: dly,
             mode: actorMode,
             showBothHuds: true,
-            stageLabel: `[1/2 必殺蓄力] F${i + 1}/${count}`,
+            stageLabel: `${tr('[1/2 必殺蓄力]', '[1/2 必杀蓄力]', '[1/2 Special Charge]')} F${i + 1}/${count}`,
             leftPack: actor.isHeroSide ? targetIdle : actPack,
             leftFrameIdx: actor.isHeroSide ? 0 : i,
             rightPack: actor.isHeroSide ? actPack : targetIdle,
@@ -720,7 +724,11 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         }
       }
 
-      const stagePrefix = isSpecial2StageShared ? '[2/2 淒煌連斬]' : inp.specialTechId ? '[必殺技]' : '[交鋒]';
+      const stagePrefix = isSpecial2StageShared
+        ? tr('[2/2 淒煌連斬]', '[2/2 凄煌连斩]', '[2/2 Bleak Flurry]')
+        : inp.specialTechId
+          ? tr('[必殺技]', '[必杀技]', '[Special]')
+          : tr('[交鋒]', '[交锋]', '[Clash]');
 
       for (let tick = 0; tick < dly; tick++) {
         const dx = PHYSICAL_HIT_RECOIL_CURVE[recoilV6];
@@ -730,7 +738,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         const isFlashTick = isHitFrame && tick === 0;
         const recoilNote =
           dx > 0
-            ? ` · 擊退 (${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX},${signedRecoilY > 0 ? `+${signedRecoilY}` : signedRecoilY})px`
+            ? ` · ${tr('擊退', '击退', 'Recoil')} (${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX},${signedRecoilY > 0 ? `+${signedRecoilY}` : signedRecoilY})px`
             : '';
 
         steps.push(
@@ -765,14 +773,14 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
       const signedRecoilY = target.isHeroSide ? dy : -dy;
       const recoilNote =
         dx > 0
-          ? ` · 歸位 (${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX},${signedRecoilY > 0 ? `+${signedRecoilY}` : signedRecoilY})px`
+          ? ` · ${tr('歸位', '归位', 'Return')} (${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX},${signedRecoilY > 0 ? `+${signedRecoilY}` : signedRecoilY})px`
           : '';
 
       steps.push(
         makeStep({
           delay: 1,
           mode: 'both',
-          stageLabel: `[結算] 總傷害 -${inp.hit ? inp.totalDamage : 0} (${hitFrames.length} Hits)${recoilNote}`,
+          stageLabel: `${tr('[結算] 總傷害', '[结算] 总伤害', '[Result] Total DMG')} -${inp.hit ? inp.totalDamage : 0} (${hitFrames.length} Hits)${recoilNote}`,
           leftSlideX: !target.isHeroSide ? signedRecoilX : 0,
           leftSlideY: !target.isHeroSide ? signedRecoilY : 0,
           rightSlideX: target.isHeroSide ? signedRecoilX : 0,
@@ -1193,7 +1201,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
       delay: dly,
       mode: casterMode,
       showBothHuds: firstTarget !== null,
-      stageLabel: `[1/2 詠唱施法: ${spell.nameZh}] F${i + 1}/${castCount}`,
+      stageLabel: `[${tr('1/2 詠唱施法', '1/2 咏唱施法', '1/2 Spell Chant')}: ${spell.nameZh}] F${i + 1}/${castCount}`,
       leftUnit: leftU,
       rightUnit: rightU,
       leftPack: caster.isHeroSide ? null : castPack,
@@ -1238,7 +1246,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
         delay: 1,
         mode: targetMode,
         showBothHuds: leftU !== rightU,
-        stageLabel: `[2/2 目標滑入${targetTag}] ${s + 1}/${SLIDE_IN_STEPS}`,
+        stageLabel: `[${tr('2/2 目標滑入', '2/2 目标滑入', '2/2 Target Slide-In')}${targetTag}] ${s + 1}/${SLIDE_IN_STEPS}`,
         leftUnit: leftU,
         rightUnit: rightU,
         leftPack: target.isHeroSide ? null : targetIdle,
@@ -1312,13 +1320,14 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
         const dx = PHYSICAL_HIT_RECOIL_CURVE[recoilV6];
         const signedRecoilX = target.isHeroSide ? dx : -dx;
         const isFlashTick = isHitFrame && tick === 0;
-        const recoilNote = dx > 0 ? ` · 擊退 ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
+        const recoilNote =
+          dx > 0 ? ` · ${tr('擊退', '击退', 'Recoil')} ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
 
         steps.push({
           delay: 1,
           mode: targetMode,
           showBothHuds: leftU !== rightU,
-          stageLabel: `[2/2 法術轟擊: ${spell.nameZh}${targetTag}] F${pIdx + 1}/${tickPlans.length}${hitInfo && tick === 0 ? ` ★HIT ${hitInfo.idx + 1}/${hitStepIndices.length}` : ''}${recoilNote}`,
+          stageLabel: `[${tr('2/2 法術轟擊', '2/2 法术轰击', '2/2 Spell Barrage')}: ${spell.nameZh}${targetTag}] F${pIdx + 1}/${tickPlans.length}${hitInfo && tick === 0 ? ` ★HIT ${hitInfo.idx + 1}/${hitStepIndices.length}` : ''}${recoilNote}`,
           leftUnit: leftU,
           rightUnit: rightU,
           leftPack: target.isHeroSide ? null : targetIdle,
@@ -1356,12 +1365,13 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
     for (let h = 0; h < settleTicks; h++) {
       const dx = PHYSICAL_HIT_RECOIL_CURVE[recoilV6];
       const signedRecoilX = target.isHeroSide ? dx : -dx;
-      const recoilNote = dx > 0 ? ` · 歸位 ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
+      const recoilNote =
+        dx > 0 ? ` · ${tr('歸位', '归位', 'Return')} ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
       steps.push({
         delay: 1,
         mode: targetMode,
         showBothHuds: leftU !== rightU,
-        stageLabel: `[結算${targetTag}] ${spell.nameZh} ${settleText}${recoilNote}`,
+        stageLabel: `[${tr('結算', '结算', 'Result')}${targetTag}] ${spell.nameZh} ${settleText}${recoilNote}`,
         leftUnit: leftU,
         rightUnit: rightU,
         leftPack: target.isHeroSide ? null : targetIdle,
@@ -1387,7 +1397,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
           delay: 1,
           mode: targetMode,
           showBothHuds: leftU !== rightU,
-          stageLabel: `[切換下一目標] ${tIdx + 1}/${targets.length}`,
+          stageLabel: `${tr('[切換下一目標]', '[切换下一目标]', '[Next Target]')} ${tIdx + 1}/${targets.length}`,
           leftUnit: leftU,
           rightUnit: rightU,
           leftPack: target.isHeroSide ? null : targetIdle,

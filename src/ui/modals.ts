@@ -78,6 +78,8 @@ function downloadJsonBlob(filename: string, obj: unknown): void {
 }
 
 export class ModalController {
+  private activeRenderFn: (() => void) | null = null;
+
   constructor(
     private assets: AssetManager,
     private sound: SoundEngine,
@@ -95,6 +97,13 @@ export class ModalController {
 
   hide(): void {
     this.backdropEl.classList.add('hidden');
+    this.activeRenderFn = null;
+  }
+
+  refreshIfOpen(): void {
+    if (!this.backdropEl.classList.contains('hidden') && this.activeRenderFn) {
+      this.activeRenderFn();
+    }
   }
 
   private renderGlyphWithSub(
@@ -139,6 +148,12 @@ export class ModalController {
     let tab: 'overview' | 'player' | 'enemy' = 'overview';
 
     const render = () => {
+      const chTitleNow = getLocalizedChapterTitle(chapter.id, chapter.titleZh);
+      this.titleEl.textContent = tr(
+        `戰況一覽 · 第 ${chapter.chapterNumber} 章《${chTitleNow}》`,
+        `战况一览 · 第 ${chapter.chapterNumber} 章《${chTitleNow}》`,
+        `Battle Situation · Chapter ${chapter.chapterNumber}: "${chTitleNow}"`
+      );
       this.tabsEl.innerHTML = `
         <button class="btn ${tab === 'overview' ? 'btn-gold' : ''}" id="sit-tab-overview" type="button">${tr('戰場勝負條件', '战场胜负条件', 'Objectives & Forces')}</button>
         <button class="btn ${tab === 'player' ? 'btn-gold' : ''}" id="sit-tab-player" type="button">${tr('我軍部隊', '我军部队', 'Allied Party')} (${players.length})</button>
@@ -230,6 +245,7 @@ export class ModalController {
       });
     };
 
+    this.activeRenderFn = render;
     render();
     this.backdropEl.classList.remove('hidden');
   }
@@ -238,68 +254,72 @@ export class ModalController {
   openEndingModal(route: 'normal' | 'true', party: PartyMemberSave[], onReturnTitle: () => void): void {
     this.sound.playSfx('fanfare');
     this.closeBtn.style.display = 'none';
-    this.titleEl.textContent =
-      route === 'true'
-        ? tr(
-            '炎龍騎士團II：黃金城之謎 · 真結局 (TRUE ENDING — 傳說的凱旋)',
-            '炎龙骑士团II：黄金城之谜 · 真结局 (TRUE ENDING — 传说的凯旋)',
-            'Flame Dragon II: Legend of Golden Castle · TRUE ENDING'
-          )
-        : tr(
-            '炎龍騎士團II：黃金城之謎 · 一般結局 (NORMAL ENDING — 命運的封印)',
-            '炎龙骑士团II：黄金城之谜 · 一般结局 (NORMAL ENDING — 命运的封印)',
-            'Flame Dragon II: Legend of Golden Castle · NORMAL ENDING'
-          );
-    this.tabsEl.innerHTML = `
-      <span style="color:var(--gold-200); font-size:13px;">
-        ${
-          route === 'true'
-            ? tr(
-                '集齊六顆元素水晶鍛造「天空之鑰」，擊破暗黑龍並迎來羅特帝亞王城凱旋大團圓！',
-                '集齐六颗元素水晶锻造「天空之钥」，击破暗黑龙并迎来罗特帝亚王城凯旋大团圆！',
-                'Forged the Sky Key from all six elemental crystals, defeated the Void Demon God, and returned in triumph to Rotoria!'
-              )
-            : tr(
-                '未持有「天空之鑰」：蜜蒂留在黃金城中樞封印動力爐（收集全部 6 顆水晶通過第 21 章可進入第 28–30 章真結局路線）。',
-                '未持有「天空之钥」：蜜蒂留在黄金城中枢封印动力炉（收集全部 6 颗水晶通过第 21 章可进入第 28–30 章真结局路线）。',
-                'Without the Sky Key, Midi remained behind to seal the Golden Castle reactor (collect all 6 Elemental Eyes by Chapter 21 to unlock Chapters 28–30 True Ending).'
-              )
-        }
-      </span>
-      <div style="flex:1"></div>
-      <button class="btn btn-gold" id="ending-return-title" type="button">${tr('返回標題畫面', '返回标题画面', 'Return to Title')}</button>
-    `;
+    const render = () => {
+      this.titleEl.textContent =
+        route === 'true'
+          ? tr(
+              '炎龍騎士團II：黃金城之謎 · 真結局 (TRUE ENDING — 傳說的凱旋)',
+              '炎龙骑士团II：黄金城之谜 · 真结局 (TRUE ENDING — 传说的凯旋)',
+              'Flame Dragon II: Legend of Golden Castle · TRUE ENDING'
+            )
+          : tr(
+              '炎龍騎士團II：黃金城之謎 · 一般結局 (NORMAL ENDING — 命運的封印)',
+              '炎龙骑士团II：黄金城之谜 · 一般结局 (NORMAL ENDING — 命运的封印)',
+              'Flame Dragon II: Legend of Golden Castle · NORMAL ENDING'
+            );
+      this.tabsEl.innerHTML = `
+        <span style="color:var(--gold-200); font-size:13px;">
+          ${
+            route === 'true'
+              ? tr(
+                  '集齊六顆元素水晶鍛造「天空之鑰」，擊破暗黑龍並迎來羅特帝亞王城凱旋大團圓！',
+                  '集齐六颗元素水晶锻造「天空之钥」，击破暗黑龙并迎来罗特帝亚王城凯旋大团圆！',
+                  'Forged the Sky Key from all six elemental crystals, defeated the Void Demon God, and returned in triumph to Rotoria!'
+                )
+              : tr(
+                  '未持有「天空之鑰」：蜜蒂留在黃金城中樞封印動力爐（收集全部 6 顆水晶通過第 21 章可進入第 28–30 章真結局路線）。',
+                  '未持有「天空之钥」：蜜蒂留在黄金城中枢封印动力炉（收集全部 6 颗水晶通过第 21 章可进入第 28–30 章真结局路线）。',
+                  'Without the Sky Key, Midi remained behind to seal the Golden Castle reactor (collect all 6 Elemental Eyes by Chapter 21 to unlock Chapters 28–30 True Ending).'
+                )
+          }
+        </span>
+        <div style="flex:1"></div>
+        <button class="btn btn-gold" id="ending-return-title" type="button">${tr('返回標題畫面', '返回标题画面', 'Return to Title')}</button>
+      `;
 
-    const rosterHtml = party
-      .map(
-        (m) => `
-        <div class="panel-section" style="display:flex; align-items:center; gap:10px; padding:8px;">
-          <img class="pixel-crisp" src="${this.assets.portraitToDataUrl(m.portraitId, 0)}" width="52" height="52" style="border-radius:4px; border:1px solid var(--border-brass);" alt="${m.nameZh ?? ''}" />
-          <div>
-            <div>${this.renderGlyphWithSub(m.nameGlyphs, 'gold', 15, m.nameZh ?? '', 'font-weight:700; margin-left:4px;')}</div>
-            <div style="font-size:11.5px; color:var(--ink-200);">Lv.${m.level} ${m.classNameZh ?? ''}</div>
+      const rosterHtml = party
+        .map(
+          (m) => `
+          <div class="panel-section" style="display:flex; align-items:center; gap:10px; padding:8px;">
+            <img class="pixel-crisp" src="${this.assets.portraitToDataUrl(m.portraitId, 0)}" width="52" height="52" style="border-radius:4px; border:1px solid var(--border-brass);" alt="${m.nameZh ?? ''}" />
+            <div>
+              <div>${this.renderGlyphWithSub(m.nameGlyphs, 'gold', 15, m.nameZh ?? '', 'font-weight:700; margin-left:4px;')}</div>
+              <div style="font-size:11.5px; color:var(--ink-200);">Lv.${m.level} ${m.classNameZh ?? ''}</div>
+            </div>
+          </div>
+        `
+        )
+        .join('');
+
+      this.bodyEl.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+          <img class="pixel-crisp" src="assets/screens/ending.png" style="width:min(640px, 100%); border-radius:8px; border:1px solid var(--border-brass); box-shadow:var(--shadow-elevated);" alt="Ending" />
+          <div style="width:100%;">
+            <div class="panel-heading"><span>${tr(`遠征英雄名錄 (${party.length} 名夥伴)`, `远征英雄名录 (${party.length} 名伙伴)`, `Expedition Heroes (${party.length} Companions)`)}</span></div>
+            <div class="chapter-grid">${rosterHtml}</div>
           </div>
         </div>
-      `
-      )
-      .join('');
+      `;
 
-    this.bodyEl.innerHTML = `
-      <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
-        <img class="pixel-crisp" src="assets/screens/ending.png" style="width:min(640px, 100%); border-radius:8px; border:1px solid var(--border-brass); box-shadow:var(--shadow-elevated);" alt="Ending" />
-        <div style="width:100%;">
-          <div class="panel-heading"><span>${tr(`遠征英雄名錄 (${party.length} 名夥伴)`, `远征英雄名录 (${party.length} 名伙伴)`, `Expedition Heroes (${party.length} Companions)`)}</span></div>
-          <div class="chapter-grid">${rosterHtml}</div>
-        </div>
-      </div>
-    `;
+      this.tabsEl.querySelector('#ending-return-title')?.addEventListener('click', () => {
+        this.closeBtn.style.display = 'inline-flex';
+        this.hide();
+        onReturnTitle();
+      });
+    };
 
-    this.tabsEl.querySelector('#ending-return-title')?.addEventListener('click', () => {
-      this.closeBtn.style.display = 'inline-flex';
-      this.hide();
-      onReturnTitle();
-    });
-
+    this.activeRenderFn = render;
+    render();
     this.backdropEl.classList.remove('hidden');
   }
 
@@ -323,6 +343,11 @@ export class ModalController {
     const clearedSet = new Set(getClearedChapters());
 
     const render = () => {
+      this.titleEl.textContent = tr(
+        '戰場回憶 · 章節選擇 (30 戰役關卡 + 3 劇情演武)',
+        '战场回忆 · 章节选择 (30 战役关卡 + 3 剧情演武)',
+        'Chapter Select (30 Campaign Battlefields + 3 Story Cutscenes)'
+      );
       this.tabsEl.innerHTML = `
         <span style="color: var(--ink-200); font-size: 12px;">
           ${tr(
@@ -398,6 +423,7 @@ export class ModalController {
       });
     };
 
+    this.activeRenderFn = render;
     render();
     this.backdropEl.classList.remove('hidden');
   }
@@ -808,10 +834,17 @@ export class ModalController {
     };
 
     const renderAll = () => {
+      const nextChTitleNow = getLocalizedChapterTitle(nextChapterId, '');
+      this.titleEl.textContent = tr(
+        `城鎮與營地整備 — 準備出擊第 ${nextChapterNumber} 章《${nextChTitleNow}》`,
+        `城镇与营地整备 — 准备出击第 ${nextChapterNumber} 章《${nextChTitleNow}》`,
+        `Town & Encampment — Preparing for Chapter ${nextChapterNumber}: "${nextChTitleNow}"`
+      );
       renderTabs();
       renderBody();
     };
 
+    this.activeRenderFn = renderAll;
     renderAll();
     this.backdropEl.classList.remove('hidden');
   }
@@ -1165,6 +1198,7 @@ export class ModalController {
       });
     };
 
+    this.activeRenderFn = render;
     render();
     this.backdropEl.classList.remove('hidden');
   }
@@ -1173,14 +1207,14 @@ export class ModalController {
   openCodex(): void {
     this.sound.playSfx('confirm');
     this.closeBtn.style.display = 'inline-flex';
-    this.titleEl.textContent = tr(
-      '炎龍寶庫 · 角色、神兵、法術與原聲圖鑑',
-      '炎龙宝库 · 角色、神兵、法术与原声图鉴',
-      'Flame Dragon II Archives Codex (Portraits, Items, Spells & Jukebox)'
-    );
     let tab: 'portraits' | 'items' | 'spells' | 'music' = 'portraits';
 
     const render = () => {
+      this.titleEl.textContent = tr(
+        '炎龍寶庫 · 角色、神兵、法術與原聲圖鑑',
+        '炎龙宝库 · 角色、神兵、法术与原声图鉴',
+        'Flame Dragon II Archives Codex (Portraits, Items, Spells & Jukebox)'
+      );
       this.tabsEl.innerHTML = `
         <button class="btn ${tab === 'portraits' ? 'btn-gold' : ''}" id="codex-tab-portraits" type="button">${tr('登場人物', '登场人物', 'Units')} (${this.assets.gameData.unitDex.length})</button>
         <button class="btn ${tab === 'items' ? 'btn-gold' : ''}" id="codex-tab-items" type="button">${tr('武器與道具', '武器与道具', 'Items')} (${this.assets.gameData.items.length})</button>
@@ -1285,6 +1319,7 @@ export class ModalController {
       }
     };
 
+    this.activeRenderFn = render;
     render();
     this.backdropEl.classList.remove('hidden');
   }

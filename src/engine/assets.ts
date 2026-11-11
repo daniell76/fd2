@@ -233,13 +233,14 @@ export class AssetManager {
     color: GlyphColor = 'ivory',
     scale = 1,
     withShadow = true,
-    fallbackText?: string
+    fallbackText?: string,
+    forceBitmap = false
   ): number {
     const resolvedFallback =
-      getLocale() !== 'zh-TW'
+      !forceBitmap && getLocale() !== 'zh-TW'
         ? fallbackText || decodeGlyphsToText(glyphs)
         : fallbackText;
-    if (getLocale() !== 'zh-TW' && resolvedFallback) {
+    if (!forceBitmap && getLocale() !== 'zh-TW' && resolvedFallback) {
       ctx.save();
       const fontSize = Math.round(13 * scale);
       ctx.font = `700 ${fontSize}px "Noto Serif TC", "Cinzel", Georgia, serif`;
@@ -275,8 +276,14 @@ export class AssetManager {
     return cx - x;
   }
 
-  /** Renders a glyph array to a cached transparent PNG data-URL for crisp HTML UI labels, or styled localized text when locale !== 'zh-TW'. */
-  glyphsToHtml(glyphs: number[], color: GlyphColor = 'ivory', heightPx = 16, fallback = '—'): string {
+  /** Renders a glyph array to a cached transparent PNG data-URL for crisp HTML UI labels, or styled localized text when locale !== 'zh-TW' (unless forceBitmap is true). */
+  glyphsToHtml(
+    glyphs: number[],
+    color: GlyphColor = 'ivory',
+    heightPx = 16,
+    fallback = '—',
+    forceBitmap = false
+  ): string {
     const loc = getLocale();
     const resolvedText =
       fallback && fallback !== '—'
@@ -284,7 +291,7 @@ export class AssetManager {
         : loc !== 'zh-TW' && glyphs && glyphs.length > 0
           ? decodeGlyphsToText(glyphs, loc)
           : fallback;
-    if (loc !== 'zh-TW' && resolvedText && resolvedText !== '—') {
+    if (!forceBitmap && loc !== 'zh-TW' && resolvedText && resolvedText !== '—') {
       const hex = GLYPH_HEX[color] ?? GLYPH_HEX.ivory;
       const fSize = Math.max(12, heightPx - 2);
       return `<span class="localized-glyph" style="color:${hex}; font-weight:700; font-size:${fSize}px; text-shadow:1px 1px 0 #07090e; display:inline-block;">${resolvedText}</span>`;
@@ -300,7 +307,7 @@ export class AssetManager {
       c.width = valid.length * 17 + 1;
       c.height = 18;
       const ctx = c.getContext('2d')!;
-      this.drawGlyphs(ctx, valid, 0, 1, color, 1, true);
+      this.drawGlyphs(ctx, valid, 0, 1, color, 1, true, undefined, true);
       url = c.toDataURL();
       this.glyphUrlCache.set(key, url);
     }
