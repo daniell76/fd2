@@ -3937,9 +3937,12 @@ class FlameDragonWebApp {
     if (this.checkBattleEndConditions()) return;
 
     // 3. Advance Turn & Player Phase (`phase === 2` on `this.turn + 1`)
+    // Exact `FD2.EXE` `fn_13622` (`L13622..13668`): clears `acted` (`M1[unit+5] &= 0x7F`) across ALL units on the map!
     this.turn += 1;
     this.phase = 'player';
     this.resetFactionActedFlags('player');
+    this.resetFactionActedFlags('ally');
+    this.resetFactionActedFlags('enemy');
     this.updateTopHud();
 
     // Check battle end conditions at turn increment (e.g. Ch 19 `turn > 6` survival victory `fn_67878`)
@@ -4339,11 +4342,14 @@ class FlameDragonWebApp {
           ctx.rect(dx, dy, tilePx, Math.round(tilePx * 0.54));
           ctx.clip();
         }
+        // Exact `FD2.EXE` `fn_10261` (`L10485..10613`):
+        // ALL living non-paralyzed units on the battlefield (Player, Ally, and Enemy) continuously play the 4-beat
+        // `0 -> 1 -> 2 -> 1` idle stomping animation (`GLOBAL_2_15371`); only paralyzed (`M1[unit+38] != 0`) or dying units freeze at frame 0!
         this.assets.drawUnitSprite(
           ctx,
           u.spriteGroup,
           u.dir,
-          isDyingSpin ? 0 : isMovingNow ? walkFrame : u.acted ? 0 : idleFrame,
+          isDyingSpin || u.paralyzeTurns > 0 ? 0 : isMovingNow ? walkFrame : idleFrame,
           dx,
           dy,
           tilePx,
