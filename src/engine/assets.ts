@@ -1,4 +1,4 @@
-import { applyLocaleToGameState, getLocale } from '../i18n';
+import { applyLocaleToGameState, decodeGlyphsToText, getLocale } from '../i18n';
 import type {
   ChapterData,
   ChoreographyScript,
@@ -235,18 +235,22 @@ export class AssetManager {
     withShadow = true,
     fallbackText?: string
   ): number {
-    if (getLocale() !== 'zh-TW' && fallbackText) {
+    const resolvedFallback =
+      getLocale() !== 'zh-TW'
+        ? fallbackText || decodeGlyphsToText(glyphs)
+        : fallbackText;
+    if (getLocale() !== 'zh-TW' && resolvedFallback) {
       ctx.save();
       const fontSize = Math.round(13 * scale);
       ctx.font = `700 ${fontSize}px "Noto Serif TC", "Cinzel", Georgia, serif`;
       ctx.textBaseline = 'top';
       if (withShadow) {
         ctx.fillStyle = GLYPH_HEX.shadow;
-        ctx.fillText(fallbackText, Math.round(x + Math.max(1, scale)), Math.round(y + 1 + Math.max(1, scale)));
+        ctx.fillText(resolvedFallback, Math.round(x + Math.max(1, scale)), Math.round(y + 1 + Math.max(1, scale)));
       }
       ctx.fillStyle = GLYPH_HEX[color] ?? GLYPH_HEX.ivory;
-      ctx.fillText(fallbackText, Math.round(x), Math.round(y + 1));
-      const w = ctx.measureText(fallbackText).width;
+      ctx.fillText(resolvedFallback, Math.round(x), Math.round(y + 1));
+      const w = ctx.measureText(resolvedFallback).width;
       ctx.restore();
       return Math.ceil(w);
     }
@@ -274,10 +278,16 @@ export class AssetManager {
   /** Renders a glyph array to a cached transparent PNG data-URL for crisp HTML UI labels, or styled localized text when locale !== 'zh-TW'. */
   glyphsToHtml(glyphs: number[], color: GlyphColor = 'ivory', heightPx = 16, fallback = '—'): string {
     const loc = getLocale();
-    if (loc !== 'zh-TW' && fallback && fallback !== '—') {
+    const resolvedText =
+      fallback && fallback !== '—'
+        ? fallback
+        : loc !== 'zh-TW' && glyphs && glyphs.length > 0
+          ? decodeGlyphsToText(glyphs, loc)
+          : fallback;
+    if (loc !== 'zh-TW' && resolvedText && resolvedText !== '—') {
       const hex = GLYPH_HEX[color] ?? GLYPH_HEX.ivory;
       const fSize = Math.max(12, heightPx - 2);
-      return `<span class="localized-glyph" style="color:${hex}; font-weight:700; font-size:${fSize}px; text-shadow:1px 1px 0 #07090e; display:inline-block;">${fallback}</span>`;
+      return `<span class="localized-glyph" style="color:${hex}; font-weight:700; font-size:${fSize}px; text-shadow:1px 1px 0 #07090e; display:inline-block;">${resolvedText}</span>`;
     }
     const valid = (glyphs ?? []).filter((g) => g >= 0 && g < this.gameData.font.glyphCount);
     if (valid.length === 0) {

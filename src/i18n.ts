@@ -1,3 +1,4 @@
+import { GLYPHS_CN, GLYPHS_TW } from './glyphTable';
 import type { BattleUnit, ChapterData, GameData, PartyMemberSave } from './types';
 
 export type LocaleCode = 'zh-TW' | 'zh-CN' | 'en';
@@ -56,6 +57,12 @@ export function tr(zhTw: string, zhCn: string, en: string, loc: LocaleCode = cur
   if (loc === 'zh-CN') return zhCn;
   if (loc === 'en') return en;
   return zhTw;
+}
+
+/** Decodes an array of 16-bit glyph IDs (`0..1823`) into a Traditional or Simplified Chinese string. */
+export function decodeGlyphsToText(glyphs: number[], loc: LocaleCode = currentLocale): string {
+  const table = loc === 'zh-CN' ? GLYPHS_CN : GLYPHS_TW;
+  return glyphs.map((g) => table[g] ?? '').join('');
 }
 
 // 1. Races (1..10)

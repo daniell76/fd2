@@ -1,7 +1,7 @@
 import type { SoundEngine } from '../audio/soundEngine';
 import type { AssetManager } from '../engine/assets';
 import { getTerrainInfo } from '../engine/tactical';
-import { getLocale, getLocalizedSpeakerName, tr } from '../i18n';
+import { decodeGlyphsToText, getLocale, getLocalizedSpeakerName, onLocaleChange, tr } from '../i18n';
 import type { BattleUnit, ChapterData, CombatOutcome, DialogueSegment, SpellDef } from '../types';
 import {
   buildMagicSequenceTimeline,
@@ -349,24 +349,56 @@ export class CutscenePlayer {
         seg.speakerGlyphs && seg.speakerGlyphs.length > 0
           ? seg.speakerGlyphs
           : dexEntry?.nameGlyphs ?? [];
-      const speakerZh = getLocalizedSpeakerName(spkId, seg.speakerNameZh ?? dexEntry?.nameZh ?? '');
 
-      if (!hasPortrait) {
-        speakerEl.innerHTML = `<span style="color: var(--gold-300); font-family: var(--font-display); font-size: 12.5px;">${tr('旁白 · Chronicle', '旁白 · Chronicle', 'Narrator · Chronicle')}</span>`;
-      } else if (speakerGlyphs.length > 0 && getLocale() === 'zh-TW') {
-        speakerEl.innerHTML = `${this.assets.glyphsToHtml(speakerGlyphs, 'gold', 18, speakerZh)} <span style="font-size:12px; color:var(--ink-400); margin-left:6px;">${speakerZh}</span>`;
-      } else {
-        speakerEl.innerHTML = `<span style="color: var(--gold-200); font-weight: 700; font-size: 14px; text-shadow: 1px 1px 0 #07090e;">${speakerZh}</span>`;
-      }
+      const renderSegmentText = () => {
+        const loc = getLocale();
+        const speakerZh = getLocalizedSpeakerName(spkId, seg.speakerNameZh ?? dexEntry?.nameZh ?? '');
 
-      linesEl.innerHTML = seg.lines
-        .map((ln) => `<div>${this.assets.glyphsToHtml(ln, 'ivory', 18)}</div>`)
-        .join('');
-      progressEl.textContent = tr(
-        `點擊或按空白鍵繼續 (${idx + 1} / ${segments.length})`,
-        `点击或按空格键继续 (${idx + 1} / ${segments.length})`,
-        `Click or press Space (${idx + 1} / ${segments.length})`
-      );
+        if (!hasPortrait) {
+          speakerEl.innerHTML = `<span style="color: var(--gold-300); font-family: var(--font-display); font-size: 12.5px;">${tr('旁白 · Chronicle', '旁白 · Chronicle', 'Narrator · Chronicle')}</span>`;
+        } else if (speakerGlyphs.length > 0 && loc === 'zh-TW') {
+          speakerEl.innerHTML = `${this.assets.glyphsToHtml(speakerGlyphs, 'gold', 18, speakerZh)} <span style="font-size:12px; color:var(--ink-400); margin-left:6px;">${speakerZh}</span>`;
+        } else {
+          speakerEl.innerHTML = `<span style="color: var(--gold-200); font-weight: 700; font-size: 14px; text-shadow: 1px 1px 0 #07090e;">${speakerZh}</span>`;
+        }
+
+        if (loc === 'en') {
+          const enLines =
+            seg.linesEn && seg.linesEn.length > 0
+              ? seg.linesEn
+              : seg.lines.map((ln) => decodeGlyphsToText(ln, 'zh-TW'));
+          linesEl.innerHTML = enLines
+            .map(
+              (ln) =>
+                `<div style="color: var(--ink-100); font-weight: 600; font-size: 14.5px; line-height: 1.5; text-shadow: 1px 1px 0 #07090e;">${ln}</div>`
+            )
+            .join('');
+        } else if (loc === 'zh-CN') {
+          const cnLines =
+            seg.linesZhCn && seg.linesZhCn.length > 0
+              ? seg.linesZhCn
+              : seg.lines.map((ln) => decodeGlyphsToText(ln, 'zh-CN'));
+          linesEl.innerHTML = cnLines
+            .map(
+              (ln) =>
+                `<div style="color: var(--ink-100); font-weight: 600; font-size: 15.5px; line-height: 1.55; text-shadow: 1px 1px 0 #07090e;">${ln}</div>`
+            )
+            .join('');
+        } else {
+          linesEl.innerHTML = seg.lines
+            .map((ln) => `<div>${this.assets.glyphsToHtml(ln, 'ivory', 18)}</div>`)
+            .join('');
+        }
+
+        progressEl.textContent = tr(
+          `點擊或按空白鍵繼續 (${idx + 1} / ${segments.length})`,
+          `点击或按空格键继续 (${idx + 1} / ${segments.length})`,
+          `Click or press Space (${idx + 1} / ${segments.length})`
+        );
+      };
+
+      renderSegmentText();
+      const unsubLocale = onLocaleChange(() => renderSegmentText());
 
       let animId = 0;
       const t0 = performance.now();
@@ -418,6 +450,7 @@ export class CutscenePlayer {
       });
 
       cancelAnimationFrame(animId);
+      unsubLocale();
       if (skippedAll) break;
     }
 

@@ -2241,10 +2241,10 @@ class FlameDragonWebApp {
 
     const sourceLabel =
       fromItemBagIdx !== null
-        ? gd.items[actor.items[fromItemBagIdx]]?.nameZh ?? '傳送法杖'
-        : spell?.nameZh ?? '傳送術';
+        ? gd.items[actor.items[fromItemBagIdx]]?.nameZh ?? tr('傳送法杖', '传送法杖', 'Teleport Staff')
+        : spell?.nameZh ?? tr('傳送術', '传送术', 'Teleport');
     this.logMessage(
-      `${this.assets.glyphsToHtml(actor.nameGlyphs, 'azure', 14, actor.nameZh)} 使用 <strong>${sourceLabel}</strong> 將 ${this.assets.glyphsToHtml(targetUnit.nameGlyphs, 'gold', 14, targetUnit.nameZh)} 傳送至 (${destX}, ${destY})！`
+      `${this.assets.glyphsToHtml(actor.nameGlyphs, 'azure', 14, actor.nameZh)} ${tr('使用', '使用', 'used')} <strong>${sourceLabel}</strong> ${tr('將', '将', 'to teleport')} ${this.assets.glyphsToHtml(targetUnit.nameGlyphs, 'gold', 14, targetUnit.nameZh)} ${tr(`傳送至 (${destX}, ${destY})！`, `传送至 (${destX}, ${destY})！`, `to (${destX}, ${destY})!`)}`
     );
 
     // `#23 傳送術` (spell) awards support spell EXP (`fn_51478`: `floor(10 * targetEffLv / casterEffLv)`), whereas `#101 傳送法杖` (item) awards 0 EXP!
@@ -2371,7 +2371,7 @@ class FlameDragonWebApp {
         this.hideSubPopupAndForecast();
         this.playUiSfx('chest');
         this.logMessage(
-          `${this.assets.glyphsToHtml(this.selectedUnit.nameGlyphs, 'gold', 14, this.selectedUnit.nameZh)} 將 <strong>${it?.nameZh ?? '道具'}</strong> 交給了 ${this.assets.glyphsToHtml(clickedUnit.nameGlyphs, 'gold', 14, clickedUnit.nameZh)}。`
+          `${this.assets.glyphsToHtml(this.selectedUnit.nameGlyphs, 'gold', 14, this.selectedUnit.nameZh)} ${tr('將', '将', 'gave')} <strong>${it?.nameZh ?? tr('道具', '道具', 'Item')}</strong> ${tr('交給了', '交给了', 'to')} ${this.assets.glyphsToHtml(clickedUnit.nameGlyphs, 'gold', 14, clickedUnit.nameZh)}${tr('。', '。', '.')}`
         );
         await this.finishSelectedUnitTurn();
       } else {
@@ -2559,7 +2559,7 @@ class FlameDragonWebApp {
       const restHeal = Math.max(1, Math.floor(u.maxHp * 0.2));
       u.hp = Math.min(u.maxHp, u.hp + restHeal);
       this.playUiSfx('heal');
-      this.spawnMapFlash(u.x, u.y, '#68dfa0', `休息 +${restHeal}`);
+      this.spawnMapFlash(u.x, u.y, '#68dfa0', `${tr('休息', '休息', 'REST')} +${restHeal}`);
       await this.director.playSparklesOnUnits([u]);
     }
     if (canLootChest) {
@@ -2847,8 +2847,14 @@ class FlameDragonWebApp {
 
     const totalDmgToDef = outcome.strikes.filter((s) => s.fromAttacker).reduce((acc, s) => acc + s.damage, 0);
     const totalDmgToAtk = outcome.strikes.filter((s) => !s.fromAttacker).reduce((acc, s) => acc + s.damage, 0);
+    const atkHtml = this.assets.glyphsToHtml(attacker.nameGlyphs, attacker.faction === 'player' ? 'gold' : 'crimson', 14, attacker.nameZh);
+    const defHtml = this.assets.glyphsToHtml(defender.nameGlyphs, defender.faction === 'player' ? 'gold' : 'crimson', 14, defender.nameZh);
     this.logMessage(
-      `${this.assets.glyphsToHtml(attacker.nameGlyphs, attacker.faction === 'player' ? 'gold' : 'crimson', 14, attacker.nameZh)} 攻擊 ${this.assets.glyphsToHtml(defender.nameGlyphs, defender.faction === 'player' ? 'gold' : 'crimson', 14, defender.nameZh)} 造成 <strong>${totalDmgToDef}</strong> 傷害${defender.hp <= 0 ? '（擊破！）' : ''}${totalDmgToAtk > 0 ? `，反擊受創 <strong>${totalDmgToAtk}</strong>${attacker.hp <= 0 ? '（陣亡！）' : ''}` : ''}。`
+      tr(
+        `${atkHtml} 攻擊 ${defHtml} 造成 <strong>${totalDmgToDef}</strong> 傷害${defender.hp <= 0 ? '（擊破！）' : ''}${totalDmgToAtk > 0 ? `，反擊受創 <strong>${totalDmgToAtk}</strong>${attacker.hp <= 0 ? '（陣亡！）' : ''}` : ''}。`,
+        `${atkHtml} 攻击 ${defHtml} 造成 <strong>${totalDmgToDef}</strong> 伤害${defender.hp <= 0 ? '（击破！）' : ''}${totalDmgToAtk > 0 ? `，反击受创 <strong>${totalDmgToAtk}</strong>${attacker.hp <= 0 ? '（阵亡！）' : ''}` : ''}。`,
+        `${atkHtml} attacked ${defHtml} for <strong>${totalDmgToDef}</strong> damage${defender.hp <= 0 ? ' (Defeated!)' : ''}${totalDmgToAtk > 0 ? `, counter-hit for <strong>${totalDmgToAtk}</strong>${attacker.hp <= 0 ? ' (Fallen!)' : ''}` : ''}.`
+      )
     );
 
     // 2. Enemy Spoils (`fn_43549`) — Gold or Item Drop (with 8-slot full-bag prompt!)
@@ -2858,7 +2864,13 @@ class FlameDragonWebApp {
       if (outcome.droppedReward.type === 'gold') {
         this.gold += outcome.droppedReward.value;
         this.spawnMapFlash(victor.x, victor.y, '#f0c869', `+${outcome.droppedReward.value} G!`);
-        this.logMessage(`獲得戰利品：<strong>+${outcome.droppedReward.value} G</strong>！`);
+        this.logMessage(
+          tr(
+            `獲得戰利品：<strong>+${outcome.droppedReward.value} G</strong>！`,
+            `获得战利品：<strong>+${outcome.droppedReward.value} G</strong>！`,
+            `Obtained spoils: <strong>+${outcome.droppedReward.value} G</strong>!`
+          )
+        );
       } else {
         const it = this.assets.gameData.items[outcome.droppedReward.value];
         if (it) {
@@ -2866,18 +2878,30 @@ class FlameDragonWebApp {
             victor.items.push(it.id);
             syncUnitEquipmentIndices(victor, this.assets.gameData);
             this.spawnMapFlash(victor.x, victor.y, '#f0c869', `${it.nameZh}!`);
-            this.logMessage(`獲得戰利品：${this.assets.glyphsToHtml(it.nameGlyphs, 'gold', 14, it.nameZh)} <strong>(${it.nameZh})</strong>！`);
+            this.logMessage(
+              `${tr('獲得戰利品：', '获得战利品：', 'Obtained spoils: ')}${this.assets.glyphsToHtml(it.nameGlyphs, 'gold', 14, it.nameZh)} <strong>(${it.nameZh})</strong>！`
+            );
           } else {
             const discardIdx = await this.promptFullBagItemChoice(
               victor,
               it.id,
-              `敵軍掉落「${it.nameZh}」，但 ${victor.nameZh} 道具袋已滿（8/8）！請選擇要丟棄換取的道具：`
+              tr(
+                `敵軍掉落「${it.nameZh}」，但 ${victor.nameZh} 道具袋已滿（8/8）！請選擇要丟棄換取的道具：`,
+                `敌军掉落「${it.nameZh}」，但 ${victor.nameZh} 道具袋已满（8/8）！请选择要丢弃换取的道具：`,
+                `Enemy dropped "${it.nameZh}", but ${victor.nameZh}'s bag is full (8/8)! Choose an item to discard:`
+              )
             );
             if (discardIdx !== null) {
               const oldIt = this.assets.gameData.items[victor.items[discardIdx]];
               victor.items[discardIdx] = it.id;
               syncUnitEquipmentIndices(victor, this.assets.gameData);
-              this.logMessage(`丟棄了 ${oldIt?.nameZh ?? '道具'}，獲得戰利品 <strong>${it.nameZh}</strong>！`);
+              this.logMessage(
+                tr(
+                  `丟棄了 ${oldIt?.nameZh ?? '道具'}，獲得戰利品 <strong>${it.nameZh}</strong>！`,
+                  `丢弃了 ${oldIt?.nameZh ?? '道具'}，获得战利品 <strong>${it.nameZh}</strong>！`,
+                  `Discarded ${oldIt?.nameZh ?? 'Item'} and took <strong>${it.nameZh}</strong>!`
+                )
+              );
             }
           }
         }
@@ -2934,7 +2958,13 @@ class FlameDragonWebApp {
         caster.x = tx;
         caster.y = ty;
         await this.director.playSparklesOnUnits([caster]);
-        this.logMessage(`${this.assets.glyphsToHtml(caster.nameGlyphs, 'azure', 14, caster.nameZh)} 施展傳送術移動至 (${tx}, ${ty})！`);
+        this.logMessage(
+          `${this.assets.glyphsToHtml(caster.nameGlyphs, 'azure', 14, caster.nameZh)} ${tr(
+            `施展傳送術移動至 (${tx}, ${ty})！`,
+            `施展传送术移动至 (${tx}, ${ty})！`,
+            `teleported to (${tx}, ${ty})!`
+          )}`
+        );
       }
       this.resetAllUnitsToFrontView();
       this.updateTopHud();
@@ -2997,7 +3027,11 @@ class FlameDragonWebApp {
             const discardIdx = await this.promptFullBagItemChoice(
               caster,
               it.id,
-              `敵軍掉落「${it.nameZh}」，但 ${caster.nameZh} 道具袋已滿（8/8）！請選擇要丟棄換取的道具：`
+              tr(
+                `敵軍掉落「${it.nameZh}」，但 ${caster.nameZh} 道具袋已滿（8/8）！請選擇要丟棄換取的道具：`,
+                `敌军掉落「${it.nameZh}」，但 ${caster.nameZh} 道具袋已满（8/8）！请选择要丢弃换取的道具：`,
+                `Enemy dropped "${it.nameZh}", but ${caster.nameZh}'s bag is full (8/8)! Choose an item to discard:`
+              )
             );
             if (discardIdx !== null) {
               caster.items[discardIdx] = it.id;
@@ -3009,7 +3043,7 @@ class FlameDragonWebApp {
     }
 
     this.logMessage(
-      `${this.assets.glyphsToHtml(caster.nameGlyphs, 'azure', 14, caster.nameZh)} 施展 ${this.assets.glyphsToHtml(spell.nameGlyphs, 'azure', 14, spell.nameZh)}（影響 ${res.affected.length} 目標）。`
+      `${this.assets.glyphsToHtml(caster.nameGlyphs, 'azure', 14, caster.nameZh)} ${tr('施展', '施展', 'cast')} ${this.assets.glyphsToHtml(spell.nameGlyphs, 'azure', 14, spell.nameZh)}${tr(`（影響 ${res.affected.length} 目標）。`, `（影响 ${res.affected.length} 目标）。`, ` (affected ${res.affected.length} target${res.affected.length === 1 ? '' : 's'}).`)}`
     );
 
     if (caster.faction === 'player' && caster.hp > 0 && res.expGained > 0) {
@@ -3058,7 +3092,11 @@ class FlameDragonWebApp {
 
     this.centerCameraOnTile(unit.x, unit.y);
     this.logMessage(
-      `${this.assets.glyphsToHtml(unit.nameGlyphs, 'gold', 14, unit.nameZh)} 得到經驗 <strong>${expGained}</strong> 點！`
+      `${this.assets.glyphsToHtml(unit.nameGlyphs, 'gold', 14, unit.nameZh)} ${tr(
+        `得到經驗 <strong>${expGained}</strong> 點！`,
+        `得到经验 <strong>${expGained}</strong> 点！`,
+        `gained <strong>${expGained}</strong> EXP!`
+      )}`
     );
 
     const overlayEl = document.getElementById('dialogue-overlay')!;
@@ -3068,19 +3106,21 @@ class FlameDragonWebApp {
     const progressEl = document.getElementById('dialogue-progress')!;
     const skipBtn = document.getElementById('btn-skip-dialogue') as HTMLButtonElement;
 
-    const makeSeg = (lines: number[][]): DialogueSegment => ({
+    const makeSeg = (lines: number[][], linesZhCn: string[], linesEn: string[]): DialogueSegment => ({
       speaker: unit.uid,
       portraitId: unit.portraitId,
       speakerNameZh: unit.nameZh,
       speakerGlyphs: unit.nameGlyphs,
       boxPos: 'bottom',
       lines,
+      linesZhCn,
+      linesEn,
     });
 
     // Step 1: `FDTXT[0][488]` -> `得到經驗 XX 點！` (`[386, 387, 449, 450, ...digits, 448, 342]`)
     const expLine = [386, 387, 449, 450, ...this.intToCalligraphyGlyphs(expGained), 448, 342];
     await this.cutscene.playDialogueSequence(
-      [makeSeg([expLine])],
+      [makeSeg([expLine], [`得到经验 ${expGained} 点！`], [`Gained ${expGained} EXP!`])],
       overlayEl,
       portraitCanvas,
       speakerEl,
@@ -3097,40 +3137,54 @@ class FlameDragonWebApp {
     const learnedNames = levelUp.learnedSpellIds
       .map((sid) => this.assets.gameData.spells[sid]?.nameZh)
       .filter(Boolean)
-      .join('、');
+      .join(tr('、', '、', ', '));
     this.logMessage(
-      `<strong>等級提升！</strong> ${this.assets.glyphsToHtml(unit.nameGlyphs, 'gold', 14, unit.nameZh)} 升至 Lv.${levelUp.newLevel} (HP+${levelUp.hp}, MP+${levelUp.mp}, AP+${levelUp.ap}, DP+${levelUp.dp}, DX+${levelUp.dx})${learnedNames ? ` · 學會了：<strong>${learnedNames}</strong>` : ''}！`
+      `<strong>${tr('等級提升！', '等级提升！', 'LEVEL UP!')}</strong> ${this.assets.glyphsToHtml(unit.nameGlyphs, 'gold', 14, unit.nameZh)} ${tr('升至', '升至', 'reached')} Lv.${levelUp.newLevel} (HP+${levelUp.hp}, MP+${levelUp.mp}, AP+${levelUp.ap}, DP+${levelUp.dp}, DX+${levelUp.dx})${learnedNames ? ` · ${tr('學會了：', '学会了：', 'Learned: ')}<strong>${learnedNames}</strong>` : ''}！`
     );
 
     const lvLines: number[][] = [
       [352, 451, 391, 452, 341, 342, 342], // 等級上升了！！ (`sys[489]`)
     ];
+    const lvLinesCn: string[] = ['等级上升了！！'];
+    const lvLinesEn: string[] = ['Level Up!!'];
     if (levelUp.ap > 0) {
       lvLines.push([213, 214, 391, 452, ...this.intToCalligraphyGlyphs(levelUp.ap), 448, 342]); // 力量上升 X 點！ (`sys[490]`)
+      lvLinesCn.push(`力量上升 ${levelUp.ap} 点！`);
+      lvLinesEn.push(`STR increased by ${levelUp.ap}!`);
     }
     if (levelUp.dp > 0) {
       lvLines.push([317, 213, 391, 452, ...this.intToCalligraphyGlyphs(levelUp.dp), 448, 342]); // 耐力上升 X 點！ (`sys[491]`)
+      lvLinesCn.push(`耐力上升 ${levelUp.dp} 点！`);
+      lvLinesEn.push(`VIT increased by ${levelUp.dp}!`);
     }
     if (levelUp.dx > 0) {
       lvLines.push([318, 319, 391, 452, ...this.intToCalligraphyGlyphs(levelUp.dx), 448, 342]); // 速度上升 X 點！ (`sys[492]`)
+      lvLinesCn.push(`速度上升 ${levelUp.dx} 点！`);
+      lvLinesEn.push(`AGI increased by ${levelUp.dx}!`);
     }
     if (levelUp.hp > 0) {
       lvLines.push([22, 17, 25, 391, 452, ...this.intToCalligraphyGlyphs(levelUp.hp), 448, 342]); // ＭＨＰ上升 X 點！ (`sys[493]`)
+      lvLinesCn.push(`MHP上升 ${levelUp.hp} 点！`);
+      lvLinesEn.push(`MHP increased by ${levelUp.hp}!`);
     }
     if (levelUp.mp > 0) {
       lvLines.push([22, 22, 25, 391, 452, ...this.intToCalligraphyGlyphs(levelUp.mp), 448, 342]); // ＭＭＰ上升 X 點！ (`sys[494]`)
+      lvLinesCn.push(`MMP上升 ${levelUp.mp} 点！`);
+      lvLinesEn.push(`MMP increased by ${levelUp.mp}!`);
     }
     for (const sid of levelUp.learnedSpellIds) {
       const sp = this.assets.gameData.spells[sid];
       if (sp && sp.nameGlyphs.length > 0) {
         lvLines.push([537, 458, 341, ...sp.nameGlyphs, 342]); // 學會了 [法術名稱]！ (`sys[587]`)
+        lvLinesCn.push(`学会了 ${sp.nameZh}！`);
+        lvLinesEn.push(`Learned ${sp.nameZh}!`);
       }
     }
 
     // Group into crisp 3-line pages matching `FD2.EXE`'s 3-line dialogue box (`fn_24452`)
     const lvSegments: DialogueSegment[] = [];
     for (let i = 0; i < lvLines.length; i += 3) {
-      lvSegments.push(makeSeg(lvLines.slice(i, i + 3)));
+      lvSegments.push(makeSeg(lvLines.slice(i, i + 3), lvLinesCn.slice(i, i + 3), lvLinesEn.slice(i, i + 3)));
     }
 
     await this.cutscene.playDialogueSequence(
@@ -3328,7 +3382,7 @@ class FlameDragonWebApp {
     if (res.healed.length === 1 && res.healed[0].unit.runtimeId !== actor.runtimeId) {
       const tu = res.healed[0].unit;
       const targetTone = tu.faction === 'player' ? 'gold' : tu.faction === 'ally' ? 'emerald' : 'crimson';
-      targetClause = `對 ${this.assets.glyphsToHtml(tu.nameGlyphs, targetTone, 14, tu.nameZh)} `;
+      targetClause = `${tr('對', '对', 'on')} ${this.assets.glyphsToHtml(tu.nameGlyphs, targetTone, 14, tu.nameZh)} `;
     }
     this.logMessage(
       `${this.assets.glyphsToHtml(actor.nameGlyphs, actorTone, 14, actor.nameZh)} ${targetClause}${res.summaryZh}`
@@ -3740,10 +3794,10 @@ class FlameDragonWebApp {
           }
           cell[1] = 0;
           cell[4] &= ~(2 | 0x40);
-          let stolenLabelZh = '寶物';
+          let stolenLabelZh = tr('寶物', '宝物', 'Treasure');
           if (chestDef && chestDef.type === 'item' && chestDef.value > 0) {
             const stolenIt = this.assets.gameData.items[chestDef.value];
-            stolenLabelZh = stolenIt?.nameZh ?? '寶物';
+            stolenLabelZh = stolenIt?.nameZh ?? tr('寶物', '宝物', 'Treasure');
             if (actor.items.length < 8) {
               actor.items.push(chestDef.value);
               syncUnitEquipmentIndices(actor, this.assets.gameData);
@@ -3755,9 +3809,13 @@ class FlameDragonWebApp {
           }
           actor.aiMode = 7;
           this.playUiSfx('chest');
-          this.spawnMapFlash(actor.x, actor.y, '#f0c869', `盜取 ${stolenLabelZh}！`);
+          this.spawnMapFlash(actor.x, actor.y, '#f0c869', `${tr('盜取', '盗取', 'Stole')} ${stolenLabelZh}!`);
           this.logMessage(
-            `${this.assets.glyphsToHtml(actor.nameGlyphs, 'crimson', 14, actor.nameZh)} 打開寶箱奪取了 <strong>${stolenLabelZh}</strong>，準備逃離戰場！`
+            `${this.assets.glyphsToHtml(actor.nameGlyphs, 'crimson', 14, actor.nameZh)} ${tr(
+              `打開寶箱奪取了 <strong>${stolenLabelZh}</strong>，準備逃離戰場！`,
+              `打开宝箱夺取了 <strong>${stolenLabelZh}</strong>，准备逃离战场！`,
+              `opened the chest and stole <strong>${stolenLabelZh}</strong>, preparing to flee!`
+            )}`
           );
           if (this.selectedUnit?.runtimeId === actor.runtimeId) {
             this.updateInspectorPanel(actor);
@@ -3772,7 +3830,11 @@ class FlameDragonWebApp {
         await this.director.playSparklesOnUnits([actor]);
         actor.hidden = true;
         this.logMessage(
-          `${this.assets.glyphsToHtml(actor.nameGlyphs, actor.faction === 'ally' ? 'emerald' : 'crimson', 14, actor.nameZh)} 脫離了戰場！`
+          `${this.assets.glyphsToHtml(actor.nameGlyphs, actor.faction === 'ally' ? 'emerald' : 'crimson', 14, actor.nameZh)} ${tr(
+            '脫離了戰場！',
+            '脱离了战场！',
+            'escaped the battlefield!'
+          )}`
         );
         this.resetAllUnitsToFrontView();
         if (this.checkBattleEndConditions()) return;

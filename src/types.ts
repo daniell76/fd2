@@ -377,6 +377,9 @@ export interface DialogueSegment {
   portraitId?: number;
   boxPos: 'top' | 'mid' | 'bottom';
   lines: number[][];
+  linesZhTw?: string[];
+  linesZhCn?: string[];
+  linesEn?: string[];
 }
 
 export interface ChestDef {
