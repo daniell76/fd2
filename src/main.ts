@@ -1016,7 +1016,20 @@ class FlameDragonWebApp {
 
   private focusNextReadyHero(): void {
     if (this.phase !== 'player' || this.uiState === 'busy') return;
-    const ready = this.activeUnits.filter((u) => u.faction === 'player' && !u.acted && u.paralyzeTurns === 0);
+    if (this.selectedUnit && this.moveOrigin && !this.selectedUnit.acted) {
+      this.selectedUnit.x = this.moveOrigin[0];
+      this.selectedUnit.y = this.moveOrigin[1];
+      this.selectedUnit.dir = this.moveOriginDir;
+      this.selectedUnit.moved = false;
+    }
+    this.activeSpell = null;
+    this.pendingUseItemBagIdx = null;
+    this.pendingGiveItemBagIdx = null;
+    this.pendingTeleportTargetUnit = null;
+    this.pendingTeleportFromItemBagIdx = null;
+    this.targetTiles.clear();
+    this.reachableMap.clear();
+    const ready = this.activeUnits.filter((u) => u.faction === 'player' && !u.acted && !u.moved && u.paralyzeTurns === 0);
     if (ready.length === 0) return;
     const curIdx = this.selectedUnit ? ready.findIndex((u) => u.runtimeId === this.selectedUnit!.runtimeId) : -1;
     const next = ready[(curIdx + 1) % ready.length];
@@ -1128,6 +1141,10 @@ class FlameDragonWebApp {
     this.currentChapterId = chapterId;
     this.turn = 1;
     this.phase = 'player';
+    this.selectedUnit = null;
+    this.moveOrigin = null;
+    this.reachableMap.clear();
+    this.targetTiles.clear();
     this.openedChests.clear();
     this.triggeredEvents.clear();
     this.director.resetChapterFlags();
@@ -1614,6 +1631,17 @@ class FlameDragonWebApp {
 
   private selectPlayerUnit(unit: BattleUnit): void {
     if (!this.chapter) return;
+    if (unit.faction !== 'player' || unit.acted || unit.moved || unit.paralyzeTurns > 0) {
+      this.selectedUnit = null;
+      this.moveOrigin = null;
+      this.reachableMap.clear();
+      this.targetTiles.clear();
+      this.uiState = 'idle';
+      this.crossMenu.close();
+      this.hideSubPopupAndForecast();
+      this.updateInspectorPanel(unit);
+      return;
+    }
     this.selectedUnit = unit;
     this.moveOrigin = [unit.x, unit.y];
     this.moveOriginDir = unit.dir;
@@ -1778,6 +1806,8 @@ class FlameDragonWebApp {
   private openUnitActionCrossMenu(defaultDir?: 'top' | 'left' | 'right' | 'bottom'): void {
     if (!this.chapter || !this.selectedUnit) return;
     this.uiState = 'unit_cross';
+    this.reachableMap.clear();
+    this.targetTiles.clear();
     this.hideSubPopupAndForecast();
 
     const u = this.selectedUnit;
@@ -1837,6 +1867,7 @@ class FlameDragonWebApp {
         this.playUiSfx('confirm');
         if (action === 'attack') {
           this.crossMenu.close();
+          this.reachableMap.clear();
           this.uiState = 'targeting_attack';
           this.targetTiles = new Set(atkCoords.map(([x, y]) => coordKey(x, y)));
           this.showUnitTargetingHint(
@@ -1868,6 +1899,8 @@ class FlameDragonWebApp {
   private openItemSubCrossMenu(): void {
     if (!this.chapter || !this.selectedUnit) return;
     this.uiState = 'item_sub_cross';
+    this.reachableMap.clear();
+    this.targetTiles.clear();
     this.hideSubPopupAndForecast();
 
     const u = this.selectedUnit;
@@ -2122,6 +2155,8 @@ class FlameDragonWebApp {
   private openSpellBookPopup(u: BattleUnit): void {
     const gd = this.assets.gameData;
     const isTw = getLocale() === 'zh-TW';
+    this.reachableMap.clear();
+    this.targetTiles.clear();
     this.uiState = 'choosing_spell';
     const didMove = this.moveOrigin ? u.x !== this.moveOrigin[0] || u.y !== this.moveOrigin[1] : u.moved;
     let firstActiveMarked = false;
@@ -2163,6 +2198,7 @@ class FlameDragonWebApp {
         const sp = gd.spells[Number(b.dataset.sp)];
         if (!sp || !this.chapter) return;
         this.playUiSfx('confirm');
+        this.reachableMap.clear();
         this.activeSpell = sp;
         this.uiState = 'targeting_spell';
         if (sp.id === 23) {
@@ -2197,6 +2233,8 @@ class FlameDragonWebApp {
     const gd = this.assets.gameData;
     const eq = getEquippedStats(u, gd);
     const isTw = getLocale() === 'zh-TW';
+    this.reachableMap.clear();
+    this.targetTiles.clear();
     this.uiState = 'choosing_item_list';
 
     const modeTitle =
@@ -2270,6 +2308,7 @@ class FlameDragonWebApp {
             void this.finishSelectedUnitTurn();
           } else {
             // Ranged / Adjacent / AoE item (`#192..#197` at range 0..1, `#102 修理套件` at range 0..4 AoE 2, `#101 傳送法杖` at range 1..1, or reusable staves/weapons!)
+            this.reachableMap.clear();
             this.pendingUseItemBagIdx = slotIdx;
             this.uiState = 'targeting_use_item';
             // `#101 傳送法杖` (`useEffect === 23`) targets an adjacent ally (`dist === 1`, cannot target self, per `fn_74122` & Chiuinan line 1082)!
@@ -2317,6 +2356,7 @@ class FlameDragonWebApp {
           this.updateInspectorPanel(u);
           this.openUnitActionCrossMenu('bottom');
         } else if (mode === 'give') {
+          this.reachableMap.clear();
           this.pendingGiveItemBagIdx = slotIdx;
           this.uiState = 'targeting_give_ally';
           const adjAllies = this.activeUnits.filter(
@@ -2347,6 +2387,7 @@ class FlameDragonWebApp {
   private beginTeleportDestinationSelection(targetUnit: BattleUnit, fromItemBagIdx: number | null): void {
     if (!this.chapter) return;
     this.playUiSfx('confirm');
+    this.reachableMap.clear();
     this.pendingTeleportTargetUnit = targetUnit;
     this.pendingTeleportFromItemBagIdx = fromItemBagIdx;
     this.uiState = 'targeting_teleport_dest';
@@ -2435,20 +2476,23 @@ class FlameDragonWebApp {
       if (clickedUnit) {
         this.playUiSfx('cursor');
         this.updateInspectorPanel(clickedUnit);
-        if (clickedUnit.faction === 'player' && !clickedUnit.acted && clickedUnit.paralyzeTurns === 0) {
+        if (
+          clickedUnit.faction === 'player' &&
+          !clickedUnit.acted &&
+          !clickedUnit.moved &&
+          clickedUnit.paralyzeTurns === 0
+        ) {
           this.selectPlayerUnit(clickedUnit);
         } else {
-          // Preview enemy/ally movement range!
-          this.reachableMap = computeReachableTiles(clickedUnit, this.chapter, this.activeUnits, this.assets.gameData);
+          // Do NOT show movement range for already moved/acted player units, enemy units, or ally NPC units!
+          this.reachableMap.clear();
+          this.targetTiles.clear();
         }
       } else {
-        // Clicking an empty tile (or after clearing range preview) opens the authentic Empty-Tile Cross Menu!
-        if (this.reachableMap.size > 0) {
-          this.reachableMap.clear();
-        } else {
-          this.playUiSfx('cursor');
-          this.openEmptyTileCrossMenu(tx, ty);
-        }
+        this.reachableMap.clear();
+        this.targetTiles.clear();
+        this.playUiSfx('cursor');
+        this.openEmptyTileCrossMenu(tx, ty);
       }
       return;
     }
@@ -2457,16 +2501,30 @@ class FlameDragonWebApp {
       const key = coordKey(tx, ty);
       if (this.reachableMap.has(key)) {
         const path = reconstructPath(this.reachableMap, tx, ty);
+        this.reachableMap.clear();
         await this.animateUnitWalk(this.selectedUnit, path);
         this.selectedUnit.moved = path.length > 1;
-        this.reachableMap.clear();
         this.openUnitActionCrossMenu();
-      } else if (clickedUnit && clickedUnit.faction === 'player' && !clickedUnit.acted && clickedUnit.paralyzeTurns === 0) {
+      } else if (
+        clickedUnit &&
+        clickedUnit.faction === 'player' &&
+        !clickedUnit.acted &&
+        !clickedUnit.moved &&
+        clickedUnit.paralyzeTurns === 0
+      ) {
         this.playUiSfx('cursor');
         this.selectPlayerUnit(clickedUnit);
       } else {
+        if (clickedUnit) {
+          this.updateInspectorPanel(clickedUnit);
+        }
         this.handleRightClickCancel();
       }
+      return;
+    }
+
+    if (this.uiState === 'choosing_spell' || this.uiState === 'choosing_item_list') {
+      this.handleRightClickCancel();
       return;
     }
 
@@ -4133,8 +4191,8 @@ class FlameDragonWebApp {
       }
     }
 
-    // 2. Movement Reachable Overlay (Azure)
-    if (this.reachableMap.size > 0) {
+    // 2. Movement Reachable Overlay (Azure — strictly shown ONLY when selecting a ready player unit's move destination)
+    if (this.uiState === 'unit_selected' && this.targetTiles.size === 0 && this.reachableMap.size > 0) {
       ctx.fillStyle = 'rgba(56, 156, 244, 0.30)';
       ctx.strokeStyle = 'rgba(115, 198, 255, 0.68)';
       ctx.lineWidth = 1;
@@ -4146,8 +4204,15 @@ class FlameDragonWebApp {
       }
     }
 
-    // 3. Attack / Spell / Item / Trade Target Overlay
-    if (this.targetTiles.size > 0) {
+    // 3. Attack / Spell / Item / Trade Target Overlay (strictly shown ONLY during active targeting modes)
+    if (
+      this.targetTiles.size > 0 &&
+      (this.uiState === 'targeting_attack' ||
+        this.uiState === 'targeting_spell' ||
+        this.uiState === 'targeting_use_item' ||
+        this.uiState === 'targeting_give_ally' ||
+        this.uiState === 'targeting_teleport_dest')
+    ) {
       const pendingUseItem =
         this.uiState === 'targeting_use_item' && this.selectedUnit && this.pendingUseItemBagIdx !== null
           ? this.assets.gameData.items[this.selectedUnit.items[this.pendingUseItemBagIdx]]
