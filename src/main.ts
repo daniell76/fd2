@@ -3888,8 +3888,9 @@ class FlameDragonWebApp {
     this.crossMenu.close();
     this.hideSubPopupAndForecast();
 
-    // Authentic `FD2.EXE` (`fn_16340`) End-Turn Rest Recovery:
-    // Any unacted, unmoved, unpoisoned, unparalyzed player unit recovers +20% Max HP with `FDOTHER[9]` sparkles!
+    // Authentic `FD2.EXE` (`fn_41739` `L41970..42111`) End-Turn Rest Recovery:
+    // Any unacted, unmoved, unpoisoned, unparalyzed player unit recovers +20% Max HP with `FDOTHER[9]` sparkles
+    // and calls `fn_13586(v6)` (`L42103: u.acted = true`)!
     const restedHealed: BattleUnit[] = [];
     for (const u of this.activeUnits) {
       if (
@@ -3904,6 +3905,7 @@ class FlameDragonWebApp {
         u.hp = Math.min(u.maxHp, u.hp + heal);
         this.spawnMapFlash(u.x, u.y, '#68dfa0', `+${heal}`);
         restedHealed.push(u);
+        u.acted = true;
       }
     }
     if (restedHealed.length > 0) {
@@ -3926,18 +3928,23 @@ class FlameDragonWebApp {
     }
 
     // 2. Enemy Phase (`phase === 0` on current `this.turn`)
-    this.resetFactionActedFlags('enemy');
-    await this.checkScheduledTurnEvents(0);
-    if (this.checkBattleEndConditions()) return;
+    // Exact `FD2.EXE` `L42279..42307`: Show Enemy Phase banner, then `fn_13622()` clears `acted` (`M1[unit+5] &= 0x7F`)
+    // across ALL units on the map (restoring full color & idle motion to all Player and Ally units!) before `fn_43027(0)`.
     this.phase = 'enemy';
     this.updateTopHud();
     await this.showPhaseBanner(tr('敵軍行動 · ENEMY PHASE', '敌军行动 · ENEMY PHASE', 'ENEMY PHASE'));
+    this.resetFactionActedFlags('player');
+    this.resetFactionActedFlags('ally');
+    this.resetFactionActedFlags('enemy');
+    await this.checkScheduledTurnEvents(0);
+    if (this.checkBattleEndConditions()) return;
     if (await this.tickFactionPhaseStartStatus('enemy')) return;
     await this.runAiFactionTurn('enemy');
     if (this.checkBattleEndConditions()) return;
 
     // 3. Advance Turn & Player Phase (`phase === 2` on `this.turn + 1`)
-    // Exact `FD2.EXE` `fn_13622` (`L13622..13668`): clears `acted` (`M1[unit+5] &= 0x7F`) across ALL units on the map!
+    // Exact `FD2.EXE` `L42449..42490`: `fn_13622()` clears `acted` (`M1[unit+5] &= 0x7F`) across ALL units on the map
+    // (restoring full color & idle motion to all Enemy units!).
     this.turn += 1;
     this.phase = 'player';
     this.resetFactionActedFlags('player');
@@ -4347,18 +4354,20 @@ class FlameDragonWebApp {
           ctx.rect(dx, dy, tilePx, Math.round(tilePx * 0.54));
           ctx.clip();
         }
-        // Exact `FD2.EXE` `fn_10208` (`L10471..10613`):
-        // - All living non-paralyzed units (Player, Ally, and Enemy) continuously play the 4-beat `0 -> 1 -> 2 -> 1` idle stomping animation.
+        // Exact `FD2.EXE` `fn_10208` (`L10471..10613`) + `fn_13586` / `fn_13622`:
+        // - Unacted non-paralyzed units (Player, Ally, and Enemy) play the 4-beat `0 -> 1 -> 2 -> 1` idle stomping animation.
+        // - When any unit (Player, Ally, or Enemy) finishes its move/action (`u.acted === true`, `M1[unit+5] & 0x80`),
+        //   it renders greyed out (`fn_253526`) and stops idle stomping (`frame 0`) until `fn_13622` resets all units on phase switch!
         // - Paralyzed units (`M1[unit+38] != 0`) lock their pose to frame `0` (`L10524`) and tremble horizontally (`v3 += GLOBAL_2_14852` at `L10479`)!
         this.assets.drawUnitSprite(
           ctx,
           u.spriteGroup,
           u.dir,
-          isDyingSpin || isParalyzed ? 0 : isMovingNow ? walkFrame : idleFrame,
+          isDyingSpin || isParalyzed || u.acted ? 0 : isMovingNow ? walkFrame : idleFrame,
           spriteDx,
           dy,
           tilePx,
-          !isDyingSpin && u.acted && u.faction === 'player'
+          !isDyingSpin && u.acted
         );
         if (isHalfBehindRoof) {
           ctx.restore();
