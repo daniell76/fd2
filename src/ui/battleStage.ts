@@ -1417,8 +1417,8 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
  *  1. `BG.DAT` (320x100 at `(0, 50)`)
  *  2. Right-hand `TAI.DAT` (at `(320 - w, 156)`)
  *  3. `FDOTHER[5]` 149x42 Battle HUD Panels (`fn_107145` -> `fn_35949`):
- *     - Top-Right `(171, 4)` for Left Enemy (`faction != 0`)
- *     - Bottom-Left `(0, 154)` for Right Hero (`faction == 0`)
+ *     - Top-Right `(171, 4)` for Right Hero / Friend (`faction != 0`)
+ *     - Bottom-Left `(0, 154)` for Left Enemy (`faction == 0`)
  *     Layered BEHIND all character sprites, projectiles, and spell animations, with NO portrait avatars and NO floating damage numbers!
  *  4. Background spell layer (`behindTarget`)
  *  5. Left Enemy & Right Hero `FIGANI` unit sprites
@@ -1458,36 +1458,38 @@ export function renderTimelineStep(
   }
 
   // 2. Authentic FD2.EXE Battle HUD Panels (`fn_107145` -> `fn_35949`) drawn into the background layer BEHIND character animations!
+  //    - Friend / Right Hero (`faction != 0`): Top-Right `(171, 4)`
+  //    - Enemy / Left Unit (`faction == 0`): Bottom-Left `(0, 154)`
   const showLeftHud = (showLeft || Boolean(step.showBothHuds)) && step.leftUnit !== null;
   const showRightHud = (showRight || Boolean(step.showBothHuds)) && step.rightUnit !== null;
 
-  if (showLeftHud && step.leftUnit) {
-    const u = step.leftUnit;
+  if (showRightHud && step.rightUnit) {
+    const u = step.rightUnit;
     assets.drawBattleHudPanel(
       ctx,
       171,
       4,
       u.nameGlyphs,
       u.level,
-      step.leftHp,
+      step.rightHp,
       u.maxHp,
-      step.leftMp,
+      step.rightMp,
       u.maxMp,
       u.nameZh
     );
   }
 
-  if (showRightHud && step.rightUnit) {
-    const u = step.rightUnit;
+  if (showLeftHud && step.leftUnit) {
+    const u = step.leftUnit;
     assets.drawBattleHudPanel(
       ctx,
       0,
       154,
       u.nameGlyphs,
       u.level,
-      step.rightHp,
+      step.leftHp,
       u.maxHp,
-      step.rightMp,
+      step.leftMp,
       u.maxMp,
       u.nameZh
     );

@@ -431,8 +431,8 @@ export class AssetManager {
   /**
    * Renders the 100% authentic `FD2.EXE` (`fn_107145` -> `fn_35949`) 149x42 cutaway battle HUD panel
    * using extracted `FDOTHER.DAT[5]` sprites (`battle_hud.png`), without portrait avatars:
-   *  - Top-Right `(171, 4)` (`1451 = 4*320 + 171`) for Left Enemy/NPC (`faction != 0`)
-   *  - Bottom-Left `(0, 154)` (`49280 = 154*320 + 0`) for Right Hero (`faction == 0`)
+   *  - Top-Right `(171, 4)` (`1451 = 4*320 + 171`) for Right Hero / Friend (`faction != 0`)
+   *  - Bottom-Left `(0, 154)` (`49280 = 154*320 + 0`) for Left Enemy (`faction == 0`)
    *  - HP bar at `(bx+21, by+22)` (golden-yellow `[195,197,199]` on dark-red `[35,37]`)
    *  - MP bar at `(bx+31 -> bx+21, by+31)` (olive-green `[155,157,165]` on dark-red `[35,37]`)
    *  - Level at `(bx+132, by+4)`, HP digits at `(bx+126, by+21)`, MP digits at `(bx+126, by+30)`
