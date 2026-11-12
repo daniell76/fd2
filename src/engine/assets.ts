@@ -393,11 +393,11 @@ export class AssetManager {
     this.glyphUrlCache.clear();
   }
 
-  getScreenUrl(name: 'title_0' | 'shop' | 'camp' | 'church' | 'world' | 'ending' | 'gameover'): string {
+  getScreenUrl(name: 'title_0' | 'shop' | 'camp' | 'town' | 'church' | 'world' | 'ending' | 'gameover'): string {
     return this.editionMode === 'hd' ? `assets/hd_screens/${name}.png` : `assets/screens/${name}.png`;
   }
 
-  getScreenImage(key: 'title' | 'shop' | 'camp' | 'church' | 'world' | 'ending' | 'gameover'): HTMLImageElement {
+  getScreenImage(key: 'title' | 'shop' | 'camp' | 'town' | 'church' | 'world' | 'ending' | 'gameover'): HTMLImageElement {
     if (this.editionMode === 'hd' && this.hdScreens[key]) {
       return this.hdScreens[key];
     }
@@ -719,6 +719,7 @@ export class AssetManager {
       title0,
       shopBg,
       campBg,
+      townBg,
       churchBg,
       worldBg,
       endingBg,
@@ -743,6 +744,7 @@ export class AssetManager {
       loadImage('assets/screens/title_0.png'),
       loadImage('assets/screens/shop.png'),
       loadImage('assets/screens/camp.png'),
+      loadImage('assets/screens/town.png'),
       loadImage('assets/screens/church.png'),
       loadImage('assets/screens/world.png'),
       loadImage('assets/screens/ending.png'),
@@ -770,6 +772,7 @@ export class AssetManager {
       title: title0,
       shop: shopBg,
       camp: campBg,
+      town: townBg,
       church: churchBg,
       world: worldBg,
       ending: endingBg,
@@ -785,6 +788,7 @@ export class AssetManager {
       ['title', 'assets/hd_screens/title_0.png'],
       ['shop', 'assets/hd_screens/shop.png'],
       ['camp', 'assets/hd_screens/camp.png'],
+      ['town', 'assets/hd_screens/town.png'],
       ['church', 'assets/hd_screens/church.png'],
       ['world', 'assets/hd_screens/world.png'],
       ['ending', 'assets/hd_screens/ending.png'],

@@ -1395,6 +1395,14 @@ class FlameDragonWebApp {
       return;
     }
 
+    if (save.chapterId > 0) {
+      await this.loadMapOnly(save.chapterId);
+      this.updateTopHud();
+      this.centerCameraOnParty();
+      this.openTownCampForChapter(save.chapterId);
+      return;
+    }
+
     await this.beginChapterBattle(save.chapterId, true);
   }
 
@@ -3826,6 +3834,10 @@ class FlameDragonWebApp {
       party: this.party.map((m) => ({ ...m, items: [...m.items], spells: [...m.spells] })),
     });
 
+    this.openTownCampForChapter(nextChapter);
+  }
+
+  private openTownCampForChapter(nextChapter: number): void {
     this.modals.openTownCamp(
       nextChapter,
       this.party,
@@ -3845,7 +3857,8 @@ class FlameDragonWebApp {
             inBattle: false,
             party: this.party,
           }),
-          (s) => void this.loadFromSaveData(s)
+          (s) => void this.loadFromSaveData(s),
+          () => this.openTownCampForChapter(nextChapter)
         );
       },
       () => {

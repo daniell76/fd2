@@ -524,6 +524,19 @@ body.edition-hd img.pixel-crisp {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
+.portrait-frame canvas,
+.portrait-frame img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.dialogue-box .portrait-frame {
+  width: 96px;
+  height: 96px;
+}
+
 .unit-meta {
   flex: 1;
   min-width: 0;
@@ -807,8 +820,8 @@ body.edition-hd img.pixel-crisp {
    MODAL DIALOGS (TOWN CAMP, CHAPTER SELECT, SAVE/LOAD, CODEX)
    ========================================================================= */
 .modal-card {
-  width: min(880px, 95vw);
-  max-height: 88vh;
+  width: min(1080px, 95vw);
+  max-height: 92vh;
   background: var(--surface-1);
   border: 1px solid var(--border-brass);
   border-radius: 10px;
@@ -819,12 +832,13 @@ body.edition-hd img.pixel-crisp {
 }
 
 .modal-header {
-  padding: 14px 18px;
+  padding: 12px 18px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
 }
 
 .modal-header h2 {
@@ -835,11 +849,32 @@ body.edition-hd img.pixel-crisp {
 
 .modal-tabs {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   padding: 10px 18px;
   background: var(--bg-deep);
   border-bottom: 1px solid var(--border-subtle);
-  overflow-x: auto;
+}
+
+.camp-map-stage {
+  position: relative;
+  width: min(860px, 100%, calc((66vh) * 1.6));
+  aspect-ratio: 320 / 200;
+  margin: 0 auto;
+  border-radius: 9px;
+  border: 1.5px solid var(--border-brass);
+  overflow: hidden;
+  background: #07090e;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.72);
+  user-select: none;
+}
+
+.camp-map-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: pointer;
 }
 
 .modal-body {

@@ -79,6 +79,8 @@ function downloadJsonBlob(filename: string, obj: unknown): void {
 
 export class ModalController {
   private activeRenderFn: (() => void) | null = null;
+  private activeCleanupFn: (() => void) | null = null;
+  private onCloseOverride: (() => void) | null = null;
 
   constructor(
     private assets: AssetManager,
@@ -91,11 +93,27 @@ export class ModalController {
   ) {
     this.closeBtn.addEventListener('click', () => {
       this.sound.playSfx('cancel');
+      if (this.onCloseOverride) {
+        const fn = this.onCloseOverride;
+        this.onCloseOverride = null;
+        fn();
+        return;
+      }
       this.hide();
     });
   }
 
+  private runCleanup(): void {
+    if (this.activeCleanupFn) {
+      const fn = this.activeCleanupFn;
+      this.activeCleanupFn = null;
+      fn();
+    }
+    this.onCloseOverride = null;
+  }
+
   hide(): void {
+    this.runCleanup();
     this.backdropEl.classList.add('hidden');
     this.activeRenderFn = null;
   }
@@ -424,7 +442,16 @@ export class ModalController {
     this.backdropEl.classList.remove('hidden');
   }
 
-  /** Opens the Intermission Rest Camp between chapters (Weapon Shop, Item Shop, Church, Party, Next Battle). */
+  /**
+   * Opens the authentic `FD2.EXE` (`Obj1 + 186583..188698`, `Obj2 + 9101..9946`) Interactive Town & Encampment Map
+   * between chapters, featuring Thor's (`#0 索爾`) walking sprite moving between the 6 camp facilities:
+   *  - `0`: Tavern & Quarters (`酒店 / 營帳整備`, `DATO[129]` / `DATO[75]`)
+   *  - `1`: Armory (`武器店`, `DATO[128]`)
+   *  - `2`: Palisade Exit Gate (`離開營地 / 出擊下一章`, `DATO[0]`)
+   *  - `3`: Item Shop (`道具店`, `DATO[130]`)
+   *  - `4`: Church Sanctuary (`教會轉職`, `DATO[131]`)
+   *  - `5`: Secret Merchant (`秘密商店`, `DATO[132]`)
+   */
   openTownCamp(
     nextChapterId: number,
     party: PartyMemberSave[],
@@ -433,6 +460,7 @@ export class ModalController {
     onSaveRequest: () => void,
     onDeployNext: () => void
   ): void {
+    this.runCleanup();
     this.closeBtn.style.display = 'none';
     const nextChapterNumber = nextChapterId + 1;
     const nextChTitle = getLocalizedChapterTitle(nextChapterId, '');
@@ -441,8 +469,18 @@ export class ModalController {
       `城镇与营地整备 — 准备出击第 ${nextChapterNumber} 章《${nextChTitle}》`,
       `Town & Encampment — Preparing for Chapter ${nextChapterNumber}: "${nextChTitle}"`
     );
-    let activeTab: 'party' | 'weapon' | 'item' | 'church' = 'party';
-    let selectedMemberIdx = 0;
+
+    // Exact `FD2.EXE` `Obj2 + 9781` (X) and `Obj2 + 9799` (Y) 3x6 facility doorstep tables
+    const CAMP_X_TABLE: readonly [number, number, number, number, number, number][] = [
+      [29, 41, 59, 154, 182, 10],   // Variant 0: FDOTHER[12] Forest Encampment (camp.png)
+      [90, 33, 53, 148, 222, 196],  // Variant 1: FDOTHER[62] Festive Striped-Tent Camp (ending.png)
+      [59, 10, 59, 130, 242, 136],  // Variant 2: FDOTHER[63] Stone-Walled Town Bazaar (town.png)
+    ];
+    const CAMP_Y_TABLE: readonly [number, number, number, number, number, number][] = [
+      [46, 109, 163, 139, 65, 10],
+      [30, 105, 163, 139, 85, 8],
+      [26, 144, 163, 150, 31, 20],
+    ];
 
     const shopIdx = Math.min(this.assets.gameData.shops.length - 1, Math.max(0, nextChapterId));
     const shopDef = this.assets.gameData.shops[shopIdx] ?? this.assets.gameData.shops[0];
@@ -451,62 +489,555 @@ export class ModalController {
       shopDef?.isCampOnly || [22, 23, 24, 27, 28, 29, 30].includes(nextChapterNumber)
     );
     const hasShopStock = !isCampOnlyChapter && (shopDef?.weaponShop.length > 0 || shopDef?.itemShop.length > 0);
+    const hasSecretStock = !isCampOnlyChapter && (shopDef?.secretShop?.length ?? 0) > 0;
+
+    // `Obj2 + 9943`: 0 -> FDOTHER[12] ('camp'), 1 -> FDOTHER[62] ('ending'), 2 -> FDOTHER[63] ('town')
+    const rawVariant = isCampOnlyChapter ? 0 : (shopDef?.secretTrigger?.[0] ?? 0);
+    const campVariant: 0 | 1 | 2 = rawVariant === 2 ? 2 : rawVariant === 1 ? 1 : 0;
+    const campScreenKey: 'camp' | 'ending' | 'town' =
+      campVariant === 2 ? 'town' : campVariant === 1 ? 'ending' : 'camp';
+
+    type CampViewMode = 'map' | 'party' | 'weapon' | 'item' | 'church' | 'secret';
+    let activeTab: CampViewMode = 'map';
+    let selectedMemberIdx = 0;
+    let facilityIdx = 0; // 0..5 matching `Obj2 + 16683`
+    let hoveredFacilityIdx: number | null = null;
+    let thorX = CAMP_X_TABLE[campVariant][0];
+    let thorY = CAMP_Y_TABLE[campVariant][0];
+    let thorDir = 0; // 0=Down/Front, 1=Left, 2=Up, 3=Right
+    let walkAnim: {
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+      startMs: number;
+      durMs: number;
+      dir: number;
+      onArrive?: () => void;
+    } | null = null;
+    let rafId: number | null = null;
+
+    const getFacilityMeta = (fIdx: number) => {
+      const gd = this.assets.gameData;
+      const sysGlyphs = gd.sysStrings?.[495 + fIdx] ?? [];
+      switch (fIdx) {
+        case 0:
+          return {
+            idx: 0,
+            sysGlyphs,
+            shortLabel: isCampOnlyChapter
+              ? tr('主營帳', '主营帐', 'Command Tent')
+              : tr('酒店 · 整備', '酒店 · 整备', 'Tavern & Gear'),
+            titleLabel: isCampOnlyChapter
+              ? tr('野戰主營帳 (隊伍裝備與記錄)', '野战主营帐 (队伍装备与记录)', 'Field Command Tent (Party Gear & Save)')
+              : tr('城鎮酒店 (隊伍整備與記錄進度)', '城镇酒店 (队伍整备与记录进度)', 'Town Tavern (Party Gear & Save Progress)'),
+            npcId: isCampOnlyChapter ? 75 : 129,
+            enabled: true,
+            greeting: isCampOnlyChapter
+              ? tr('在此整理各隊員的武器防具、使用能力藥水或記錄進度。', '在此整理各队员的武器防具、使用能力药水或记录进度。', 'Organize your heroes’ equipment, consume stat potions, or save your progress here.')
+              : tr('「歡迎來到酒店！您可以在此整理隊伍裝備或記錄冒險進度。」', '“欢迎来到酒店！您可以在此整理队伍装备或记录冒险进度。”', '"Welcome to the Tavern! Manage your party’s gear or save your adventure progress here."'),
+          };
+        case 1:
+          return {
+            idx: 1,
+            sysGlyphs,
+            shortLabel: tr('武器店', '武器店', 'Armory'),
+            titleLabel: tr('武器與防具店', '武器与防具店', 'Weapons & Armor Shop'),
+            npcId: 128,
+            enabled: hasShopStock,
+            greeting: hasShopStock
+              ? tr('「挑把稱手的兵器吧！本店販售本章最新鍛造的武器與防具。」', '“挑把称手的兵器吧！本店贩售本章最新锻造的武器与防具。”', '"Pick a fine blade! We carry freshly forged weapons and armor for this chapter."')
+              : tr('（野戰行軍營地無武器店鋪，請於主營帳整備現有裝備）', '（野战行军营地无武器店铺，请于主营帐整备现有装备）', '(No Armory available in this field camp; manage existing gear in the Command Tent.)'),
+          };
+        case 2:
+          return {
+            idx: 2,
+            sysGlyphs,
+            shortLabel: tr('營門出擊', '营门出击', 'Exit Gate'),
+            titleLabel: tr(`離開營地 → 出擊第 ${nextChapterNumber} 章`, `离开营地 → 出击第 ${nextChapterNumber} 章`, `Leave Camp → March to Chapter ${nextChapterNumber}`),
+            npcId: (party.find((m) => (m.baseHeroId ?? m.uid) === 0) ?? party[0])?.portraitId ?? 0,
+            enabled: true,
+            greeting: tr(
+              `整備完畢後，可由此離開營地並出擊第 ${nextChapterNumber} 章《${getLocalizedChapterTitle(nextChapterId, '')}》！`,
+              `整备完毕后，可由此离开营地并出击第 ${nextChapterNumber} 章《${getLocalizedChapterTitle(nextChapterId, '')}》！`,
+              `When your party is ready, pass through the gate to march into Chapter ${nextChapterNumber}: "${getLocalizedChapterTitle(nextChapterId, '')}"!`
+            ),
+          };
+        case 3:
+          return {
+            idx: 3,
+            sysGlyphs,
+            shortLabel: tr('道具店', '道具店', 'Item Shop'),
+            titleLabel: tr('道具與藥水店', '道具与药水店', 'Potions & Items Shop'),
+            npcId: 130,
+            enabled: hasShopStock,
+            greeting: hasShopStock
+              ? tr('「出征前別忘了添購療傷藥草與解毒劑！」', '“出征前别忘了添购疗伤药草与解毒剂！”', '"Don’t forget to stock up on healing herbs and antidotes before marching out!"')
+              : tr('（野戰行軍營地無道具店鋪）', '（野战行军营地无道具店铺）', '(No Item Shop available in this field camp.)'),
+          };
+        case 4:
+          return {
+            idx: 4,
+            sysGlyphs,
+            shortLabel: tr('教會', '教会', 'Sanctuary'),
+            titleLabel: tr('聖堂教會 (英雄轉職與記錄)', '圣堂教会 (英雄转职与记录)', 'Church Sanctuary (Class Promotion & Save)'),
+            npcId: 131,
+            enabled: !isCampOnlyChapter,
+            greeting: !isCampOnlyChapter
+              ? tr('「願聖光庇佑諸位。等級達 Lv 20 的夥伴可在此進行轉職儀式。」', '“愿圣光庇佑诸位。等级达 Lv 20 的伙伴可在此进行转职仪式。”', '"May the Light bless your company. Heroes at Lv 20 may undergo class promotion here."')
+              : tr('（野戰行軍營地無聖堂教會）', '（野战行军营地无圣堂教会）', '(No Church Sanctuary available in this field camp.)'),
+          };
+        default:
+          return {
+            idx: 5,
+            sysGlyphs,
+            shortLabel: tr('秘密商店', '秘密商店', 'Secret Shop'),
+            titleLabel: tr('神秘行商 (隱藏寶物與秘藥)', '神秘行商 (隐藏宝物与秘药)', 'Secret Merchant (Rare Relics & Elixirs)'),
+            npcId: 132,
+            enabled: hasSecretStock,
+            greeting: hasSecretStock
+              ? tr('「嘿嘿……居然被你找到這裡了！看看這些市面上買不到的稀世珍寶吧！」', '“嘿嘿……居然被你找到这里了！看看这些市面上买不到的稀世珍宝吧！”', '"Heh heh... so you found my hidden tent! Take a look at these rare treasures you won’t find anywhere else!"')
+              : tr('（本章無秘密商人存貨）', '（本章无秘密商人存货）', '(The Secret Merchant has no wares in this chapter.)'),
+          };
+      }
+    };
+
+    const formatDosSecretHint = (): string => {
+      if (!hasSecretStock || !shopDef?.secretTrigger) return '';
+      const [, fromFac, scanCode] = shopDef.secretTrigger;
+      const fromMeta = getFacilityMeta(fromFac);
+      let keyDesc = `Key ${scanCode}`;
+      if (scanCode >= 84 && scanCode <= 93) keyDesc = `Shift+F${scanCode - 83}`;
+      else if (scanCode >= 94 && scanCode <= 103) keyDesc = `Ctrl+F${scanCode - 93}`;
+      else if (scanCode >= 104 && scanCode <= 113) keyDesc = `Alt+F${scanCode - 103}`;
+      return tr(
+        `💡 原版秘技：站在【${fromMeta.shortLabel}】按 ${keyDesc}（或直接點擊地圖上 5 號「秘密商店」帳篷）可拜訪秘密商人！`,
+        `💡 原版秘技：站在【${fromMeta.shortLabel}】按 ${keyDesc}（或直接点击地图上 5 号“秘密商店”帐篷）可拜访秘密商人！`,
+        `💡 Classic Secret: Stand at [${fromMeta.shortLabel}] and press ${keyDesc} (or click Tent #5 "Secret Shop" on the map) to visit the Secret Merchant!`
+      );
+    };
 
     const syncTownTabBgm = () => {
-      // Authentic `FD2.EXE` Town / Camp BGM (`Obj1 + 118068, 119449..119545`):
-      //  - `party` (Base Camp / Quarters): `FDMUS[10]`
-      //  - `weapon` / `item` (Armory / Item Shop): `FDMUS[13]`
-      //  - `church` (Sanctuary): `FDMUS[14]`
-      if (activeTab === 'party') {
+      // Exact `FD2.EXE` Town / Camp BGM (`Obj1 + 187188, 188565..188670`):
+      //  - `map` (Interactive Camp Map): `FDMUS[10]`
+      //  - `party` (Tavern / Quarters): `FDMUS[13]` (or `10` in field camp)
+      //  - `weapon` / `secret` (Armory / Secret Merchant): `FDMUS[14]`
+      //  - `item` (Item Shop): `FDMUS[15]`
+      //  - `church` (Sanctuary): `FDMUS[11]`
+      if (activeTab === 'map') {
         this.sound.playBgmBySourceIndex(10);
-      } else if (activeTab === 'weapon' || activeTab === 'item') {
-        this.sound.playBgmBySourceIndex(13);
-      } else if (activeTab === 'church') {
+      } else if (activeTab === 'party') {
+        this.sound.playBgmBySourceIndex(isCampOnlyChapter ? 10 : 13);
+      } else if (activeTab === 'weapon' || activeTab === 'secret') {
         this.sound.playBgmBySourceIndex(14);
+      } else if (activeTab === 'item') {
+        this.sound.playBgmBySourceIndex(15);
+      } else if (activeTab === 'church') {
+        this.sound.playBgmBySourceIndex(11);
+      }
+    };
+
+    const enterFacility = (fIdx: number) => {
+      const meta = getFacilityMeta(fIdx);
+      if (fIdx === 2) {
+        this.sound.playSfx('fanfare');
+        this.closeBtn.style.display = 'inline-flex';
+        this.hide();
+        onDeployNext();
+        return;
+      }
+      if (!meta.enabled) {
+        this.sound.playSfx('cancel');
+        return;
+      }
+      this.sound.playSfx('confirm');
+      if (fIdx === 0) activeTab = 'party';
+      else if (fIdx === 1) activeTab = 'weapon';
+      else if (fIdx === 3) activeTab = 'item';
+      else if (fIdx === 4) activeTab = 'church';
+      else if (fIdx === 5) activeTab = 'secret';
+      syncTownTabBgm();
+      renderAll();
+    };
+
+    const walkThorToFacility = (targetIdx: number, enterOnArrive = false) => {
+      const clamped = Math.max(0, Math.min(5, targetIdx));
+      const destX = CAMP_X_TABLE[campVariant][clamped];
+      const destY = CAMP_Y_TABLE[campVariant][clamped];
+      if (clamped === facilityIdx && !walkAnim) {
+        if (enterOnArrive) {
+          enterFacility(clamped);
+        } else {
+          this.sound.playSfx('cursor');
+          renderAll();
+        }
+        return;
+      }
+      facilityIdx = clamped;
+      this.sound.playSfx('cursor');
+      const dx = destX - thorX;
+      const dy = destY - thorY;
+      const dist = Math.hypot(dx, dy);
+      const dir = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 3 : 1) : dy < 0 ? 2 : 0;
+      const durMs = Math.max(140, Math.min(360, Math.round(dist * 2.1)));
+      walkAnim = {
+        fromX: thorX,
+        fromY: thorY,
+        toX: destX,
+        toY: destY,
+        startMs: performance.now(),
+        durMs,
+        dir,
+        onArrive: enterOnArrive ? () => enterFacility(clamped) : undefined,
+      };
+      updateMapStatusBanner();
+      renderTabs();
+    };
+
+    const updateMapStatusBanner = () => {
+      const bannerEl = this.bodyEl.querySelector<HTMLElement>('#camp-active-facility-banner');
+      if (!bannerEl) return;
+      const meta = getFacilityMeta(facilityIdx);
+      const gd = this.assets.gameData;
+      const npcDex = gd.unitDex[meta.npcId];
+      const npcName = getLocalizedUnitName(meta.npcId, npcDex?.nameZh ?? '');
+      const actionLabel =
+        facilityIdx === 2
+          ? tr(`出擊第 ${nextChapterNumber} 章 →`, `出击第 ${nextChapterNumber} 章 →`, `March to Ch.${nextChapterNumber} →`)
+          : meta.enabled
+            ? tr(`進入${meta.shortLabel} (Enter)`, `进入${meta.shortLabel} (Enter)`, `Enter ${meta.shortLabel} (Enter)`)
+            : tr('此設施未開放', '此设施未开放', 'Unavailable in Field Camp');
+      bannerEl.innerHTML = `
+        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0;">
+          <img class="pixel-crisp" src="${this.assets.portraitToDataUrl(meta.npcId, 0)}" width="56" height="56" style="border-radius:6px; border:1px solid var(--border-brass); flex-shrink:0;" alt="${npcName}" />
+          <div style="min-width:0; flex:1;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--gold-200);">[${meta.idx + 1}] ${meta.titleLabel}</span>
+              <span style="font-size:11.5px; color:var(--ink-400);">— ${npcName}</span>
+            </div>
+            <div style="font-size:12.5px; color:var(--ink-200); margin-top:3px;">${meta.greeting}</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          ${
+            facilityIdx === 0 || facilityIdx === 4
+              ? `<button class="btn" id="camp-banner-save-btn" type="button">${tr('記錄進度 (Save)', '记录进度 (Save)', 'Save Progress')}</button>`
+              : ''
+          }
+          <button class="btn ${meta.enabled ? 'btn-gold' : ''}" id="camp-banner-enter-btn" ${meta.enabled ? '' : 'disabled'} type="button">
+            ${actionLabel}
+          </button>
+        </div>
+      `;
+      bannerEl.querySelector('#camp-banner-enter-btn')?.addEventListener('click', () => {
+        enterFacility(facilityIdx);
+      });
+      bannerEl.querySelector('#camp-banner-save-btn')?.addEventListener('click', () => {
+        this.sound.playBgmBySourceIndex(11);
+        onSaveRequest();
+      });
+    };
+
+    const drawCampMapFrame = (nowMs: number) => {
+      const canvas = this.bodyEl.querySelector<HTMLCanvasElement>('#camp-interactive-canvas');
+      if (!canvas) return;
+      const isHd = this.assets.getEditionMode() === 'hd';
+      const scale = isHd ? 4 : 1;
+      const targetW = 320 * scale;
+      const targetH = 200 * scale;
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+      const ctx = canvas.getContext('2d')!;
+      ctx.imageSmoothingEnabled = isHd;
+      if (isHd) ctx.imageSmoothingQuality = 'high';
+
+      // 1. Step Thor's walking interpolation if active
+      if (walkAnim) {
+        const t = Math.min(1, (nowMs - walkAnim.startMs) / Math.max(1, walkAnim.durMs));
+        thorX = walkAnim.fromX + (walkAnim.toX - walkAnim.fromX) * t;
+        thorY = walkAnim.fromY + (walkAnim.toY - walkAnim.fromY) * t;
+        thorDir = walkAnim.dir;
+        if (t >= 1) {
+          thorX = walkAnim.toX;
+          thorY = walkAnim.toY;
+          thorDir = 0;
+          const cb = walkAnim.onArrive;
+          walkAnim = null;
+          if (cb) {
+            cb();
+            return;
+          }
+        }
+      } else {
+        thorX = CAMP_X_TABLE[campVariant][facilityIdx];
+        thorY = CAMP_Y_TABLE[campVariant][facilityIdx];
+        thorDir = 0;
+      }
+
+      // 2. Draw 320x200 (or 1280x800 HD) Camp / Town background
+      const bgImg = this.assets.getScreenImage(campScreenKey);
+      if (bgImg) {
+        ctx.drawImage(bgImg, 0, 0, bgImg.width, bgImg.height, 0, 0, targetW, targetH);
+      } else {
+        ctx.fillStyle = '#0b101b';
+        ctx.fillRect(0, 0, targetW, targetH);
+      }
+
+      // 3. Draw facility doorstep markers & clickable labels for facilities 0..5
+      const visibleFacilities = hasSecretStock ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3, 4];
+      const pulse = 0.5 + 0.5 * Math.sin(nowMs / 210);
+      for (const fIdx of visibleFacilities) {
+        const fx = CAMP_X_TABLE[campVariant][fIdx] * scale;
+        const fy = CAMP_Y_TABLE[campVariant][fIdx] * scale;
+        const boxPx = 24 * scale;
+        const isSelected = fIdx === facilityIdx;
+        const isHovered = fIdx === hoveredFacilityIdx;
+        const meta = getFacilityMeta(fIdx);
+
+        ctx.save();
+        // Doorstep footring
+        if (isSelected || isHovered) {
+          ctx.strokeStyle = isSelected
+            ? `rgba(248, 214, 110, ${0.75 + 0.25 * pulse})`
+            : 'rgba(130, 210, 255, 0.85)';
+          ctx.lineWidth = Math.max(1.5, 1.8 * scale);
+          ctx.fillStyle = isSelected ? 'rgba(248, 204, 90, 0.20)' : 'rgba(120, 195, 255, 0.16)';
+          ctx.beginPath();
+          ctx.roundRect(fx - 2 * scale, fy - 2 * scale, boxPx + 4 * scale, boxPx + 4 * scale, 4 * scale);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.strokeStyle = meta.enabled ? 'rgba(218, 182, 98, 0.42)' : 'rgba(140, 145, 160, 0.25)';
+          ctx.lineWidth = Math.max(1, 1 * scale);
+          ctx.strokeRect(fx, fy, boxPx, boxPx);
+        }
+
+        // Floating facility badge above/below doorstep
+        const badgeText = meta.shortLabel;
+        const fontPx = Math.round(9.5 * scale);
+        ctx.font = `700 ${fontPx}px "Noto Sans TC", "PingFang TC", system-ui, sans-serif`;
+        const textW = ctx.measureText(badgeText).width;
+        const padX = 5 * scale;
+        const badgeW = textW + padX * 2;
+        const badgeH = 13 * scale;
+        const bx = Math.max(2 * scale, Math.min(targetW - badgeW - 2 * scale, fx + boxPx / 2 - badgeW / 2));
+        const by = fy >= 152 * scale ? fy - badgeH - 3 * scale : fy + boxPx + 2 * scale;
+
+        ctx.fillStyle = isSelected
+          ? 'rgba(24, 18, 8, 0.92)'
+          : isHovered
+            ? 'rgba(14, 24, 38, 0.90)'
+            : 'rgba(10, 13, 20, 0.78)';
+        ctx.strokeStyle = isSelected
+          ? '#f5d06c'
+          : isHovered
+            ? '#7cc8ff'
+            : meta.enabled
+              ? 'rgba(212, 168, 86, 0.55)'
+              : 'rgba(130, 136, 150, 0.35)';
+        ctx.lineWidth = Math.max(1, 1.1 * scale);
+        ctx.beginPath();
+        ctx.roundRect(bx, by, badgeW, badgeH, 3 * scale);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = isSelected
+          ? '#ffe28a'
+          : !meta.enabled
+            ? '#7c8292'
+            : isHovered
+              ? '#b8e2ff'
+              : '#e6dec8';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(badgeText, bx + badgeW / 2, by + badgeH / 2 + 0.5 * scale);
+        ctx.restore();
+      }
+
+      // 4. Draw Thor's (`#0 索爾`) animated 24x24 (96x96 HD) sprite (`L187905..187994`: 4-step cycle 0->1->2->1)
+      const thorMember = party.find((m) => (m.baseHeroId ?? m.uid) === 0) ?? party[0];
+      const thorSpriteGroup = thorMember?.spriteGroup ?? 0;
+      const cycleStep = Math.floor(nowMs / (walkAnim ? 90 : 175)) % 4;
+      const animFrame = cycleStep === 3 ? 1 : cycleStep;
+      this.assets.drawUnitSprite(
+        ctx,
+        thorSpriteGroup,
+        thorDir,
+        animFrame,
+        Math.round(thorX * scale),
+        Math.round(thorY * scale),
+        24 * scale,
+        false
+      );
+
+      // 5. Draw authentic FD2.EXE top signboard (`L187850..187897`: `sysStrings[495 + facilityIdx]`)
+      const activeMeta = getFacilityMeta(facilityIdx);
+      ctx.save();
+      const signW = 148 * scale;
+      const signH = 22 * scale;
+      const signX = Math.round((targetW - signW) / 2);
+      const signY = 6 * scale;
+      ctx.fillStyle = 'rgba(11, 15, 26, 0.88)';
+      ctx.strokeStyle = 'rgba(232, 190, 96, 0.85)';
+      ctx.lineWidth = Math.max(1, 1.4 * scale);
+      ctx.beginPath();
+      ctx.roundRect(signX, signY, signW, signH, 4 * scale);
+      ctx.fill();
+      ctx.stroke();
+
+      if (activeMeta.sysGlyphs.length > 0) {
+        const glyphW = this.assets.measureGlyphs(activeMeta.sysGlyphs, activeMeta.shortLabel, scale);
+        const gx = Math.round(signX + (signW - glyphW) / 2);
+        const gy = Math.round(signY + (signH - 16 * scale) / 2);
+        this.assets.drawGlyphs(ctx, activeMeta.sysGlyphs, gx, gy, 'gold', scale, true, activeMeta.shortLabel);
+      }
+      ctx.restore();
+    };
+
+    const startCampLoop = () => {
+      if (rafId !== null) return;
+      const tick = (now: number) => {
+        if (activeTab === 'map') {
+          drawCampMapFrame(now);
+        }
+        rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
+    };
+
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (this.backdropEl.classList.contains('hidden')) return;
+      if (activeTab !== 'map') {
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          this.sound.playSfx('cancel');
+          activeTab = 'map';
+          syncTownTabBgm();
+          renderAll();
+        }
+        return;
+      }
+
+      // Authentic FD2.EXE `L187614..187646`: Secret Shop hotkey trigger (`Shift/Ctrl/Alt + F1..F10`)!
+      if (hasSecretStock && shopDef?.secretTrigger && ev.key.startsWith('F')) {
+        const fNum = Number(ev.key.slice(1));
+        if (fNum >= 1 && fNum <= 10) {
+          let dosScan = 0;
+          if (ev.shiftKey) dosScan = 83 + fNum;
+          else if (ev.ctrlKey) dosScan = 93 + fNum;
+          else if (ev.altKey) dosScan = 103 + fNum;
+          if (dosScan === shopDef.secretTrigger[2] && facilityIdx === shopDef.secretTrigger[1]) {
+            ev.preventDefault();
+            walkThorToFacility(5, false);
+            return;
+          }
+        }
+      }
+
+      // Number shortcuts 1..6
+      if (ev.key >= '1' && ev.key <= '6') {
+        const idx = Number(ev.key) - 1;
+        if (idx < 5 || hasSecretStock) {
+          ev.preventDefault();
+          walkThorToFacility(idx, false);
+          return;
+        }
+      }
+
+      // Arrow keys / WASD matching `FD2.EXE` `L187514..187612` (`Left` increments 0..4, `Right` decrements 4..0)
+      if (ev.key === 'ArrowLeft' || ev.key === 'a' || ev.key === 'A' || ev.key === 'ArrowDown' || ev.key === 's' || ev.key === 'S') {
+        ev.preventDefault();
+        const nextIdx = facilityIdx >= 4 ? 0 : facilityIdx + 1;
+        walkThorToFacility(nextIdx, false);
+      } else if (ev.key === 'ArrowRight' || ev.key === 'd' || ev.key === 'D' || ev.key === 'ArrowUp' || ev.key === 'w' || ev.key === 'W') {
+        ev.preventDefault();
+        const prevIdx = facilityIdx <= 0 || facilityIdx > 4 ? 4 : facilityIdx - 1;
+        walkThorToFacility(prevIdx, false);
+      } else if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        enterFacility(facilityIdx);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    this.activeCleanupFn = () => {
+      window.removeEventListener('keydown', onKeyDown);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
       }
     };
 
     const renderTabs = () => {
       this.tabsEl.innerHTML = `
-        <button class="btn ${activeTab === 'party' ? 'btn-gold' : ''}" id="camp-tab-party" type="button">${tr('隊伍與裝備', '队伍与装备', 'Party & Gear')} (${getLocalizedUnitName(75)})</button>
-        <button class="btn ${activeTab === 'weapon' ? 'btn-gold' : ''}" id="camp-tab-weapon" ${hasShopStock ? '' : 'disabled'} type="button">${tr('武器店', '武器店', 'Armory')} (${getLocalizedUnitName(128)})</button>
-        <button class="btn ${activeTab === 'item' ? 'btn-gold' : ''}" id="camp-tab-item" ${hasShopStock ? '' : 'disabled'} type="button">${tr('道具店', '道具店', 'Item Shop')} (${getLocalizedUnitName(130)})</button>
-        <button class="btn ${activeTab === 'church' ? 'btn-gold' : ''}" id="camp-tab-church" ${isCampOnlyChapter ? 'disabled' : ''} type="button">${tr('教會轉職', '教会转职', 'Sanctuary')} (${getLocalizedUnitName(131)})</button>
-        <div style="flex:1"></div>
-        <span style="align-self:center; font-family:var(--font-mono); color:var(--gold-200); margin-right:8px;">${tr('資金', '资金', 'Gold')}: ${getGold()} G</span>
+        <button class="btn ${activeTab === 'map' ? 'btn-gold' : ''}" id="camp-tab-map" type="button">🗺️ ${tr('營地地圖', '营地地图', 'Camp Map')}</button>
+        <button class="btn ${activeTab === 'party' ? 'btn-gold' : ''}" id="camp-tab-party" type="button">${tr('1. 酒店整備', '1. 酒店整备', '1. Tavern & Gear')}</button>
+        <button class="btn ${activeTab === 'weapon' ? 'btn-gold' : ''}" id="camp-tab-weapon" ${hasShopStock ? '' : 'disabled'} type="button">${tr('2. 武器店', '2. 武器店', '2. Armory')}</button>
+        <button class="btn ${activeTab === 'item' ? 'btn-gold' : ''}" id="camp-tab-item" ${hasShopStock ? '' : 'disabled'} type="button">${tr('4. 道具店', '4. 道具店', '4. Item Shop')}</button>
+        <button class="btn ${activeTab === 'church' ? 'btn-gold' : ''}" id="camp-tab-church" ${isCampOnlyChapter ? 'disabled' : ''} type="button">${tr('5. 教會轉職', '5. 教会转职', '5. Sanctuary')}</button>
+        ${
+          hasSecretStock
+            ? `<button class="btn ${activeTab === 'secret' ? 'btn-gold' : ''}" id="camp-tab-secret" type="button">${tr('6. 秘密商店', '6. 秘密商店', '6. Secret Shop')}</button>`
+            : ''
+        }
+        <div style="flex:1; min-width:8px;"></div>
+        <span style="align-self:center; font-family:var(--font-mono); color:var(--gold-200); margin-right:6px; white-space:nowrap;">${tr('資金', '资金', 'Gold')}: ${getGold()} G</span>
         <button class="btn" id="camp-save-btn" type="button">${tr('記錄進度', '记录进度', 'Save')}</button>
-        <button class="btn btn-gold" id="camp-deploy-btn" type="button">${tr(`出擊第 ${nextChapterNumber} 章 →`, `出击第 ${nextChapterNumber} 章 →`, `March to Ch.${nextChapterNumber} →`)}</button>
+        <button class="btn btn-gold" id="camp-deploy-btn" type="button">${tr(`3. 出擊第 ${nextChapterNumber} 章 →`, `3. 出击第 ${nextChapterNumber} 章 →`, `3. March to Ch.${nextChapterNumber} →`)}</button>
       `;
 
+      this.tabsEl.querySelector('#camp-tab-map')?.addEventListener('click', () => {
+        activeTab = 'map';
+        this.sound.playSfx('cursor');
+        syncTownTabBgm();
+        renderAll();
+      });
       this.tabsEl.querySelector('#camp-tab-party')?.addEventListener('click', () => {
+        facilityIdx = 0;
         activeTab = 'party';
         this.sound.playSfx('cursor');
         syncTownTabBgm();
         renderAll();
       });
       this.tabsEl.querySelector('#camp-tab-weapon')?.addEventListener('click', () => {
+        facilityIdx = 1;
         activeTab = 'weapon';
         this.sound.playSfx('cursor');
         syncTownTabBgm();
         renderAll();
       });
       this.tabsEl.querySelector('#camp-tab-item')?.addEventListener('click', () => {
+        facilityIdx = 3;
         activeTab = 'item';
         this.sound.playSfx('cursor');
         syncTownTabBgm();
         renderAll();
       });
       this.tabsEl.querySelector('#camp-tab-church')?.addEventListener('click', () => {
+        facilityIdx = 4;
         activeTab = 'church';
         this.sound.playSfx('cursor');
         syncTownTabBgm();
         renderAll();
       });
+      this.tabsEl.querySelector('#camp-tab-secret')?.addEventListener('click', () => {
+        facilityIdx = 5;
+        activeTab = 'secret';
+        this.sound.playSfx('cursor');
+        syncTownTabBgm();
+        renderAll();
+      });
       this.tabsEl.querySelector('#camp-save-btn')?.addEventListener('click', () => {
-        this.sound.playBgmBySourceIndex(11); // `Obj1 + 119478: fn_88439(11, 0)` (Tavern Record Save BGM)
+        this.sound.playBgmBySourceIndex(11);
         onSaveRequest();
       });
       this.tabsEl.querySelector('#camp-deploy-btn')?.addEventListener('click', () => {
+        if (activeTab === 'map' && facilityIdx !== 2) {
+          walkThorToFacility(2, true);
+          return;
+        }
         this.sound.playSfx('fanfare');
         this.closeBtn.style.display = 'inline-flex';
         this.hide();
@@ -538,21 +1069,138 @@ export class ModalController {
       });
     };
 
+    const renderBackToMapBtn = () => `
+      <button class="btn btn-gold" id="camp-back-to-map-btn" type="button" style="width:100%; justify-content:center;">
+        ← ${tr('返回營地地圖 (Esc)', '返回营地地图 (Esc)', 'Back to Camp Map (Esc)')}
+      </button>
+    `;
+
+    const bindBackToMapBtn = () => {
+      this.bodyEl.querySelector('#camp-back-to-map-btn')?.addEventListener('click', () => {
+        this.sound.playSfx('cancel');
+        activeTab = 'map';
+        syncTownTabBgm();
+        renderAll();
+      });
+    };
+
     const renderBody = () => {
+      if (activeTab === 'map') {
+        const visibleFacilities = hasSecretStock ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3, 4];
+        const quickChipsHtml = visibleFacilities
+          .map((fIdx) => {
+            const m = getFacilityMeta(fIdx);
+            const active = fIdx === facilityIdx;
+            return `
+              <button class="btn btn-sm ${active ? 'btn-gold' : ''}" data-camp-fac="${fIdx}" type="button">
+                ${fIdx + 1}. ${m.shortLabel}
+              </button>
+            `;
+          })
+          .join('');
+        const secretHintText = formatDosSecretHint();
+
+        this.bodyEl.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div class="camp-map-stage">
+              <canvas id="camp-interactive-canvas" class="camp-map-canvas" width="320" height="200"></canvas>
+            </div>
+            <div id="camp-active-facility-banner" class="panel-section" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:10px 14px;"></div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; font-size:12px; color:var(--ink-400);">
+              <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                <span>${tr('移動索爾：方向鍵 ←/→ 或點擊帳篷 · Enter 進入設施', '移动索尔：方向键 ←/→ 或点击帐篷 · Enter 进入设施', 'Move Thor: Arrow Keys ←/→ or Click Tent · Enter to Operate')}:</span>
+                ${quickChipsHtml}
+              </div>
+              ${secretHintText ? `<div style="color:var(--gold-300); font-size:11.5px;">${secretHintText}</div>` : ''}
+            </div>
+          </div>
+        `;
+
+        updateMapStatusBanner();
+        this.bodyEl.querySelectorAll<HTMLButtonElement>('[data-camp-fac]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const targetIdx = Number(btn.dataset.campFac);
+            if (targetIdx === facilityIdx) {
+              enterFacility(targetIdx);
+            } else {
+              walkThorToFacility(targetIdx, targetIdx !== 2);
+            }
+          });
+        });
+
+        const canvas = this.bodyEl.querySelector<HTMLCanvasElement>('#camp-interactive-canvas');
+        if (canvas) {
+          const hitTestFacility = (ev: MouseEvent): number | null => {
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return null;
+            const nx = ((ev.clientX - rect.left) / rect.width) * 320;
+            const ny = ((ev.clientY - rect.top) / rect.height) * 200;
+            let bestIdx: number | null = null;
+            let bestDist = 42; // generous click radius around 24x24 tent doorstep & badge
+            for (const fIdx of visibleFacilities) {
+              const cx = CAMP_X_TABLE[campVariant][fIdx] + 12;
+              const cy = CAMP_Y_TABLE[campVariant][fIdx] + 14;
+              const d = Math.hypot(nx - cx, ny - cy);
+              if (d < bestDist) {
+                bestDist = d;
+                bestIdx = fIdx;
+              }
+            }
+            return bestIdx;
+          };
+
+          canvas.addEventListener('mousemove', (ev) => {
+            hoveredFacilityIdx = hitTestFacility(ev);
+          });
+          canvas.addEventListener('mouseleave', () => {
+            hoveredFacilityIdx = null;
+          });
+          canvas.addEventListener('click', (ev) => {
+            const hit = hitTestFacility(ev);
+            if (hit === null) return;
+            if (hit === facilityIdx && !walkAnim) {
+              enterFacility(hit);
+            } else {
+              // Walk Thor to the clicked tent; auto-enter shops/tavern/church on arrival, or stop at Exit Gate first for safety
+              walkThorToFacility(hit, hit !== 2);
+            }
+          });
+        }
+
+        drawCampMapFrame(performance.now());
+        startCampLoop();
+        return;
+      }
+
       const member = party[selectedMemberIdx] ?? party[0];
       if (!member) return;
       const gd = this.assets.gameData;
       const clsLabel = member.classNameZh ?? getUnitClassLabel(member.uid, member.classId, gd);
-      const artSrc = activeTab === 'church' ? this.assets.getScreenUrl('church') : this.assets.getScreenUrl('camp');
-      const npcPid = activeTab === 'weapon' ? 128 : activeTab === 'item' ? 130 : activeTab === 'church' ? 131 : 75;
+      const artSrc =
+        activeTab === 'church'
+          ? this.assets.getScreenUrl('church')
+          : this.assets.getScreenUrl(campScreenKey);
+      const npcPid =
+        activeTab === 'weapon'
+          ? 128
+          : activeTab === 'item'
+            ? 130
+            : activeTab === 'church'
+              ? 131
+              : activeTab === 'secret'
+                ? 132
+                : isCampOnlyChapter
+                  ? 75
+                  : 129;
       const npcDex = gd.unitDex[npcPid];
+      const npcName = getLocalizedUnitName(npcPid, npcDex?.nameZh ?? '');
       const npcBannerHtml = npcDex
         ? `
           <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; background:var(--surface-1); border:1px solid var(--border-subtle);">
-            <img class="pixel-crisp" src="${this.assets.portraitToDataUrl(npcPid, 0)}" width="44" height="44" style="border-radius:4px; border:1px solid var(--border-brass);" alt="${npcDex.nameZh}" />
+            <img class="pixel-crisp" src="${this.assets.portraitToDataUrl(npcPid, 0)}" width="44" height="44" style="border-radius:4px; border:1px solid var(--border-brass);" alt="${npcName}" />
             <div style="font-size:11.5px; line-height:1.35;">
-              <strong style="color:var(--gold-200);">${npcDex.nameZh} (DATO[${npcPid}])</strong>
-              <div style="color:var(--ink-400);">${isCampOnlyChapter && activeTab === 'party' ? tr('野戰營地補給整備中', '野战营地补给整备中', 'Field Encampment Preparation') : npcDex.classNameZh}</div>
+              <strong style="color:var(--gold-200);">${npcName} (DATO[${npcPid}])</strong>
+              <div style="color:var(--ink-400);">${isCampOnlyChapter && activeTab === 'party' ? tr('野戰營地補給整備中', '野战营地补给整备中', 'Field Encampment Preparation') : getFacilityMeta(facilityIdx).shortLabel}</div>
             </div>
           </div>
         `
@@ -657,6 +1305,7 @@ export class ModalController {
         this.bodyEl.innerHTML = `
           <div class="shop-layout">
             <div style="display:flex; flex-direction:column; gap:8px;">
+              ${renderBackToMapBtn()}
               <img class="camp-art pixel-crisp" src="${artSrc}" alt="Encampment" />
               ${npcBannerHtml}
               <div class="item-chip-list">${renderMemberSelector()}</div>
@@ -687,6 +1336,7 @@ export class ModalController {
           </div>
         `;
 
+        bindBackToMapBtn();
         bindMemberSelector();
         this.bodyEl.querySelectorAll<HTMLButtonElement>('[data-camp-use]').forEach((btn) => {
           btn.addEventListener('click', () => {
@@ -728,11 +1378,13 @@ export class ModalController {
         return;
       }
 
-      if (activeTab === 'weapon' || activeTab === 'item') {
+      if (activeTab === 'weapon' || activeTab === 'item' || activeTab === 'secret') {
         const rawStock =
-          activeTab === 'weapon'
-            ? [...shopDef.weaponShop, ...shopDef.secretShop.filter((i) => i < 192)]
-            : [...shopDef.itemShop, 192, 193, 196];
+          activeTab === 'secret'
+            ? [...(shopDef.secretShop ?? [])]
+            : activeTab === 'weapon'
+              ? [...shopDef.weaponShop]
+              : [...shopDef.itemShop, 192, 193, 196];
         const uniqueStock = Array.from(new Set(rawStock)).slice(0, 14);
         const incompatNote = tr(' (此職業不可裝備)', ' (此职业不可装备)', ' (Class cannot equip)');
 
@@ -765,9 +1417,17 @@ export class ModalController {
           })
           .join('');
 
+        const shopHeading =
+          activeTab === 'secret'
+            ? tr('秘密商人珍品', '秘密商人珍品', 'Secret Merchant Wares')
+            : activeTab === 'weapon'
+              ? tr('武器店商品', '武器店商品', 'Chapter Armory')
+              : tr('道具店商品', '道具店商品', 'Item Shop');
+
         this.bodyEl.innerHTML = `
           <div class="shop-layout">
             <div style="display:flex; flex-direction:column; gap:8px;">
+              ${renderBackToMapBtn()}
               <img class="camp-art pixel-crisp" src="${artSrc}" alt="Camp Shop" />
               ${npcBannerHtml}
               <div style="font-size:12px; color:var(--ink-200);">${tr('選擇購買角色：', '选择购买角色：', 'Select buyer:')}</div>
@@ -775,7 +1435,7 @@ export class ModalController {
             </div>
             <div class="panel-section">
               <div class="panel-heading">
-                <span>${activeTab === 'weapon' ? tr('武器店商品', '武器店商品', 'Chapter Armory') : tr('道具店商品', '道具店商品', 'Item Shop')}</span>
+                <span>${shopHeading}</span>
                 <span>${tr('購買至', '购买至', 'Buying for')} ${this.assets.glyphsToHtml(member.nameGlyphs, 'gold', 15, member.nameZh ?? '')} (${member.items.length}/8)</span>
               </div>
               <div class="item-chip-list">${stockHtml}</div>
@@ -783,6 +1443,7 @@ export class ModalController {
           </div>
         `;
 
+        bindBackToMapBtn();
         bindMemberSelector();
         this.bodyEl.querySelectorAll<HTMLButtonElement>('[data-buy]').forEach((btn) => {
           btn.addEventListener('click', () => {
@@ -855,6 +1516,7 @@ export class ModalController {
       this.bodyEl.innerHTML = `
         <div class="shop-layout">
           <div style="display:flex; flex-direction:column; gap:8px;">
+            ${renderBackToMapBtn()}
             <img class="camp-art pixel-crisp" src="${artSrc}" alt="Sanctuary" />
             ${npcBannerHtml}
             <div class="item-chip-list">${renderMemberSelector()}</div>
@@ -872,6 +1534,7 @@ export class ModalController {
           </div>
         </div>
       `;
+      bindBackToMapBtn();
       bindMemberSelector();
       this.bodyEl.querySelectorAll<HTMLButtonElement>('[data-promo-idx]').forEach((btn) => {
         btn.addEventListener('click', () => {
@@ -936,10 +1599,15 @@ export class ModalController {
   openSaveLoadModal(
     mode: 'save' | 'load',
     buildCurrentSave: (() => SaveSlotData) | null,
-    onLoadSave: (save: SaveSlotData) => void
+    onLoadSave: (save: SaveSlotData) => void,
+    onBackToCamp?: () => void
   ): void {
+    this.runCleanup();
     this.sound.playSfx('confirm');
     this.closeBtn.style.display = 'inline-flex';
+    if (onBackToCamp) {
+      this.onCloseOverride = onBackToCamp;
+    }
     let noteInputText = '';
     let statusBanner = '';
 
@@ -1022,6 +1690,11 @@ export class ModalController {
     const render = () => {
       updateTitle();
       this.tabsEl.innerHTML = `
+        ${
+          onBackToCamp
+            ? `<button class="btn btn-gold" id="sl-back-camp-btn" type="button">← ${tr('返回城鎮營地', '返回城镇营地', 'Back to Town & Camp')}</button>`
+            : ''
+        }
         <button class="btn ${mode === 'save' ? 'btn-gold' : ''}" id="sl-mode-save" ${buildCurrentSave ? '' : 'disabled'} type="button">${tr('存檔模式', '存档模式', 'Save Mode')}</button>
         <button class="btn ${mode === 'load' ? 'btn-gold' : ''}" id="sl-mode-load" type="button">${tr('讀檔模式', '读档模式', 'Load Mode')}</button>
         ${
@@ -1037,6 +1710,12 @@ export class ModalController {
           <input type="file" id="sl-import-json" accept="application/json,.json" style="display:none;" />
         </label>
       `;
+
+      this.tabsEl.querySelector('#sl-back-camp-btn')?.addEventListener('click', () => {
+        this.sound.playSfx('cancel');
+        this.onCloseOverride = null;
+        onBackToCamp?.();
+      });
 
       this.tabsEl.querySelector<HTMLInputElement>('#sl-note-input')?.addEventListener('input', (ev) => {
         noteInputText = (ev.target as HTMLInputElement).value;
