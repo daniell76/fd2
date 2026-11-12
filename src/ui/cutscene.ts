@@ -13,6 +13,7 @@ import {
   type MagicTargetEntry,
   type TimelineStep,
 } from './battleStage';
+import { isThorVsBanditCombat, playInGameModern25DThorBandit } from './vfxLab';
 
 export class CutscenePlayer {
   private speedMode: 1 | 2 | 0 = 1; // 1 = 1x, 2 = 2x, 0 = Instant
@@ -162,6 +163,19 @@ export class CutscenePlayer {
     if (this.speedMode === 0) {
       const anyHit = outcome.strikes.some((s) => s.hit);
       this.sound.playSfx(anyHit ? 'hit' : 'miss');
+      return;
+    }
+
+    if (this.assets.isHdMode() && isThorVsBanditCombat(outcome)) {
+      await playInGameModern25DThorBandit(
+        outcome,
+        this.assets,
+        this.sound,
+        backdropEl,
+        canvas,
+        skipBtn,
+        this.speedMode === 2 ? 0.5 : 1
+      );
       return;
     }
 
