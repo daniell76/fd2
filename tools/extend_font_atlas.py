@@ -38,20 +38,27 @@ def load_base_tables() -> tuple[list[str], list[str]]:
     return json.loads(m_tw.group(1)), json.loads(m_cn.group(1))
 
 
-def render_proportional_glyph(ch: str, f_lat: ImageFont.FreeTypeFont, f_sym: ImageFont.FreeTypeFont) -> tuple[Image.Image, int]:
+def render_proportional_glyph(
+    ch: str,
+    f_lat: ImageFont.FreeTypeFont,
+    f_sym: ImageFont.FreeTypeFont,
+    thresh: int = 105,
+    baseline_y: int = 12,
+    space_w: int = 4,
+) -> tuple[Image.Image, int]:
     """Renders a 1-bit left-aligned proportional 16x16 glyph cell and returns (rgba_cell, tight_width)."""
     cell = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
     if ch == " ":
-        return cell, 4
+        return cell, space_w
 
     im = Image.new("L", (24, 24), 0)
     dr = ImageDraw.Draw(im)
-    dr.text((2, 16), ch, fill=255, font=f_lat, anchor="ls")
-    crop = im.crop((0, 3, 24, 19))  # 24x16 with baseline at y=13
-    bw = crop.point(lambda p: 255 if p >= 110 else 0)
+    dr.text((2, 3 + baseline_y), ch, fill=255, font=f_lat, anchor="ls")
+    crop = im.crop((0, 3, 24, 19))  # 24x16 with baseline at baseline_y
+    bw = crop.point(lambda p: 255 if p >= thresh else 0)
     bbox = bw.getbbox()
     if not bbox:
-        bw = crop.point(lambda p: 255 if p >= 60 else 0)
+        bw = crop.point(lambda p: 255 if p >= max(45, thresh - 40) else 0)
         bbox = bw.getbbox()
     if not bbox:
         im2 = Image.new("L", (24, 24), 0)
@@ -62,10 +69,10 @@ def render_proportional_glyph(ch: str, f_lat: ImageFont.FreeTypeFont, f_sym: Ima
         bbox = bw.getbbox()
 
     if not bbox:
-        return cell, 4
+        return cell, space_w
 
     x0, _, x1, _ = bbox
-    w = max(2, min(15, x1 - x0))
+    w = max(1, min(15, x1 - x0))
     px_cell = cell.load()
     px_bw = bw.load()
     for y in range(16):
@@ -137,24 +144,45 @@ def main() -> None:
             tw_char_to_gid[tok] = gid
 
     f_cjk = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc", 15, index=2)
-    f_lat = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSerif-SemiCondensedBold.ttf", 15)
+    f_lat_lg = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSerif-SemiCondensedLight.ttf", 14)
+    f_lat_md = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSerif-SemiCondensed.ttf", 12)
+    f_lat_sm = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSerif-Condensed.ttf", 11)
     f_sym = ImageFont.truetype("/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf", 14)
 
     extra_cells: list[Image.Image] = []
     glyph_widths: dict[int, int] = {}
 
-    # 1. Proportional ASCII (0x20..0x7E) + common typographic punctuation
+    # 1. Multi-Size Proportional Slim 1-Bit DOS Serif ASCII (0x20..0x7E) + common typographic punctuation:
+    #    - Large (`CHAR_TO_GID_EN`, 14px Light-Serif, 1px slim stems, baseline=12, space=4)
+    #    - Medium (`CHAR_TO_GID_EN_MD`, 12px Slim-Serif, 1px slim stems, baseline=12, space=3)
+    #    - Small (`CHAR_TO_GID_EN_SM`, 11px Compact-Serif, 1px slim stems, baseline=12, space=3)
     prop_chars: list[str] = [chr(c) for c in range(0x20, 0x7F)]
     for ch in PROP_EXTRA_CHARS:
         if ch not in prop_chars:
             prop_chars.append(ch)
 
-    prop_char_to_gid: dict[str, int] = {}
+    prop_char_to_gid_lg: dict[str, int] = {}
     for ch in prop_chars:
         gid = ORIG_GLYPH_COUNT + len(extra_cells)
-        cell, w = render_proportional_glyph(ch, f_lat, f_sym)
+        cell, w = render_proportional_glyph(ch, f_lat_lg, f_sym, thresh=94, baseline_y=12, space_w=4)
         extra_cells.append(cell)
-        prop_char_to_gid[ch] = gid
+        prop_char_to_gid_lg[ch] = gid
+        glyph_widths[gid] = w
+
+    prop_char_to_gid_md: dict[str, int] = {}
+    for ch in prop_chars:
+        gid = ORIG_GLYPH_COUNT + len(extra_cells)
+        cell, w = render_proportional_glyph(ch, f_lat_md, f_sym, thresh=108, baseline_y=12, space_w=3)
+        extra_cells.append(cell)
+        prop_char_to_gid_md[ch] = gid
+        glyph_widths[gid] = w
+
+    prop_char_to_gid_sm: dict[str, int] = {}
+    for ch in prop_chars:
+        gid = ORIG_GLYPH_COUNT + len(extra_cells)
+        cell, w = render_proportional_glyph(ch, f_lat_sm, f_sym, thresh=105, baseline_y=12, space_w=3)
+        extra_cells.append(cell)
+        prop_char_to_gid_sm[ch] = gid
         glyph_widths[gid] = w
 
     # 2. Collect all non-ASCII characters across GLYPHS_TW, GLYPHS_CN, src/, and public/assets/
@@ -219,7 +247,7 @@ def main() -> None:
     char_to_gid_tw: dict[str, int] = {}
     char_to_gid_tw.update(cjk_extra_to_gid)
     char_to_gid_tw.update(tw_char_to_gid)
-    for ch, pgid in prop_char_to_gid.items():
+    for ch, pgid in prop_char_to_gid_lg.items():
         if ord(ch) < 128:
             char_to_gid_tw[ch] = pgid
 
@@ -233,14 +261,20 @@ def main() -> None:
     for ch, egid in cjk_extra_to_gid.items():
         if ch not in tw_char_to_gid:
             char_to_gid_cn[ch] = egid
-    for ch, pgid in prop_char_to_gid.items():
+    for ch, pgid in prop_char_to_gid_lg.items():
         if ord(ch) < 128:
             char_to_gid_cn[ch] = pgid
 
-    # - CHAR_TO_GID_EN: All proportional ASCII + typographic punctuation -> proportional DOS serif glyph,
+    # - CHAR_TO_GID_EN / MD / SM: Multi-size proportional slim 1-bit DOS serif glyphs,
     #   with fallback to CJK glyphs if any CJK char appears in English mode
     char_to_gid_en: dict[str, int] = dict(char_to_gid_tw)
-    char_to_gid_en.update(prop_char_to_gid)
+    char_to_gid_en.update(prop_char_to_gid_lg)
+
+    char_to_gid_en_md: dict[str, int] = dict(char_to_gid_tw)
+    char_to_gid_en_md.update(prop_char_to_gid_md)
+
+    char_to_gid_en_sm: dict[str, int] = dict(char_to_gid_tw)
+    char_to_gid_en_sm.update(prop_char_to_gid_sm)
 
     # Update gamedata.json font metadata
     gd = json.loads(GAMEDATA_PATH.read_text(encoding="utf-8"))
@@ -251,13 +285,15 @@ def main() -> None:
     # Write updated src/glyphTable.ts
     out_lines = [
         "// Auto-generated verified 1,824-glyph lookup tables (0..1823) from FDOTHER.DAT[0] (font_atlas.png)",
-        "// plus extended 1-bit DOS bitmap glyphs (1824.." + str(total_glyphs - 1) + ") for Simplified Chinese (zh-CN) & English (en)",
+        "// plus extended 1-bit DOS bitmap glyphs (1824.." + str(total_glyphs - 1) + ") for Simplified Chinese (zh-CN) & multi-size English (en)",
         f"export const GLYPHS_TW: readonly string[] = {json.dumps(tw_list, ensure_ascii=False)};",
         f"export const GLYPHS_CN: readonly string[] = {json.dumps(cn_list, ensure_ascii=False)};",
         f"export const TW_TO_CN_GID: readonly number[] = {json.dumps(tw_to_cn_gid)};",
         f"export const CHAR_TO_GID_TW: Readonly<Record<string, number>> = {json.dumps(char_to_gid_tw, ensure_ascii=False)};",
         f"export const CHAR_TO_GID_CN: Readonly<Record<string, number>> = {json.dumps(char_to_gid_cn, ensure_ascii=False)};",
         f"export const CHAR_TO_GID_EN: Readonly<Record<string, number>> = {json.dumps(char_to_gid_en, ensure_ascii=False)};",
+        f"export const CHAR_TO_GID_EN_MD: Readonly<Record<string, number>> = {json.dumps(char_to_gid_en_md, ensure_ascii=False)};",
+        f"export const CHAR_TO_GID_EN_SM: Readonly<Record<string, number>> = {json.dumps(char_to_gid_en_sm, ensure_ascii=False)};",
         f"export const GLYPH_WIDTHS: Readonly<Record<number, number>> = {json.dumps(glyph_widths)};",
         "",
     ]
@@ -265,7 +301,7 @@ def main() -> None:
 
     print(
         f"Extended font_atlas.png: {ORIG_GLYPH_COUNT} -> {total_glyphs} glyphs "
-        f"({len(prop_chars)} proportional ASCII/Latin + {len(cjk_extra_to_gid)} extra CJK/symbols), "
+        f"(3x {len(prop_chars)} multi-size slim proportional ASCII/Latin + {len(cjk_extra_to_gid)} extra CJK/symbols), "
         f"dimensions={new_atlas.width}x{new_atlas.height} ({total_rows} rows)"
     )
 

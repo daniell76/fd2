@@ -2412,8 +2412,20 @@ export function chooseAiAction(
   //      - Evaluates reachable weapon attacks (`candidateNodes`): non-lethal hit = `8`, lethal kill (`dmg >= opp.hp`) = `18`!
   //   Minimum action gate in `fn_20208 @20322..20347` is `score >= 6`!
   // =========================================================================
-  const hasSelfPreservationFlag = (unit.aiMode & 0x80) !== 0;
+  const hasSelfPreservationFlag = (unit.aiMode & 0x80) !== 0 || unit.faction === 'player';
   const hasAttackPreferenceFlag = (unit.aiMode & 0x40) !== 0;
+
+  // Helper for `fn_22656` / `fn_23415` HP threshold scoring:
+  // Self-preserving (`0x80`) allies/heroes (e.g. `#2 鐵諾` Tino `0x81`, `MaxHP=61`, carrying 4x `#192 藥草` `+40 HP`)
+  // and delegated `player` units use a higher HP healing threshold (`<= 66%` -> `8 * 3 = 24 > 18`, `<= 75%` -> `3 * 3 = 9 > 8`)
+  // so they heal before enemy-phase focus-fire + counterattack damage can become lethal!
+  const computeHealRawScore = (target: BattleUnit, targetHas0x80: boolean): number => {
+    const urgentHp = targetHas0x80 ? Math.floor((target.maxHp * 2) / 3) : Math.floor(target.maxHp / 3);
+    const moderateHp = targetHas0x80 ? Math.floor((target.maxHp * 3) / 4) : Math.floor(target.maxHp / 2);
+    if (target.hp <= urgentHp) return 8;
+    if (target.hp <= moderateHp) return 3;
+    return 0;
+  };
 
   // --- A. Usable / Consumable Item Evaluator (`fn_22142 / fn_22656`) ---
   let bestItemScore = 0;
@@ -2438,15 +2450,12 @@ export function chooseAiAction(
         if (useAoe === 0) {
           for (const ally of friendlyUnits) {
             if (manhattan(unit.x, unit.y, ally.x, ally.y) > useRange) continue;
-            const halfHp = Math.floor(ally.maxHp / 2);
-            const thirdHp = Math.floor(ally.maxHp / 3);
-            let rawScore = 0;
-            if (ally.hp <= thirdHp) rawScore = 8;
-            else if (ally.hp <= halfHp) rawScore = 3;
+            const isSelf = ally.runtimeId === unit.runtimeId;
+            const targetHas0x80 =
+              (ally.aiMode & 0x80) !== 0 || ally.faction === 'player' || (isSelf && hasSelfPreservationFlag);
+            const rawScore = computeHealRawScore(ally, targetHas0x80);
             if (rawScore <= 0) continue;
 
-            const isSelf = ally.runtimeId === unit.runtimeId;
-            const targetHas0x80 = (ally.aiMode & 0x80) !== 0 || (isSelf && hasSelfPreservationFlag);
             const itemScore = targetHas0x80 ? rawScore * 3 : rawScore;
             const subTie = (isSelf ? 1 : 0) + (1 - ally.hp / Math.max(1, ally.maxHp));
             if (itemScore > bestItemScore || (itemScore === bestItemScore && subTie > bestItemSubTie)) {
@@ -2478,14 +2487,12 @@ export function chooseAiAction(
               let worstRatio = 2;
               for (const ally of friendlyUnits) {
                 if (manhattan(ally.x, ally.y, tx, ty) > useAoe) continue;
-                const halfHp = Math.floor(ally.maxHp / 2);
-                const thirdHp = Math.floor(ally.maxHp / 3);
-                let s = 0;
-                if (ally.hp <= thirdHp) s = 8;
-                else if (ally.hp <= halfHp) s = 3;
-                if (s <= 0) continue;
                 const isSelf = ally.runtimeId === unit.runtimeId;
-                if ((ally.aiMode & 0x80) !== 0 || (isSelf && hasSelfPreservationFlag)) s *= 3;
+                const targetHas0x80 =
+                  (ally.aiMode & 0x80) !== 0 || ally.faction === 'player' || (isSelf && hasSelfPreservationFlag);
+                let s = computeHealRawScore(ally, targetHas0x80);
+                if (s <= 0) continue;
+                if (targetHas0x80) s *= 3;
                 sumScore += s;
                 const ratio = ally.hp / Math.max(1, ally.maxHp);
                 subTie += 1 - ratio;
@@ -2573,13 +2580,13 @@ export function chooseAiAction(
               );
               for (const u of friendlyUnits) {
                 if (!blast.has(coordKey(u.x, u.y))) continue;
-                const halfHp = Math.floor(u.maxHp / 2);
-                const thirdHp = Math.floor(u.maxHp / 3);
-                let s = 0;
-                if (u.hp <= thirdHp) s = 8;
-                else if (u.hp <= halfHp) s = 3;
+                const uHas0x80 =
+                  (u.aiMode & 0x80) !== 0 ||
+                  u.faction === 'player' ||
+                  (u.runtimeId === unit.runtimeId && hasSelfPreservationFlag);
+                let s = computeHealRawScore(u, uHas0x80);
                 if (s > 0) {
-                  if ((u.aiMode & 0x80) !== 0 || (u.runtimeId === unit.runtimeId && hasSelfPreservationFlag)) {
+                  if (uHas0x80) {
                     s *= 3;
                   } else if ((u.aiMode & 1) !== 0) {
                     s *= 2;
@@ -2701,9 +2708,11 @@ export function chooseAiAction(
         if (d >= stats.minRange && d <= stats.maxRange) {
           const tempAtk = { ...unit, x: node.x, y: node.y };
           const fc = predictCombat(tempAtk, opp, chapter, gd);
-          // Exact `FD2.EXE` `fn_16951 @17529..17818`: if `rawDmg <= 2` -> `0`; if `dmg > opp.hp` -> `18`; else `8`!
-          if (fc.attackerDmg <= 2) continue;
-          const atkScore = fc.attackerDmg >= opp.hp ? 18 : 8;
+          const oppDp = getEquippedStats(opp, gd).dp;
+          const aiEstDmg = unit.moveMode === 'fly' ? fc.attackerDmg : stats.ap - oppDp;
+          // Exact `FD2.EXE` `fn_16951 @17357..17818`: if `rawDmg <= 2` -> `0`; if `dmg > opp.hp` (strict `>`) -> `18`; else `8`!
+          if (fc.attackerDmg <= 2 && aiEstDmg <= 2) continue;
+          const atkScore = aiEstDmg > opp.hp ? 18 : 8;
           const expectedDmg = (fc.attackerDmg * fc.attackerHitPct) / 100;
           const counterPenalty = fc.canCounter ? (fc.defenderDmg * fc.defenderHitPct) / 220 : 0;
           const tBonus = getTerrainInfo(chapter, node.x, node.y).defBonus * 0.4;
@@ -2712,7 +2721,7 @@ export function chooseAiAction(
           if (atkScore > bestAttackScore || (atkScore === bestAttackScore && subTie > bestAttackSubTie)) {
             bestAttackScore = atkScore;
             bestAttackSubTie = subTie;
-            bestAttackRawDiff = stats.ap - getEquippedStats(opp, gd).dp;
+            bestAttackRawDiff = stats.ap - oppDp;
             bestAttackDecision = { destX: node.x, destY: node.y, targetUnit: opp };
           }
         }

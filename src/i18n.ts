@@ -1,6 +1,8 @@
 import {
   CHAR_TO_GID_CN,
   CHAR_TO_GID_EN,
+  CHAR_TO_GID_EN_MD,
+  CHAR_TO_GID_EN_SM,
   CHAR_TO_GID_TW,
   GLYPHS_CN,
   GLYPHS_TW,
@@ -9,6 +11,7 @@ import {
 import type { BattleUnit, ChapterData, GameData, PartyMemberSave } from './types';
 
 export type LocaleCode = 'zh-TW' | 'zh-CN' | 'en';
+export type EnglishFontSizeTier = 'lg' | 'md' | 'sm';
 
 export interface LocaleMeta {
   code: LocaleCode;
@@ -72,12 +75,17 @@ export function decodeGlyphsToText(glyphs: number[], loc: LocaleCode = currentLo
   return glyphs.map((g) => table[g] ?? '').join('');
 }
 
-/** Converts any UTF-8 string into an array of extended `font_atlas.png` glyph IDs for the given locale. */
-export function textToGlyphIds(text: string, loc: LocaleCode = currentLocale): number[] {
-  const primary = loc === 'zh-CN' ? CHAR_TO_GID_CN : loc === 'en' ? CHAR_TO_GID_EN : CHAR_TO_GID_TW;
+/** Converts any UTF-8 string into an array of extended `font_atlas.png` glyph IDs for the given locale and English font size tier. */
+export function textToGlyphIds(
+  text: string,
+  loc: LocaleCode = currentLocale,
+  enSizeTier: EnglishFontSizeTier = 'lg'
+): number[] {
+  const enMap = enSizeTier === 'sm' ? CHAR_TO_GID_EN_SM : enSizeTier === 'md' ? CHAR_TO_GID_EN_MD : CHAR_TO_GID_EN;
+  const primary = loc === 'zh-CN' ? CHAR_TO_GID_CN : loc === 'en' ? enMap : CHAR_TO_GID_TW;
   const out: number[] = [];
   for (const ch of text) {
-    const gid = primary[ch] ?? CHAR_TO_GID_EN[ch] ?? CHAR_TO_GID_TW[ch] ?? CHAR_TO_GID_CN[ch];
+    const gid = primary[ch] ?? enMap[ch] ?? CHAR_TO_GID_EN[ch] ?? CHAR_TO_GID_TW[ch] ?? CHAR_TO_GID_CN[ch];
     if (gid !== undefined) {
       out.push(gid);
     }
@@ -87,12 +95,14 @@ export function textToGlyphIds(text: string, loc: LocaleCode = currentLocale): n
 
 /**
  * Resolves an array of `FD2.EXE` glyph IDs (`0..1823`) and optional localized `fallbackText`
- * into the active locale's 1-bit DOS bitmap glyph IDs (`0..2681` in `font_atlas.png`).
+ * into the active locale's 1-bit DOS bitmap glyph IDs (`0..2911` in `font_atlas.png`),
+ * selecting from the multi-size English retro bitmap font tiers (`'lg' | 'md' | 'sm'`).
  */
 export function resolveLocaleGlyphs(
   glyphs: number[] | undefined,
   fallbackText?: string,
-  forceOriginalBitmap = false
+  forceOriginalBitmap = false,
+  enSizeTier: EnglishFontSizeTier = 'lg'
 ): number[] {
   const base = (glyphs ?? []).filter((g) => g >= 0);
   if (forceOriginalBitmap) {
@@ -125,7 +135,7 @@ export function resolveLocaleGlyphs(
 
   // English ('en')
   const enText = cleanFallback || (base.length > 0 ? decodeGlyphsToText(base, 'zh-TW') : '');
-  return enText ? textToGlyphIds(enText, 'en') : [];
+  return enText ? textToGlyphIds(enText, 'en', enSizeTier) : [];
 }
 
 // 1. Races (1..10)

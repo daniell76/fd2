@@ -50,8 +50,8 @@ export class CutscenePlayer {
 
     backdropEl.classList.remove('hidden');
     const syncStageResolution = () => {
-      const targetW = this.assets.isHdMode() ? 1280 : 320;
-      const targetH = this.assets.isHdMode() ? 800 : 200;
+      const targetW = this.assets.isHdMode() ? 1920 : 320;
+      const targetH = this.assets.isHdMode() ? 1200 : 200;
       if (canvas.width !== targetW || canvas.height !== targetH) {
         canvas.width = targetW;
         canvas.height = targetH;
