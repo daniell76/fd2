@@ -28,8 +28,9 @@ import {
   type CombatantSpec,
   type TimelineStep,
 } from './ui/battleStage';
+import { mountVfxLabInGallery } from './ui/vfxLab';
 
-type GalleryTab = 'duel' | 'catalog' | 'chapters';
+type GalleryTab = 'duel' | 'vfx_lab' | 'catalog' | 'chapters';
 type EnemyListFilter = 'enemy_boss' | 'all_battlefield';
 type HeroListFilter = 'heroes_32' | 'battlefield_allies_npcs' | 'non_battlefield_npcs';
 type CatalogSubTab = 'items' | 'spells' | 'classes';
@@ -116,8 +117,10 @@ class MappingGalleryApp {
     }
     this.applyLocaleToGalleryData();
     const tabParam = params.get('tab');
-    if (tabParam === 'catalog' || tabParam === 'chapters') {
+    if (tabParam === 'catalog' || tabParam === 'chapters' || tabParam === 'vfx_lab') {
       this.activeTab = tabParam;
+    } else if (params.get('vfx') === '1') {
+      this.activeTab = 'vfx_lab';
     } else {
       this.activeTab = 'duel';
     }
@@ -468,6 +471,9 @@ class MappingGalleryApp {
             <button class="gal-btn ${this.activeTab === 'duel' ? 'active' : ''}" data-gtab="duel" type="button">
               ⚔ ${tr('戰鬥演武與全單位圖鑑 (0..135)', '战斗演武与全单位图鉴 (0..135)', 'Battle Stage & All Units (0..135)')}
             </button>
+            <button class="gal-btn ${this.activeTab === 'vfx_lab' ? 'active' : ''}" data-gtab="vfx_lab" type="button" style="border-color:#38bdf8;">
+              ⚡ ${tr('2026 現代 2.5D 戰鬥實驗室 (索爾 vs 盜賊)', '2026 现代 2.5D 战斗实验室 (索尔 vs 盗贼)', '2026 Modern 2.5D VFX Lab (Thor vs. Bandit)')}
+            </button>
             <button class="gal-btn ${this.activeTab === 'catalog' ? 'active' : ''}" data-gtab="catalog" type="button">
               ${tr('道具 · 法術 · 職業', '道具 · 法术 · 职业', 'Items · Spells · Classes')} (${audit.totalItems}/${audit.totalSpells})
             </button>
@@ -549,6 +555,8 @@ class MappingGalleryApp {
     const container = document.getElementById('gal-tab-body')!;
     if (this.activeTab === 'duel') {
       this.renderUnifiedDuelTab(container);
+    } else if (this.activeTab === 'vfx_lab') {
+      void mountVfxLabInGallery(container, this.assets, this.sound);
     } else if (this.activeTab === 'catalog') {
       this.renderCatalogTab(container);
     } else {
@@ -827,9 +835,14 @@ class MappingGalleryApp {
                   ${tr('右側我方：', '右侧我方：', 'Right Hero: ')}<strong>#${rightEntry.id} ${rightEntry.nameZh} (${rightEntry.classNameZh})</strong>
                 </div>
               </div>
-              <select class="gal-select" id="duel-bg-select" style="width:auto; padding:5px 9px; font-size:12px;">
-                ${bgOptions}
-              </select>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <button class="gal-btn sm" id="btn-jump-vfx-lab" type="button" style="border-color:#38bdf8; color:#7dd3fc;">
+                  ⚡ ${tr('開啟 2026 現代 2.5D 實驗室 (索爾 vs 盜賊)', '开启 2026 现代 2.5D 实验室 (索尔 vs 盗贼)', 'Open 2026 Modern 2.5D VFX Lab')}
+                </button>
+                <select class="gal-select" id="duel-bg-select" style="width:auto; padding:5px 9px; font-size:12px;">
+                  ${bgOptions}
+                </select>
+              </div>
             </div>
 
             ${promoStripHtml}
@@ -1314,6 +1327,12 @@ class MappingGalleryApp {
       this.duelPlaying = true;
       await this.rebuildDuelTimeline();
       this.syncPlaybackControlsUi();
+    });
+
+    const jumpVfxBtn = document.getElementById('btn-jump-vfx-lab') as HTMLButtonElement | null;
+    jumpVfxBtn?.addEventListener('click', () => {
+      this.activeTab = 'vfx_lab';
+      this.renderShell();
     });
 
     // Replay, Play/Pause, Loop Toggle, SFX Toggle & Scrubber (millisecond-exact pause/resume with zero DOM thrash)

@@ -63,7 +63,6 @@ import {
 import { CrossMenuController, renderTacticalCornerHud, type CrossArmOption } from './ui/crossMenu';
 import { CutscenePlayer } from './ui/cutscene';
 import { ModalController, loadAutoSaveSlot, markChapterCleared, saveAutoSaveSlot } from './ui/modals';
-import { openVfxLabModal } from './ui/vfxLab';
 
 type UiState =
   | 'idle'
@@ -205,7 +204,6 @@ class FlameDragonWebApp {
           <button class="btn" id="btn-continue-game" type="button">再續前緣 · Continue</button>
           <button class="btn" id="btn-chapter-select" type="button">戰場回憶 · Chapter Select</button>
           <button class="btn" id="btn-open-codex" type="button">炎龍圖鑑 · Codex</button>
-          <button class="btn btn-gold" id="btn-vfx-lab-title" type="button">⚡ 現代2.5D戰鬥實驗室 · Modern 2.5D VFX Lab</button>
           <a class="btn btn-gold" href="./gallery.html" id="btn-asset-gallery" style="text-decoration:none; text-align:center;">角色與圖像驗證 · Asset Gallery</a>
         </nav>
       </section>
@@ -231,7 +229,6 @@ class FlameDragonWebApp {
           <button class="btn btn-sm" id="btn-situation-top" type="button" title="開啟戰況一覽">戰況</button>
           <button class="btn btn-sm btn-gold" id="btn-end-turn" type="button" title="結束回合 (E)">回合結束</button>
           <button class="btn btn-sm btn-gold" id="btn-edition-top" type="button" title="即時切換 1995 DOS 原版 / HD 高畫質交響重製版">✨ HD 重製</button>
-          <button class="btn btn-sm btn-gold" id="btn-vfx-lab-top" type="button" title="開啟 2026 現代 2.5D 索爾 vs 盜賊 戰鬥動畫實驗室">⚡ 2.5D VFX Lab</button>
           <button class="btn btn-sm" id="btn-anim-speed" type="button">動畫: 1x</button>
           <button class="btn btn-sm" id="btn-bgm-toggle" type="button">音樂: 開</button>
           <button class="btn btn-sm" id="btn-save-load" type="button">存取進度</button>
@@ -567,17 +564,6 @@ class FlameDragonWebApp {
     // Edition Switcher Buttons (Title Screen & Top Toolbar)
     document.getElementById('btn-edition-title')?.addEventListener('click', () => this.toggleEditionMode());
     document.getElementById('btn-edition-top')?.addEventListener('click', () => this.toggleEditionMode());
-    document.getElementById('btn-vfx-lab-title')?.addEventListener('click', () => {
-      this.playUiSfx('confirm');
-      void openVfxLabModal(this.assets, this.sound);
-    });
-    document.getElementById('btn-vfx-lab-top')?.addEventListener('click', () => {
-      this.playUiSfx('confirm');
-      void openVfxLabModal(this.assets, this.sound);
-    });
-    if (new URLSearchParams(window.location.search).get('vfx') === '1') {
-      void openVfxLabModal(this.assets, this.sound);
-    }
 
     // Language Switcher Buttons (Title Screen & Top Toolbar)
     document.querySelectorAll<HTMLButtonElement>('[data-set-locale]').forEach((btn) => {

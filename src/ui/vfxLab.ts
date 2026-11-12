@@ -1,7 +1,7 @@
 import type { SoundEngine } from '../audio/soundEngine';
 import type { AssetManager } from '../engine/assets';
-import { getLocale } from '../i18n';
-import type { CombatOutcome, FigAniStrip } from '../types';
+import { getLocale, tr } from '../i18n';
+import type { FigAniStrip } from '../types';
 
 interface VfxSpark {
   x: number;
@@ -37,17 +37,6 @@ interface VfxLeaf {
   size: number;
   hue: number;
   depth: number; // 0.5 (far) .. 1.4 (foreground bokeh)
-}
-
-interface DamagePopup {
-  x: number;
-  y: number;
-  vy: number;
-  text: string;
-  subText?: string;
-  isCrit: boolean;
-  ageMs: number;
-  durationMs: number;
 }
 
 export interface ModernVfxConfig {
@@ -151,27 +140,36 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
   return vfxAssetsCache;
 }
 
-export type DuelScenario = 'full_duel' | 'thor_crit' | 'bandit_cleave';
+export type DuelScenario = 'thor_first_duel' | 'bandit_first_duel' | 'thor_crit';
 
 /**
  * Self-contained 60fps Modern 2.5D Anime VFX Combat Renderer for Thor (#0) vs. Bandit (#96).
+ * Uses smooth HP/MP bar drain on the bottom HUD (no floating damage numbers on screen).
  */
 export class Modern25DCombatRenderer {
   private sparks: VfxSpark[] = [];
   private dust: VfxDust[] = [];
   private leaves: VfxLeaf[] = [];
-  private popups: DamagePopup[] = [];
-  private scenario: DuelScenario = 'full_duel';
+  private scenario: DuelScenario = 'thor_first_duel';
   private elapsedMs = 0;
   private hitStopRemainingMs = 0;
   private triggeredEvents = new Set<string>();
 
-  private thorHp = 35;
-  private thorMaxHp = 35;
-  private banditHp = 35;
+  // Canonical Chapter 1 Lv.1 Stats for Thor (#0 索爾) and Bandit (#96 盜賊)
+  private thorMaxHp = 38;
+  private thorTargetHp = 38;
+  private thorDisplayedHp = 38;
+  private thorMaxMp = 10;
+  private thorMp = 10;
+
   private banditMaxHp = 35;
-  private thorTargetDamage = 24;
-  private banditTargetDamage = 7;
+  private banditTargetHp = 35;
+  private banditDisplayedHp = 35;
+  private banditMaxMp = 0;
+  private banditMp = 0;
+
+  private thorStrikeDmg = 22;
+  private banditStrikeDmg = 7;
 
   constructor(
     private vfxAssets: VfxLabAssets,
@@ -205,44 +203,41 @@ export class Modern25DCombatRenderer {
     }
   }
 
-  public startScenario(
-    scenario: DuelScenario,
-    opts?: {
-      thorStartHp?: number;
-      thorMaxHp?: number;
-      banditStartHp?: number;
-      banditMaxHp?: number;
-      thorDmg?: number;
-      banditDmg?: number;
-    }
-  ): void {
+  public startScenario(scenario: DuelScenario): void {
     this.scenario = scenario;
     this.elapsedMs = 0;
     this.hitStopRemainingMs = 0;
     this.triggeredEvents.clear();
     this.sparks = [];
     this.dust = [];
-    this.popups = [];
-    this.thorMaxHp = opts?.thorMaxHp ?? 35;
-    this.thorHp = opts?.thorStartHp ?? this.thorMaxHp;
-    this.banditMaxHp = opts?.banditMaxHp ?? 35;
-    this.banditHp = opts?.banditStartHp ?? this.banditMaxHp;
-    this.thorTargetDamage = opts?.thorDmg ?? (scenario === 'thor_crit' ? 28 : 22);
-    this.banditTargetDamage = opts?.banditDmg ?? 7;
+
+    this.thorMaxHp = 38;
+    this.thorTargetHp = 38;
+    this.thorDisplayedHp = 38;
+    this.thorMaxMp = 10;
+    this.thorMp = 10;
+
+    this.banditMaxHp = 35;
+    this.banditTargetHp = 35;
+    this.banditDisplayedHp = 35;
+    this.banditMaxMp = 0;
+    this.banditMp = 0;
+
+    this.thorStrikeDmg = scenario === 'thor_crit' ? 35 : 22;
+    this.banditStrikeDmg = 7;
+  }
+
+  public getScenario(): DuelScenario {
+    return this.scenario;
   }
 
   public getTotalDurationMs(): number {
     if (this.scenario === 'thor_crit') return 2600;
-    if (this.scenario === 'bandit_cleave') return 2400;
     return 4400;
   }
 
   public isFinished(): boolean {
     return this.elapsedMs >= this.getTotalDurationMs();
-  }
-
-  public getElapsedMs(): number {
-    return this.elapsedMs;
   }
 
   private fireOnce(key: string, fn: () => void): void {
@@ -297,11 +292,10 @@ export class Modern25DCombatRenderer {
       this.hitStopRemainingMs = Math.max(0, this.hitStopRemainingMs - dtMs);
     } else {
       this.elapsedMs += dtMs;
-      this.updateParticles(dtMs, W, H);
+      this.updateParticlesAndBars(dtMs, W, H);
     }
 
     if (splitCompareClassic) {
-      // Left half: 1995 Classic DOS 320x200 view; Right half: 2026 Modern 2.5D view
       ctx.save();
       this.renderModernScene(ctx, W, H);
       ctx.restore();
@@ -313,7 +307,6 @@ export class Modern25DCombatRenderer {
       this.renderClassic1995Scene(ctx, W, H);
       ctx.restore();
 
-      // Split divider bar & badges
       const splitX = Math.floor(W * 0.48);
       ctx.save();
       ctx.strokeStyle = '#fbbf24';
@@ -343,9 +336,18 @@ export class Modern25DCombatRenderer {
     }
   }
 
-  private updateParticles(dtMs: number, W: number, H: number): void {
+  private updateParticlesAndBars(dtMs: number, W: number, H: number): void {
     const dt = dtMs / 1000;
     const groundY = H * 0.81;
+
+    // Smoothly drain displayed HP toward target HP (authentic FD2 bar drain speed: ~48 HP/sec)
+    const drainRate = 48 * dt;
+    if (this.banditDisplayedHp > this.banditTargetHp) {
+      this.banditDisplayedHp = Math.max(this.banditTargetHp, this.banditDisplayedHp - drainRate);
+    }
+    if (this.thorDisplayedHp > this.thorTargetHp) {
+      this.thorDisplayedHp = Math.max(this.thorTargetHp, this.thorDisplayedHp - drainRate);
+    }
 
     for (const leaf of this.leaves) {
       leaf.x += leaf.vx * leaf.depth * dt;
@@ -368,7 +370,7 @@ export class Modern25DCombatRenderer {
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       s.vx *= Math.pow(0.92, dt * 60);
-      s.vy += 1650 * dt; // Gravity
+      s.vy += 1650 * dt;
       if (s.y >= groundY && s.vy > 0 && s.bounces < 2) {
         s.y = groundY;
         s.vy = -s.vy * 0.46;
@@ -389,21 +391,21 @@ export class Modern25DCombatRenderer {
         this.dust.splice(i, 1);
       }
     }
+  }
 
-    for (let i = this.popups.length - 1; i >= 0; i--) {
-      const p = this.popups[i];
-      p.ageMs += dtMs;
-      p.y += p.vy * dt;
-      p.vy += 260 * dt;
-      if (p.vy > 0) p.vy = 0;
-      if (p.ageMs >= p.durationMs) {
-        this.popups.splice(i, 1);
-      }
+  private getPhaseStartTimes(): { thorStart: number; banditStart: number } {
+    if (this.scenario === 'bandit_first_duel') {
+      // Bandit initiates at 280ms; Thor retaliates at 2200ms!
+      return { banditStart: 280, thorStart: 2200 };
     }
+    if (this.scenario === 'thor_crit') {
+      return { thorStart: 320, banditStart: -1 };
+    }
+    // Default 'thor_first_duel': Thor initiates at 320ms; Bandit retaliates at 2250ms!
+    return { thorStart: 320, banditStart: 2250 };
   }
 
   private renderClassic1995Scene(ctx: CanvasRenderingContext2D, W: number, H: number): void {
-    // Emulate exact 1995 320x200 nearest-neighbor look scaled to canvas
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     if (this.vfxAssets.forestBg) {
@@ -416,8 +418,8 @@ export class Modern25DCombatRenderer {
     const scaleX = W / 320;
     const scaleY = H / 200;
     const t = this.elapsedMs;
+    const { thorStart, banditStart } = this.getPhaseStartTimes();
 
-    // Determine classic frame states synchronized with modern timeline
     const cThorIdle = this.vfxAssets.classicThorIdle;
     const cThorAtk = this.vfxAssets.classicThorAtk;
     const cBanditIdle = this.vfxAssets.classicBanditIdle;
@@ -431,9 +433,9 @@ export class Modern25DCombatRenderer {
     let banditFrameIdx = Math.floor(t / 180) % Math.max(1, cBanditIdle?.strip.frames.length ?? 1);
     let banditGridX = 0;
 
-    if (this.scenario !== 'bandit_cleave' && t >= 350 && t < 1850 && cThorAtk && cThorAtk.strip.frames.length > 0) {
+    if (thorStart >= 0 && t >= thorStart && t < thorStart + 1600 && cThorAtk && cThorAtk.strip.frames.length > 0) {
       thorSprite = cThorAtk;
-      const p = Math.min(0.999, (t - 350) / 1450);
+      const p = Math.min(0.999, (t - thorStart) / 1550);
       thorFrameIdx = Math.floor(p * cThorAtk.strip.frames.length);
       if (p < 0.65) {
         thorGridX = Math.floor((p / 0.65) * 4) * 28;
@@ -442,16 +444,15 @@ export class Modern25DCombatRenderer {
       }
     }
 
-    const banditStart = this.scenario === 'bandit_cleave' ? 250 : 2100;
     if (
-      this.scenario !== 'thor_crit' &&
+      banditStart >= 0 &&
       t >= banditStart &&
-      t < banditStart + 1500 &&
+      t < banditStart + 1550 &&
       cBanditAtk &&
       cBanditAtk.strip.frames.length > 0
     ) {
       banditSprite = cBanditAtk;
-      const p = Math.min(0.999, (t - banditStart) / 1450);
+      const p = Math.min(0.999, (t - banditStart) / 1500);
       banditFrameIdx = Math.floor(p * cBanditAtk.strip.frames.length);
       if (p < 0.65) {
         banditGridX = Math.floor((p / 0.65) * 4) * 28;
@@ -478,15 +479,16 @@ export class Modern25DCombatRenderer {
     drawClassicFig(banditSprite, banditFrameIdx, 76 + banditGridX, 146);
     drawClassicFig(thorSprite, thorFrameIdx, 240 - thorGridX, 152);
     ctx.restore();
+
+    // Draw the bottom HUD so split-screen shows the HP/MP bars across the full bottom
+    this.drawModernDualHud(ctx, W, H);
   }
 
   private renderModernScene(ctx: CanvasRenderingContext2D, W: number, H: number): void {
     const t = this.elapsedMs;
     const groundY = H * 0.82;
+    const { thorStart, banditStart } = this.getPhaseStartTimes();
 
-    // -------------------------------------------------------------------------
-    // 1. Choreograph Timeline State (Thor Strike + Bandit Counter)
-    // -------------------------------------------------------------------------
     let thorPoseIdx = 0;
     let thorX = W * 0.73;
     let thorY = groundY;
@@ -511,24 +513,25 @@ export class Modern25DCombatRenderer {
     let camTilt = 0;
     let camShake = 0;
 
-    let slashArcProgress = -1; // 0..1 active Thor golden-azure crescent slash
-    let banditSlashProgress = -1; // 0..1 active Bandit crimson-steel cleave
-    let cutInProgress = -1; // 0..1 active Anime Eye Cut-In banner
+    let slashArcProgress = -1;
+    let banditSlashProgress = -1;
+    let cutInProgress = -1;
     let impactFlashAlpha = 0;
     let shockwaveProgress = -1;
     let shockwaveCenter = { x: W * 0.36, y: groundY - 210 };
 
-    // Subtle 60fps breathing spring
     const breath = this.config.enableAfterimagesAndSpring ? Math.sin(t * 0.0055) * 0.014 : 0;
     thorScaleY += breath;
     thorScaleX -= breath * 0.5;
     banditScaleY += Math.sin(t * 0.005 + 1.4) * (this.config.enableAfterimagesAndSpring ? 0.014 : 0);
 
-    // Phase A: Thor's Attack (runs in 'full_duel' and 'thor_crit')
-    if (this.scenario === 'full_duel' || this.scenario === 'thor_crit') {
-      if (t >= 320 && t < 780) {
-        // Wind-up & camera dolly-in on Thor
-        const p = (t - 320) / 460;
+    // -------------------------------------------------------------------------
+    // Thor Strike Sequence (runs at `thorStart`, whether initiating or retaliating!)
+    // -------------------------------------------------------------------------
+    if (thorStart >= 0 && t >= thorStart && t < thorStart + 1830) {
+      const localT = t - thorStart;
+      if (localT < 460) {
+        const p = localT / 460;
         const ease = 1 - Math.pow(1 - p, 3);
         thorPoseIdx = 1;
         thorX = W * 0.73 + ease * 26;
@@ -540,9 +543,8 @@ export class Modern25DCombatRenderer {
           this.sound.playSfx('step_foot');
           this.spawnDustPlume(thorX, groundY, 1, 8);
         });
-      } else if (t >= 780 && t < 1140) {
-        // Optional Anime Critical Eye Cut-In + Forward High-Speed Dash!
-        const p = (t - 780) / 360;
+      } else if (localT < 820) {
+        const p = (localT - 460) / 360;
         thorPoseIdx = 1;
         if (this.config.enableAnimeCutIn) {
           cutInProgress = p;
@@ -558,9 +560,8 @@ export class Modern25DCombatRenderer {
           this.sound.playSfx('slash');
           this.spawnDustPlume(W * 0.74, groundY, 1, 14);
         });
-      } else if (t >= 1140 && t < 1720) {
-        // Impact Cleave & Follow-Through!
-        const p = (t - 1140) / 580;
+      } else if (localT < 1400) {
+        const p = (localT - 820) / 580;
         thorPoseIdx = 2;
         thorX = W * 0.44 - Math.min(1, p * 4) * 28;
         slashArcProgress = Math.min(1, p * 2.1);
@@ -580,20 +581,10 @@ export class Modern25DCombatRenderer {
             -1
           );
           this.spawnDustPlume(banditX, groundY, -1, 16);
-          this.banditHp = Math.max(0, this.banditHp - this.thorTargetDamage);
-          this.popups.push({
-            x: banditX - 20,
-            y: groundY - 380,
-            vy: -260,
-            text: `-${this.thorTargetDamage}`,
-            subText: this.scenario === 'thor_crit' || this.config.enableAnimeCutIn ? 'CRITICAL!' : undefined,
-            isCrit: true,
-            ageMs: 0,
-            durationMs: 1250,
-          });
+          // Drain Bandit HP bar smoothly (no floating damage numbers!)
+          this.banditTargetHp = Math.max(0, this.banditTargetHp - this.thorStrikeDmg);
         });
 
-        // Bandit recoil & flash
         const recoil = Math.sin(Math.min(1, p * 2.2) * Math.PI);
         banditX = W * 0.27 - recoil * 58;
         banditRot = -recoil * 0.11;
@@ -606,9 +597,8 @@ export class Modern25DCombatRenderer {
         camX = -W * 0.1 * (1 - p * 0.5);
         camTilt = 0.018 * (1 - p);
         camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 24) : 0;
-      } else if (t >= 1720 && t < 2150) {
-        // Recover & backstep to right side
-        const p = (t - 1720) / 430;
+      } else {
+        const p = (localT - 1400) / 430;
         const ease = 1 - Math.pow(1 - p, 2);
         thorPoseIdx = p < 0.35 ? 2 : 0;
         thorX = W * 0.42 + ease * (W * 0.31);
@@ -618,12 +608,13 @@ export class Modern25DCombatRenderer {
       }
     }
 
-    // Phase B: Bandit Counter-Attack (runs in 'full_duel' after t=2250ms, or 'bandit_cleave' at t=250ms)
-    const bStart = this.scenario === 'bandit_cleave' ? 250 : 2250;
-    if (this.scenario === 'full_duel' || this.scenario === 'bandit_cleave') {
-      if (t >= bStart && t < bStart + 520) {
-        // Bandit Overhead Cleave Wind-Up
-        const p = (t - bStart) / 520;
+    // -------------------------------------------------------------------------
+    // Bandit Strike Sequence (runs at `banditStart`, whether initiating or retaliating!)
+    // -------------------------------------------------------------------------
+    if (banditStart >= 0 && t >= banditStart && t < banditStart + 1850) {
+      const localB = t - banditStart;
+      if (localB < 520) {
+        const p = localB / 520;
         const ease = 1 - Math.pow(1 - p, 3);
         banditPoseIdx = 1;
         banditX = W * 0.27 - ease * 18;
@@ -634,9 +625,8 @@ export class Modern25DCombatRenderer {
           this.sound.playSfx('step_foot');
           this.spawnDustPlume(banditX, groundY, -1, 8);
         });
-      } else if (t >= bStart + 520 && t < bStart + 820) {
-        // Bandit Forward Lunge
-        const p = (t - (bStart + 520)) / 300;
+      } else if (localB < 820) {
+        const p = (localB - 520) / 300;
         const ease = 1 - Math.pow(1 - p, 3);
         banditPoseIdx = 1;
         banditX = W * 0.26 + ease * (W * 0.3);
@@ -647,9 +637,8 @@ export class Modern25DCombatRenderer {
           this.sound.playSfx('slash');
           this.spawnDustPlume(W * 0.27, groundY, -1, 12);
         });
-      } else if (t >= bStart + 820 && t < bStart + 1400) {
-        // Bandit Downward Cleave Impact!
-        const p = (t - (bStart + 820)) / 580;
+      } else if (localB < 1400) {
+        const p = (localB - 820) / 580;
         banditPoseIdx = 2;
         banditX = W * 0.56 + Math.min(1, p * 4) * 22;
         banditSlashProgress = Math.min(1, p * 2.2);
@@ -669,16 +658,8 @@ export class Modern25DCombatRenderer {
             1
           );
           this.spawnDustPlume(thorX, groundY, 1, 14);
-          this.thorHp = Math.max(1, this.thorHp - this.banditTargetDamage);
-          this.popups.push({
-            x: thorX + 10,
-            y: groundY - 370,
-            vy: -230,
-            text: `-${this.banditTargetDamage}`,
-            isCrit: false,
-            ageMs: 0,
-            durationMs: 1100,
-          });
+          // Drain Thor HP bar smoothly (no floating damage numbers!)
+          this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
         });
 
         const recoil = Math.sin(Math.min(1, p * 2.2) * Math.PI);
@@ -690,9 +671,8 @@ export class Modern25DCombatRenderer {
         camZoom = 1.19 - p * 0.1;
         camX = W * 0.08 * (1 - p * 0.5);
         camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.5) * 18) : 0;
-      } else if (t >= bStart + 1400 && t < bStart + 1850) {
-        // Bandit leaps back to left position
-        const p = (t - (bStart + 1400)) / 450;
+      } else {
+        const p = (localB - 1400) / 450;
         const ease = 1 - Math.pow(1 - p, 2);
         banditPoseIdx = p < 0.35 ? 2 : 0;
         banditX = W * 0.58 - ease * (W * 0.31);
@@ -703,7 +683,7 @@ export class Modern25DCombatRenderer {
     }
 
     // -------------------------------------------------------------------------
-    // 2. Apply Dynamic Camera Transform (Dolly Zoom, Pan, Shake, Tilt)
+    // Apply Dynamic Camera Transform
     // -------------------------------------------------------------------------
     const shakeX = camShake > 0 ? (Math.random() - 0.5) * camShake * 2 : 0;
     const shakeY = camShake > 0 ? (Math.random() - 0.5) * camShake * 1.6 : 0;
@@ -717,14 +697,8 @@ export class Modern25DCombatRenderer {
     ctx.rotate(camTilt);
     ctx.translate(-W * 0.5 - camX, -H * 0.5 - camY);
 
-    // -------------------------------------------------------------------------
-    // 3. Multi-Plane 2.5D Forest Stage & Volumetric Sunbeams
-    // -------------------------------------------------------------------------
     this.drawForestBackground(ctx, W, H, camX, camY, groundY);
 
-    // -------------------------------------------------------------------------
-    // 4. Ground Contact Shadows & Shockwave Ring
-    // -------------------------------------------------------------------------
     this.drawGroundShadow(ctx, banditX, groundY, 210);
     this.drawGroundShadow(ctx, thorX, groundY, 210);
 
@@ -732,13 +706,9 @@ export class Modern25DCombatRenderer {
       this.drawGroundShockwave(ctx, shockwaveCenter.x, groundY - 12, shockwaveProgress);
     }
 
-    // -------------------------------------------------------------------------
-    // 5. Characters + High-Speed Dash Afterimages
-    // -------------------------------------------------------------------------
     const banditImg = this.vfxAssets.banditPoses[banditPoseIdx] || this.vfxAssets.banditPoses[0];
     const thorImg = this.vfxAssets.thorPoses[thorPoseIdx] || this.vfxAssets.thorPoses[0];
 
-    // Draw Bandit
     if (banditAfterimages > 0) {
       for (let g = banditAfterimages; g >= 1; g--) {
         this.drawCharacterSprite(
@@ -766,12 +736,10 @@ export class Modern25DCombatRenderer {
       banditFlashWhite > 0.15 ? '#ffffff' : undefined
     );
 
-    // Bandit glowing green visor optics accent during wind-up
     if (banditPoseIdx === 1) {
       this.drawBanditVisorGlint(ctx, banditX + 26, banditY - 375, t);
     }
 
-    // Draw Thor
     if (thorAfterimages > 0) {
       for (let g = thorAfterimages; g >= 1; g--) {
         this.drawCharacterSprite(
@@ -799,14 +767,10 @@ export class Modern25DCombatRenderer {
       thorFlashWhite > 0.15 ? '#ffffff' : undefined
     );
 
-    // Sword gathering energy aura during Thor's wind-up
-    if (thorPoseIdx === 1 && t >= 320 && t < 1140 && this.config.enableVolumetricSlash) {
-      this.drawBladeChargeAura(ctx, thorX + 45, thorY - 430, (t - 320) / 820);
+    if (thorPoseIdx === 1 && thorStart >= 0 && t >= thorStart && t < thorStart + 820 && this.config.enableVolumetricSlash) {
+      this.drawBladeChargeAura(ctx, thorX + 45, thorY - 430, (t - thorStart) / 820);
     }
 
-    // -------------------------------------------------------------------------
-    // 6. Procedural Volumetric Crescent Sword Slash Shaders
-    // -------------------------------------------------------------------------
     if (slashArcProgress >= 0 && slashArcProgress <= 1 && this.config.enableVolumetricSlash) {
       this.drawVolumetricCrescentSlash(
         ctx,
@@ -829,22 +793,11 @@ export class Modern25DCombatRenderer {
       );
     }
 
-    // -------------------------------------------------------------------------
-    // 7. Dust Plumes, Physics Sparks & Foreground Bokeh Leaves
-    // -------------------------------------------------------------------------
     this.drawDustAndSparks(ctx);
     this.drawForegroundLeaves(ctx);
 
-    // -------------------------------------------------------------------------
-    // 8. Animated Damage Popups
-    // -------------------------------------------------------------------------
-    this.drawDamagePopups(ctx);
-
     ctx.restore(); // End camera transform
 
-    // -------------------------------------------------------------------------
-    // 9. Screen-Space Impact Flash, Anime Critical Cut-In Banner & Modern HUD
-    // -------------------------------------------------------------------------
     if ((this.hitStopRemainingMs > 0 || impactFlashAlpha > 0.05) && this.config.enableHitStopAndSparks) {
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
@@ -869,6 +822,7 @@ export class Modern25DCombatRenderer {
       this.drawAnimeCutInBanner(ctx, W, H, cutInProgress);
     }
 
+    // Bottom HUD with smooth-draining HP and MP bars (no floating damage numbers)
     this.drawModernDualHud(ctx, W, H);
   }
 
@@ -896,7 +850,6 @@ export class Modern25DCombatRenderer {
       ctx.fillRect(bgX, bgY, bgW, bgH);
     }
 
-    // Subtle atmospheric depth vignette & warm sunlit ground grade
     const stageGrade = ctx.createLinearGradient(0, 0, 0, H);
     stageGrade.addColorStop(0, 'rgba(8, 22, 16, 0.35)');
     stageGrade.addColorStop(0.55, 'rgba(16, 38, 24, 0.12)');
@@ -907,7 +860,6 @@ export class Modern25DCombatRenderer {
 
     if (!this.config.enableParallaxAndGodRays) return;
 
-    // Animated Volumetric Sunbeam God-Rays filtering through the canopy
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     const rays = [
@@ -983,7 +935,6 @@ export class Modern25DCombatRenderer {
     tintColor?: string
   ): void {
     if (!img || !img.complete || img.naturalWidth === 0) return;
-    // Standardized 680x680 pose canvas with foot anchor at (340, 648)
     const displaySize = 530;
     const anchorRatioX = 0.5;
     const anchorRatioY = 648 / 680;
@@ -1000,7 +951,6 @@ export class Modern25DCombatRenderer {
     ctx.drawImage(img, dx, dy, displaySize, displaySize);
 
     if (tintColor) {
-      // Rim / hit flash overlay
       ctx.globalCompositeOperation = 'source-atop';
       ctx.fillStyle = tintColor;
       ctx.globalAlpha = alpha * 0.55;
@@ -1022,7 +972,6 @@ export class Modern25DCombatRenderer {
     ctx.arc(x, y, 42 * pulse, 0, Math.PI * 2);
     ctx.fill();
 
-    // Horizontal lens flare streak
     ctx.strokeStyle = 'rgba(217, 249, 157, 0.85)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
@@ -1048,10 +997,6 @@ export class Modern25DCombatRenderer {
     ctx.restore();
   }
 
-  /**
-   * Procedural Multi-Layered Volumetric Crescent Sword Slash Shader
-   * Renders an anime-grade tapered crescent energy ribbon (Outer Aura + Flame Mid-Core + White-Hot Blade Edge + Impact Cross-Flare).
-   */
   private drawVolumetricCrescentSlash(
     ctx: CanvasRenderingContext2D,
     cx: number,
@@ -1110,7 +1055,6 @@ export class Modern25DCombatRenderer {
       for (let i = steps; i >= 0; i--) {
         const u = i / steps;
         const a = startAngle + (endAngle - startAngle) * u;
-        // Taper thickness cleanly to 0 at both tips of the crescent
         const taper = Math.sin(u * Math.PI);
         const r = rOuter - thickness * taper;
         const px = -Math.cos(a) * r;
@@ -1123,20 +1067,15 @@ export class Modern25DCombatRenderer {
     };
 
     if (theme === 'thor_golden_azure') {
-      // Layer 1: Wide Cyan-Azure Outer Glow
       drawTaperedCrescent(radius * 1.06, 118, '#0284c7', '#38bdf8', '#7dd3fc', 0.65);
-      // Layer 2: Golden-Amber Flame Ribbon
       drawTaperedCrescent(radius * 0.99, 76, '#ea580c', '#f59e0b', '#fde047', 0.92);
-      // Layer 3: White-Hot Razor Leading Core
       drawTaperedCrescent(radius * 0.95, 28, '#fef08a', '#ffffff', '#e0f2fe', 1.0);
     } else {
-      // Bandit Crimson-Steel Cleave
       drawTaperedCrescent(radius * 1.04, 98, '#991b1b', '#ef4444', '#fb923c', 0.68);
       drawTaperedCrescent(radius * 0.98, 58, '#dc2626', '#f97316', '#fde047', 0.88);
       drawTaperedCrescent(radius * 0.94, 22, '#fecaca', '#ffffff', '#fef08a', 0.98);
     }
 
-    // Impact Anamorphic Starburst at the Clash Point
     const impactX = -radius * 0.78;
     const impactY = radius * 0.12;
     const starGrad = ctx.createRadialGradient(impactX, impactY, 2, impactX, impactY, 130 * fade);
@@ -1148,7 +1087,6 @@ export class Modern25DCombatRenderer {
     ctx.arc(impactX, impactY, 130 * fade, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cross-flare spikes
     ctx.strokeStyle = `rgba(255, 255, 255, ${fade * 0.95})`;
     ctx.lineWidth = 4;
     ctx.beginPath();
@@ -1162,7 +1100,6 @@ export class Modern25DCombatRenderer {
   }
 
   private drawDustAndSparks(ctx: CanvasRenderingContext2D): void {
-    // Dust clouds
     for (const d of this.dust) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, d.alpha);
@@ -1176,7 +1113,6 @@ export class Modern25DCombatRenderer {
       ctx.restore();
     }
 
-    // Velocity-stretched glowing metallic sparks
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     for (const s of this.sparks) {
@@ -1212,53 +1148,6 @@ export class Modern25DCombatRenderer {
     }
   }
 
-  private drawDamagePopups(ctx: CanvasRenderingContext2D): void {
-    for (const p of this.popups) {
-      const progress = p.ageMs / p.durationMs;
-      const alpha = progress < 0.75 ? 1 : Math.max(0, 1 - (progress - 0.75) / 0.25);
-      const popScale = progress < 0.12 ? 0.6 + (progress / 0.12) * 0.65 : Math.max(1.0, 1.25 - (progress - 0.12) * 0.8);
-
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(p.x, p.y);
-      ctx.scale(popScale, popScale);
-
-      if (p.subText) {
-        ctx.font = 'italic 900 22px "Cinzel", "Noto Serif TC", serif';
-        ctx.textAlign = 'center';
-        ctx.strokeStyle = '#090d16';
-        ctx.lineWidth = 6;
-        ctx.strokeText(p.subText, 0, -48);
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillText(p.subText, 0, -48);
-      }
-
-      ctx.font = p.isCrit
-        ? 'italic 900 56px "Cinzel", "Noto Serif TC", serif'
-        : 'bold 44px "Cinzel", "Noto Serif TC", serif';
-      ctx.textAlign = 'center';
-      ctx.strokeStyle = '#090d16';
-      ctx.lineWidth = 9;
-      ctx.strokeText(p.text, 0, 0);
-
-      const grad = ctx.createLinearGradient(0, -45, 0, 10);
-      if (p.isCrit) {
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(0.45, '#fde047');
-        grad.addColorStop(1, '#ea580c');
-      } else {
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(1, '#f87171');
-      }
-      ctx.fillStyle = grad;
-      ctx.fillText(p.text, 0, 0);
-      ctx.restore();
-    }
-  }
-
-  /**
-   * Renders an authentic modern tactical RPG Critical Eye Cut-In Banner across the stage.
-   */
   private drawAnimeCutInBanner(ctx: CanvasRenderingContext2D, W: number, H: number, progress: number): void {
     const open = progress < 0.18 ? progress / 0.18 : progress > 0.82 ? (1 - progress) / 0.18 : 1;
     if (open <= 0.01) return;
@@ -1270,7 +1159,6 @@ export class Modern25DCombatRenderer {
     ctx.translate(W * 0.5, cy);
     ctx.rotate(-0.06);
 
-    // Dark backing & speed lines
     ctx.beginPath();
     ctx.rect(-W * 0.65, -bannerH * 0.5, W * 1.3, bannerH);
     ctx.clip();
@@ -1282,7 +1170,6 @@ export class Modern25DCombatRenderer {
     ctx.fillStyle = bgGrad;
     ctx.fillRect(-W * 0.65, -bannerH * 0.5, W * 1.3, bannerH);
 
-    // Horizontal anime speed lines
     ctx.strokeStyle = 'rgba(125, 211, 252, 0.32)';
     for (let i = 0; i < 18; i++) {
       const ly = -bannerH * 0.45 + (i / 17) * bannerH * 0.9;
@@ -1294,15 +1181,12 @@ export class Modern25DCombatRenderer {
       ctx.stroke();
     }
 
-    // Draw close-up crop of Thor's eyes/face from clashKeyArt or thorPose0
     const faceImg = this.vfxAssets.clashKeyArt;
     if (faceImg && faceImg.complete && faceImg.naturalWidth > 0) {
       const slideX = (0.5 - progress) * 70;
-      // In clash_keyart.jpg (1376x768), Thor's face is around (x=820..1080, y=170..340)
       ctx.drawImage(faceImg, 800, 175, 330, 165, -40 + slideX, -bannerH * 0.52, 460, bannerH * 1.06);
     }
 
-    // Banner text
     const isEn = getLocale() === 'en';
     ctx.font = 'italic 900 42px "Cinzel", "Noto Serif TC", serif';
     ctx.fillStyle = '#fde047';
@@ -1310,7 +1194,6 @@ export class Modern25DCombatRenderer {
     ctx.shadowBlur = 16;
     ctx.fillText(isEn ? 'THOR — FLAME SLASH!' : '索爾 — 烈焰斬！', -W * 0.42, 14);
 
-    // Glowing gold top/bottom border rails
     ctx.shadowBlur = 0;
     ctx.strokeStyle = '#fde047';
     ctx.lineWidth = 4;
@@ -1324,25 +1207,32 @@ export class Modern25DCombatRenderer {
     ctx.restore();
   }
 
+  /**
+   * Draws the bottom-left (Enemy Bandit) and bottom-right (Hero Thor) HUD cards
+   * featuring both HP and MP bars with smooth continuous damage drain (no floating numbers).
+   */
   private drawModernDualHud(ctx: CanvasRenderingContext2D, W: number, H: number): void {
     const isEn = getLocale() === 'en';
     const padX = 42;
-    const topY = H - 104;
-    const cardW = 430;
-    const cardH = 74;
+    const topY = H - 122;
+    const cardW = 450;
+    const cardH = 96;
 
     const drawHudCard = (
       x: number,
       y: number,
       name: string,
       lv: number,
-      hp: number,
+      dispHp: number,
+      targetHp: number,
       maxHp: number,
+      mp: number,
+      maxMp: number,
       accentColor: string,
       alignRight: boolean
     ) => {
       ctx.save();
-      ctx.fillStyle = 'rgba(10, 14, 24, 0.82)';
+      ctx.fillStyle = 'rgba(10, 14, 24, 0.86)';
       ctx.strokeStyle = accentColor;
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -1354,37 +1244,89 @@ export class Modern25DCombatRenderer {
       ctx.font = 'bold 20px "Cinzel", "Noto Serif TC", sans-serif';
       ctx.textAlign = alignRight ? 'right' : 'left';
       const textX = alignRight ? x + cardW - 20 : x + 20;
-      ctx.fillText(`${name}   Lv.${lv}`, textX, y + 28);
+      ctx.fillText(`${name}   Lv.${lv}`, textX, y + 27);
 
+      const shownHpInt = Math.ceil(dispHp);
       ctx.fillStyle = '#fde047';
-      ctx.font = 'bold 17px monospace';
+      ctx.font = 'bold 15px monospace';
       ctx.textAlign = alignRight ? 'left' : 'right';
-      const hpTextX = alignRight ? x + 20 : x + cardW - 20;
-      ctx.fillText(`HP ${hp}/${maxHp}`, hpTextX, y + 28);
+      const statTextX = alignRight ? x + 20 : x + cardW - 20;
+      ctx.fillText(`HP ${shownHpInt}/${maxHp}   MP ${mp}/${maxMp}`, statTextX, y + 27);
 
-      // Smooth HP Bar
-      const barX = x + 20;
-      const barY = y + 43;
-      const barW = cardW - 40;
-      const barH = 14;
-      ctx.fillStyle = 'rgba(30, 41, 59, 0.95)';
-      ctx.fillRect(barX, barY, barW, barH);
+      const barX = x + 64;
+      const barW = cardW - 84;
 
-      const ratio = Math.max(0, Math.min(1, hp / Math.max(1, maxHp)));
-      const fillW = barW * ratio;
-      const barGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-      if (alignRight) {
-        barGrad.addColorStop(0, '#0284c7');
-        barGrad.addColorStop(1, '#38bdf8');
-      } else {
-        barGrad.addColorStop(0, '#dc2626');
-        barGrad.addColorStop(1, '#f97316');
+      // 1. HP Bar (with smooth golden-white drain lag indicator)
+      const hpBarY = y + 40;
+      const hpBarH = 15;
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('HP', x + 20, hpBarY + 12);
+
+      ctx.fillStyle = 'rgba(24, 32, 48, 0.95)';
+      ctx.fillRect(barX, hpBarY, barW, hpBarH);
+
+      const dispRatio = Math.max(0, Math.min(1, dispHp / Math.max(1, maxHp)));
+      const targRatio = Math.max(0, Math.min(1, targetHp / Math.max(1, maxHp)));
+      const dispFillW = barW * dispRatio;
+      const targFillW = barW * targRatio;
+
+      // Trailing drain bar (shows the HP currently draining away!)
+      if (dispFillW > targFillW + 0.5) {
+        ctx.fillStyle = 'rgba(253, 224, 71, 0.85)';
+        ctx.fillRect(
+          alignRight ? barX + (barW - dispFillW) : barX,
+          hpBarY,
+          dispFillW,
+          hpBarH
+        );
       }
-      ctx.fillStyle = barGrad;
-      ctx.fillRect(alignRight ? barX + (barW - fillW) : barX, barY, fillW, barH);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+
+      const hpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      hpGrad.addColorStop(0, '#dc2626');
+      hpGrad.addColorStop(0.5, '#f59e0b');
+      hpGrad.addColorStop(1, '#22c55e');
+      ctx.fillStyle = hpGrad;
+      ctx.fillRect(
+        alignRight ? barX + (barW - targFillW) : barX,
+        hpBarY,
+        targFillW,
+        hpBarH
+      );
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(barX, barY, barW, barH);
+      ctx.strokeRect(barX, hpBarY, barW, hpBarH);
+
+      // 2. MP Bar
+      const mpBarY = y + 64;
+      const mpBarH = 12;
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('MP', x + 20, mpBarY + 11);
+
+      ctx.fillStyle = 'rgba(24, 32, 48, 0.95)';
+      ctx.fillRect(barX, mpBarY, barW, mpBarH);
+
+      const mpRatio = maxMp > 0 ? Math.max(0, Math.min(1, mp / maxMp)) : 0;
+      const mpFillW = barW * mpRatio;
+      if (mpFillW > 0) {
+        const mpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+        mpGrad.addColorStop(0, '#0284c7');
+        mpGrad.addColorStop(1, '#38bdf8');
+        ctx.fillStyle = mpGrad;
+        ctx.fillRect(
+          alignRight ? barX + (barW - mpFillW) : barX,
+          mpBarY,
+          mpFillW,
+          mpBarH
+        );
+      }
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(barX, mpBarY, barW, mpBarH);
+
       ctx.restore();
     };
 
@@ -1394,8 +1336,11 @@ export class Modern25DCombatRenderer {
       topY,
       isEn ? 'Bandit (#96)' : '盜賊 (#96)',
       1,
-      this.banditHp,
+      this.banditDisplayedHp,
+      this.banditTargetHp,
       this.banditMaxHp,
+      this.banditMp,
+      this.banditMaxMp,
       '#ef4444',
       false
     );
@@ -1406,153 +1351,69 @@ export class Modern25DCombatRenderer {
       topY,
       isEn ? 'Thor (#0)' : '索爾 (#0)',
       1,
-      this.thorHp,
+      this.thorDisplayedHp,
+      this.thorTargetHp,
       this.thorMaxHp,
+      this.thorMp,
+      this.thorMaxMp,
       '#38bdf8',
       true
     );
   }
 }
 
-/**
- * Checks whether a live in-game CombatOutcome is a duel between Thor (#0) and Bandit (#96).
- */
-export function isThorVsBanditCombat(outcome: CombatOutcome): boolean {
-  const a = outcome.attacker.uid;
-  const d = outcome.defender.uid;
-  return (a === 0 && d === 96) || (a === 96 && d === 0);
-}
+let activeLabCleanup: (() => void) | null = null;
 
 /**
- * Plays the Modern 2.5D Anime VFX Cutscene directly on the in-game battle canvas when Thor (#0) fights Bandit (#96) in HD Mode.
+ * Mounts the interactive "Modern 2.5D VFX Lab: Thor (#0) vs. Bandit (#96)" directly inside a Gallery tab container.
  */
-export async function playInGameModern25DThorBandit(
-  outcome: CombatOutcome,
+export async function mountVfxLabInGallery(
+  container: HTMLElement,
   assets: AssetManager,
-  sound: SoundEngine,
-  backdropEl: HTMLElement,
-  canvas: HTMLCanvasElement,
-  skipBtn: HTMLButtonElement,
-  speedMult = 1
+  sound: SoundEngine
 ): Promise<void> {
-  const vfxAssets = await ensureVfxLabAssets(assets);
-  const renderer = new Modern25DCombatRenderer(vfxAssets, sound);
-
-  const thorIsAttacker = outcome.attacker.uid === 0;
-  const thorUnit = thorIsAttacker ? outcome.attacker : outcome.defender;
-  const banditUnit = thorIsAttacker ? outcome.defender : outcome.attacker;
-  const thorStartHp = thorIsAttacker ? outcome.attackerStartHp : outcome.defenderStartHp;
-  const banditStartHp = thorIsAttacker ? outcome.defenderStartHp : outcome.attackerStartHp;
-
-  let thorDmg = 0;
-  let banditDmg = 0;
-  let hasCounter = false;
-  for (const s of outcome.strikes) {
-    const strikeByThor = (s.fromAttacker && thorIsAttacker) || (!s.fromAttacker && !thorIsAttacker);
-    if (strikeByThor) {
-      thorDmg += s.damage;
-    } else {
-      banditDmg += s.damage;
-      hasCounter = true;
-    }
+  if (activeLabCleanup) {
+    activeLabCleanup();
+    activeLabCleanup = null;
   }
 
-  const scenario: DuelScenario = !thorIsAttacker
-    ? 'bandit_cleave'
-    : hasCounter
-      ? 'full_duel'
-      : 'thor_crit';
-
-  renderer.startScenario(scenario, {
-    thorStartHp,
-    thorMaxHp: thorUnit.maxHp,
-    banditStartHp,
-    banditMaxHp: banditUnit.maxHp,
-    thorDmg: Math.max(1, thorDmg),
-    banditDmg: Math.max(1, banditDmg),
-  });
-
-  backdropEl.classList.remove('hidden');
-  canvas.width = 1600;
-  canvas.height = 900;
-  const ctx = canvas.getContext('2d')!;
-
-  let skipped = false;
-  const onSkip = () => {
-    skipped = true;
-  };
-  skipBtn.addEventListener('click', onSkip, { once: true });
-
-  await new Promise<void>((resolve) => {
-    let lastTime = performance.now();
-    const tick = (now: number) => {
-      if (skipped || renderer.isFinished()) {
-        resolve();
-        return;
-      }
-      const dt = (now - lastTime) / speedMult;
-      lastTime = now;
-      renderer.stepAndRender(ctx, dt, false);
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  });
-
-  skipBtn.removeEventListener('click', onSkip);
-  backdropEl.classList.add('hidden');
-}
-
-/**
- * Opens the interactive "Modern 2.5D VFX Lab: Thor vs. Bandit" modal showcase.
- */
-export async function openVfxLabModal(assets: AssetManager, sound: SoundEngine): Promise<void> {
-  let modal = document.getElementById('vfx-lab-modal') as HTMLDivElement | null;
-  if (modal) {
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-    return;
-  }
-
-  const vfxAssets = await ensureVfxLabAssets(assets);
-  const renderer = new Modern25DCombatRenderer(vfxAssets, sound);
-
-  modal = document.createElement('div');
-  modal.id = 'vfx-lab-modal';
-  modal.style.cssText = `
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    background: rgba(6, 9, 16, 0.92);
-    backdrop-filter: blur(8px);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    color: #f8fafc;
-    font-family: system-ui, -apple-system, sans-serif;
+  container.innerHTML = `
+    <div style="padding: 28px; text-align: center; color: var(--ink-300); font-family: var(--font-mono);">
+      Loading 2026 Modern 2.5D Anime VFX Keyframes & Shaders...
+    </div>
   `;
 
-  modal.innerHTML = `
-    <div style="width: min(1420px, 96vw); background: #0f172a; border: 1px solid #334155; border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,0.75); overflow: hidden; display: flex; flex-direction: column; max-height: 95vh;">
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: linear-gradient(90deg, #0f172a, #1e293b); border-bottom: 1px solid #334155;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <span style="font-size: 20px; font-weight: 800; color: #38bdf8;">⚡ Modern 2.5D VFX Lab — Chapter 1: Thor (#0 索爾) vs. Bandit (#96 盜賊)</span>
-          <span style="font-size: 12px; padding: 3px 9px; border-radius: 999px; background: rgba(56, 189, 248, 0.15); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35);">2026 Modern Tech Experiment</span>
+  const vfxAssets = await ensureVfxLabAssets(assets);
+  const renderer = new Modern25DCombatRenderer(vfxAssets, sound);
+
+  container.innerHTML = `
+    <div style="max-width: 1460px; margin: 0 auto; padding: 12px 16px 28px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: var(--bg-panel, #0f172a); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <span style="font-size: 18px; font-weight: 800; color: #38bdf8;">
+            ⚡ ${tr(
+              '2026 現代 2.5D 戰鬥動畫實驗室 — 第 1 章：索爾 (#0) vs 盜賊 (#96)',
+              '2026 现代 2.5D 战斗动画实验室 — 第 1 章：索尔 (#0) vs 盗贼 (#96)',
+              '2026 Modern 2.5D VFX Combat Lab — Ch.1: Thor (#0) vs. Bandit (#96)'
+            )}
+          </span>
+          <span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35);">
+            ${tr('保留原版底部 HP/MP 扣血條（無浮動數字）', '保留原版底部 HP/MP 扣血条（无浮动数字）', 'Authentic HP/MP Bar Drain (No Floating Numbers)')}
+          </span>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button id="vfx-tab-stage" style="padding: 6px 14px; border-radius: 6px; border: 1px solid #38bdf8; background: #0284c7; color: #fff; font-weight: 600; cursor: pointer;">🎬 Live 2.5D Combat Stage</button>
-          <button id="vfx-tab-split" style="padding: 6px 14px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #cbd5e1; font-weight: 600; cursor: pointer;">🔀 1995 DOS vs 2026 Split-Screen</button>
-          <button id="vfx-tab-art" style="padding: 6px 14px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #cbd5e1; font-weight: 600; cursor: pointer;">🎨 Keyframe Sheets & Key Art</button>
-          <button id="vfx-close-btn" style="margin-left: 10px; padding: 6px 12px; border-radius: 6px; border: 1px solid #ef4444; background: rgba(239, 68, 68, 0.18); color: #fca5a5; font-weight: 700; cursor: pointer;">✕ Close</button>
+
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <button class="gal-btn active" id="vfx-tab-stage" type="button">🎬 ${tr('2.5D 現代演武舞台', '2.5D 现代演武舞台', 'Live 2.5D Combat Stage')}</button>
+          <button class="gal-btn" id="vfx-tab-split" type="button">🔀 ${tr('1995 原版 vs 2026 分割畫面對照', '1995 原版 vs 2026 分割画面对照', '1995 DOS vs 2026 Split-Screen')}</button>
+          <button class="gal-btn" id="vfx-tab-art" type="button">🎨 ${tr('高解析關鍵幀與插畫原稿', '高解析关键帧与插画原稿', 'Keyframe Sheets & Key Art')}</button>
         </div>
       </div>
 
-      <div id="vfx-stage-container" style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh; background: #05080f; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+      <div id="vfx-stage-container" style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 72vh; background: #05080f; border: 1px solid var(--border-subtle, #334155); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 18px 48px rgba(0,0,0,0.6);">
         <canvas id="vfx-lab-canvas" width="1600" height="900" style="width: 100%; height: 100%; object-fit: contain;"></canvas>
       </div>
 
-      <div id="vfx-art-container" style="display: none; padding: 20px; overflow-y: auto; max-height: 72vh; background: #090d16;">
+      <div id="vfx-art-container" style="display: none; padding: 20px; background: var(--bg-panel, #090d16); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(410px, 1fr)); gap: 18px;">
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
             <h4 style="margin: 0 0 8px 0; color: #fde047;">1. Widescreen 16:9 Chapter 1 Clash Key Art</h4>
@@ -1569,81 +1430,86 @@ export async function openVfxLabModal(assets: AssetManager, sound: SoundEngine):
         </div>
       </div>
 
-      <div id="vfx-controls-bar" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; background: #0f172a; border-top: 1px solid #334155;">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: var(--bg-panel, #0f172a); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <button id="vfx-play-duel" style="padding: 7px 14px; border-radius: 6px; border: 1px solid #fbbf24; background: linear-gradient(180deg, #f59e0b, #d97706); color: #090d16; font-weight: 800; cursor: pointer;">⚔️ Play Full Duel (Thor + Bandit Counter)</button>
-          <button id="vfx-play-crit" style="padding: 7px 14px; border-radius: 6px; border: 1px solid #38bdf8; background: rgba(2, 132, 199, 0.35); color: #e0f2fe; font-weight: 700; cursor: pointer;">🔥 Thor Critical Flame Slash</button>
-          <button id="vfx-play-bandit" style="padding: 7px 14px; border-radius: 6px; border: 1px solid #f87171; background: rgba(185, 28, 28, 0.3); color: #fecaca; font-weight: 700; cursor: pointer;">🪓 Bandit Heavy Cleave</button>
+          <button class="gal-btn active" id="vfx-play-thor-first" type="button">
+            ⚔️ ${tr('我方先攻 + 敵方反擊 (索爾 → 盜賊)', '我方先攻 + 敌方反击 (索尔 → 盗贼)', 'Hero Initiates + Enemy Retaliates')}
+          </button>
+          <button class="gal-btn" id="vfx-play-bandit-first" type="button">
+            🛡️ ${tr('敵方先攻 + 我方反擊 (盜賊 → 索爾)', '敌方先攻 + 我方反击 (盗贼 → 索尔)', 'Enemy Initiates + Hero Retaliates')}
+          </button>
+          <button class="gal-btn" id="vfx-play-crit" type="button">
+            🔥 ${tr('索爾烈焰斬單擊必殺', '索尔烈焰斩单击必杀', 'Thor Critical Flame Slash KO')}
+          </button>
           <label style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 13px; color: #fde047; cursor: pointer;">
-            <input type="checkbox" id="vfx-chk-slowmo" /> 🐢 0.32x Slow-Mo Inspection
+            <input type="checkbox" id="vfx-chk-slowmo" /> 🐢 ${tr('0.32x 慢動作檢視', '0.32x 慢动作检视', '0.32x Slow-Mo')}
           </label>
         </div>
 
         <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: #cbd5e1;">
           <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-            <input type="checkbox" id="vfx-chk-parallax" checked /> Sunbeams & Parallax
+            <input type="checkbox" id="vfx-chk-parallax" checked /> ${tr('林間光束與景深落葉', '林间光束与景深落叶', 'Sunbeams & Parallax')}
           </label>
           <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-            <input type="checkbox" id="vfx-chk-cutin" checked /> Anime Eye Cut-In
+            <input type="checkbox" id="vfx-chk-cutin" checked /> ${tr('必殺眼神特寫切入', '必杀眼神特写切入', 'Anime Eye Cut-In')}
           </label>
           <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-            <input type="checkbox" id="vfx-chk-slash" checked /> Volumetric Crescent Shader
+            <input type="checkbox" id="vfx-chk-slash" checked /> ${tr('體積烈焰刀光特效', '体积烈焰刀光特效', 'Volumetric Crescent Shader')}
           </label>
           <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-            <input type="checkbox" id="vfx-chk-sparks" checked /> 90ms Hit-Stop & Physics Sparks
+            <input type="checkbox" id="vfx-chk-sparks" checked /> ${tr('90ms 頓幀與物理火花', '90ms 顿帧与物理火花', '90ms Hit-Stop & Sparks')}
           </label>
           <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-            <input type="checkbox" id="vfx-chk-spring" checked /> Dash Afterimages
+            <input type="checkbox" id="vfx-chk-spring" checked /> ${tr('高速殘影與呼吸律動', '高速残影与呼吸律动', 'Dash Afterimages')}
           </label>
         </div>
       </div>
     </div>
   `;
 
-  document.body.appendChild(modal);
-
-  const canvas = modal.querySelector('#vfx-lab-canvas') as HTMLCanvasElement;
+  const canvas = container.querySelector('#vfx-lab-canvas') as HTMLCanvasElement;
   const ctx = canvas.getContext('2d')!;
-  const stageContainer = modal.querySelector('#vfx-stage-container') as HTMLDivElement;
-  const artContainer = modal.querySelector('#vfx-art-container') as HTMLDivElement;
-  const tabStage = modal.querySelector('#vfx-tab-stage') as HTMLButtonElement;
-  const tabSplit = modal.querySelector('#vfx-tab-split') as HTMLButtonElement;
-  const tabArt = modal.querySelector('#vfx-tab-art') as HTMLButtonElement;
+  const stageContainer = container.querySelector('#vfx-stage-container') as HTMLDivElement;
+  const artContainer = container.querySelector('#vfx-art-container') as HTMLDivElement;
+  const tabStage = container.querySelector('#vfx-tab-stage') as HTMLButtonElement;
+  const tabSplit = container.querySelector('#vfx-tab-split') as HTMLButtonElement;
+  const tabArt = container.querySelector('#vfx-tab-art') as HTMLButtonElement;
+
+  const btnThorFirst = container.querySelector('#vfx-play-thor-first') as HTMLButtonElement;
+  const btnBanditFirst = container.querySelector('#vfx-play-bandit-first') as HTMLButtonElement;
+  const btnCrit = container.querySelector('#vfx-play-crit') as HTMLButtonElement;
 
   let splitCompare = false;
-  let activeScenario: DuelScenario = 'full_duel';
+  let activeScenario: DuelScenario = 'thor_first_duel';
   renderer.startScenario(activeScenario);
 
-  const updateTabStyles = (mode: 'stage' | 'split' | 'art') => {
-    const activeCss = 'background: #0284c7; color: #fff; border-color: #38bdf8;';
-    const idleCss = 'background: #1e293b; color: #cbd5e1; border-color: #475569;';
-    tabStage.style.cssText += mode === 'stage' ? activeCss : idleCss;
-    tabSplit.style.cssText += mode === 'split' ? activeCss : idleCss;
-    tabArt.style.cssText += mode === 'art' ? activeCss : idleCss;
+  const updateViewMode = (mode: 'stage' | 'split' | 'art') => {
+    tabStage.classList.toggle('active', mode === 'stage');
+    tabSplit.classList.toggle('active', mode === 'split');
+    tabArt.classList.toggle('active', mode === 'art');
     stageContainer.style.display = mode === 'art' ? 'none' : 'flex';
     artContainer.style.display = mode === 'art' ? 'block' : 'none';
     splitCompare = mode === 'split';
   };
 
-  tabStage.addEventListener('click', () => updateTabStyles('stage'));
-  tabSplit.addEventListener('click', () => updateTabStyles('split'));
-  tabArt.addEventListener('click', () => updateTabStyles('art'));
+  const updateScenarioBtns = (scen: DuelScenario) => {
+    activeScenario = scen;
+    btnThorFirst.classList.toggle('active', scen === 'thor_first_duel');
+    btnBanditFirst.classList.toggle('active', scen === 'bandit_first_duel');
+    btnCrit.classList.toggle('active', scen === 'thor_crit');
+    renderer.startScenario(scen);
+  };
 
-  modal.querySelector('#vfx-play-duel')!.addEventListener('click', () => {
-    activeScenario = 'full_duel';
-    renderer.startScenario(activeScenario);
-  });
-  modal.querySelector('#vfx-play-crit')!.addEventListener('click', () => {
-    activeScenario = 'thor_crit';
-    renderer.startScenario(activeScenario);
-  });
-  modal.querySelector('#vfx-play-bandit')!.addEventListener('click', () => {
-    activeScenario = 'bandit_cleave';
-    renderer.startScenario(activeScenario);
-  });
+  tabStage.addEventListener('click', () => updateViewMode('stage'));
+  tabSplit.addEventListener('click', () => updateViewMode('split'));
+  tabArt.addEventListener('click', () => updateViewMode('art'));
+
+  btnThorFirst.addEventListener('click', () => updateScenarioBtns('thor_first_duel'));
+  btnBanditFirst.addEventListener('click', () => updateScenarioBtns('bandit_first_duel'));
+  btnCrit.addEventListener('click', () => updateScenarioBtns('thor_crit'));
 
   const bindToggle = (selector: string, key: keyof ModernVfxConfig) => {
-    const el = modal!.querySelector(selector) as HTMLInputElement;
+    const el = container.querySelector(selector) as HTMLInputElement;
     el.addEventListener('change', () => {
       renderer.config[key] = el.checked;
     });
@@ -1655,23 +1521,24 @@ export async function openVfxLabModal(assets: AssetManager, sound: SoundEngine):
   bindToggle('#vfx-chk-sparks', 'enableHitStopAndSparks');
   bindToggle('#vfx-chk-spring', 'enableAfterimagesAndSpring');
 
-  modal.querySelector('#vfx-close-btn')!.addEventListener('click', () => {
-    modal!.classList.add('hidden');
-    modal!.style.display = 'none';
-  });
-
+  let disposed = false;
+  let rafId = 0;
   let lastTime = performance.now();
+
   const loop = (now: number) => {
+    if (disposed || !document.body.contains(canvas)) return;
     const dt = now - lastTime;
     lastTime = now;
-    if (modal && modal.style.display !== 'none' && !modal.classList.contains('hidden')) {
-      if (renderer.isFinished()) {
-        // Auto-loop after a brief pause in the lab
-        renderer.startScenario(activeScenario);
-      }
-      renderer.stepAndRender(ctx, dt, splitCompare);
+    if (renderer.isFinished()) {
+      renderer.startScenario(activeScenario);
     }
-    requestAnimationFrame(loop);
+    renderer.stepAndRender(ctx, dt, splitCompare);
+    rafId = requestAnimationFrame(loop);
   };
-  requestAnimationFrame(loop);
+  rafId = requestAnimationFrame(loop);
+
+  activeLabCleanup = () => {
+    disposed = true;
+    cancelAnimationFrame(rafId);
+  };
 }
