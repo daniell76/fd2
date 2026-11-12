@@ -14,6 +14,7 @@ interface VfxSpark {
   life: number;
   maxLife: number;
   bounces: number;
+  groundY: number;
 }
 
 interface VfxDust {
@@ -36,7 +37,7 @@ interface VfxLeaf {
   vRot: number;
   size: number;
   hue: number;
-  depth: number; // 0.5 (far) .. 1.4 (foreground bokeh)
+  depth: number;
 }
 
 export interface ModernVfxConfig {
@@ -94,6 +95,7 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
   if (vfxAssetsCache.loaded) {
     return vfxAssetsCache;
   }
+  const cacheBust = '?v=2';
   const [
     t0,
     t1,
@@ -110,15 +112,15 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
     cBanditIdle,
     cBanditAtk,
   ] = await Promise.all([
-    loadImg('assets/vfx_lab/thor_pose_0.png'),
-    loadImg('assets/vfx_lab/thor_pose_1.png'),
-    loadImg('assets/vfx_lab/thor_pose_2.png'),
-    loadImg('assets/vfx_lab/bandit_pose_0.png'),
-    loadImg('assets/vfx_lab/bandit_pose_1.png'),
-    loadImg('assets/vfx_lab/bandit_pose_2.png'),
-    loadImg('assets/vfx_lab/thor_sheet_raw.png'),
-    loadImg('assets/vfx_lab/bandit_sheet_raw.png'),
-    loadImg('assets/vfx_lab/clash_keyart.jpg'),
+    loadImg(`assets/vfx_lab/thor_pose_0.png${cacheBust}`),
+    loadImg(`assets/vfx_lab/thor_pose_1.png${cacheBust}`),
+    loadImg(`assets/vfx_lab/thor_pose_2.png${cacheBust}`),
+    loadImg(`assets/vfx_lab/bandit_pose_0.png${cacheBust}`),
+    loadImg(`assets/vfx_lab/bandit_pose_1.png${cacheBust}`),
+    loadImg(`assets/vfx_lab/bandit_pose_2.png${cacheBust}`),
+    loadImg(`assets/vfx_lab/thor_sheet_raw.png${cacheBust}`),
+    loadImg(`assets/vfx_lab/bandit_sheet_raw.png${cacheBust}`),
+    loadImg(`assets/vfx_lab/clash_keyart.jpg${cacheBust}`),
     loadImg('assets/hd_bgs/bg_4.png').catch(() => loadImg('assets/bgs/bg_4.png')),
     assets.loadUnitFigAni(0, 'idle'),
     assets.loadUnitFigAni(0, 'attack'),
@@ -142,9 +144,27 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
 
 export type DuelScenario = 'thor_first_duel' | 'bandit_first_duel' | 'thor_crit';
 
+interface PoseRenderSpec {
+  primaryIdx: number;
+  secondaryIdx?: number;
+  blend?: number; // 0..1 cross-fade / sub-frame swing blend
+  x: number;
+  y: number;
+  scaleX: number;
+  scaleY: number;
+  rot: number;
+  flashWhite: number;
+  afterimages: number;
+  dashDirX: number;
+  dashDirY: number;
+}
+
 /**
  * Self-contained 60fps Modern 2.5D Anime VFX Combat Renderer for Thor (#0) vs. Bandit (#96).
- * Uses smooth HP/MP bar drain on the bottom HUD (no floating damage numbers on screen).
+ * Preserves the authentic Flame Dragon II diagonal isometric battle stage:
+ *  - Left Enemy (Bandit #96) at Top-Left facing diagonally Down-Right (↘), HUD at Bottom-Left
+ *  - Right Hero (Thor #0) at Bottom-Right facing diagonally Up-Left (↖, 3/4 rear view), HUD at Top-Right
+ *  - Smooth HP/MP bar drain from Green (right full end) -> Yellow (middle) -> Red (left 0-HP anchor)
  */
 export class Modern25DCombatRenderer {
   private sparks: VfxSpark[] = [];
@@ -155,7 +175,6 @@ export class Modern25DCombatRenderer {
   private hitStopRemainingMs = 0;
   private triggeredEvents = new Set<string>();
 
-  // Canonical Chapter 1 Lv.1 Stats for Thor (#0 索爾) and Bandit (#96 盜賊)
   private thorMaxHp = 38;
   private thorTargetHp = 38;
   private thorDisplayedHp = 38;
@@ -227,10 +246,6 @@ export class Modern25DCombatRenderer {
     this.banditStrikeDmg = 7;
   }
 
-  public getScenario(): DuelScenario {
-    return this.scenario;
-  }
-
   public getTotalDurationMs(): number {
     if (this.scenario === 'thor_crit') return 2600;
     return 4400;
@@ -247,35 +262,44 @@ export class Modern25DCombatRenderer {
     }
   }
 
-  private spawnImpactSparks(cx: number, cy: number, count: number, palette: string[], dirBiasX: number): void {
+  private spawnImpactSparks(
+    cx: number,
+    cy: number,
+    groundY: number,
+    count: number,
+    palette: string[],
+    dirBiasX: number,
+    dirBiasY: number
+  ): void {
     if (!this.config.enableHitStopAndSparks) return;
     for (let i = 0; i < count; i++) {
       const angle = (Math.random() - 0.5) * Math.PI * 1.45 + (dirBiasX < 0 ? Math.PI : 0);
-      const speed = 260 + Math.random() * 780;
+      const speed = 260 + Math.random() * 760;
       this.sparks.push({
         x: cx + (Math.random() - 0.5) * 24,
         y: cy + (Math.random() - 0.5) * 24,
-        vx: Math.cos(angle) * speed + dirBiasX * 140,
-        vy: Math.sin(angle) * speed - 180 - Math.random() * 220,
+        vx: Math.cos(angle) * speed + dirBiasX * 150,
+        vy: Math.sin(angle) * speed - 160 - Math.random() * 200 + dirBiasY * 90,
         size: 2.2 + Math.random() * 4.5,
         color: palette[i % palette.length],
         alpha: 1,
         life: 0,
         maxLife: 320 + Math.random() * 450,
         bounces: 0,
+        groundY,
       });
     }
   }
 
-  private spawnDustPlume(x: number, y: number, dirX: number, count = 10): void {
+  private spawnDustPlume(x: number, y: number, dirX: number, dirY: number, count = 10): void {
     if (!this.config.enableHitStopAndSparks) return;
     for (let i = 0; i < count; i++) {
       this.dust.push({
-        x: x + (Math.random() - 0.5) * 40,
-        y: y + (Math.random() - 0.5) * 12,
-        vx: dirX * (60 + Math.random() * 190) + (Math.random() - 0.5) * 60,
-        vy: -25 - Math.random() * 65,
-        radius: 16 + Math.random() * 24,
+        x: x + (Math.random() - 0.5) * 38,
+        y: y + (Math.random() - 0.5) * 14,
+        vx: dirX * (60 + Math.random() * 180) + (Math.random() - 0.5) * 55,
+        vy: dirY * (30 + Math.random() * 80) - 25 - Math.random() * 55,
+        radius: 15 + Math.random() * 22,
         growRate: 45 + Math.random() * 55,
         alpha: 0.52 + Math.random() * 0.25,
         color: i % 2 === 0 ? 'rgba(218, 202, 168, 1)' : 'rgba(175, 162, 134, 1)',
@@ -316,7 +340,7 @@ export class Modern25DCombatRenderer {
       ctx.lineTo(splitX, H);
       ctx.stroke();
 
-      ctx.fillStyle = 'rgba(12, 14, 22, 0.85)';
+      ctx.fillStyle = 'rgba(12, 14, 22, 0.88)';
       ctx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
       ctx.lineWidth = 1.5;
       ctx.fillRect(18, 18, 290, 36);
@@ -325,7 +349,7 @@ export class Modern25DCombatRenderer {
       ctx.font = 'bold 15px monospace';
       ctx.fillText('◀ 1995 DOS VGA (320×200 Indexed)', 30, 41);
 
-      ctx.fillStyle = 'rgba(12, 14, 22, 0.85)';
+      ctx.fillStyle = 'rgba(12, 14, 22, 0.88)';
       ctx.fillRect(splitX + 18, 18, 340, 36);
       ctx.strokeRect(splitX + 18, 18, 340, 36);
       ctx.fillStyle = '#38bdf8';
@@ -338,10 +362,9 @@ export class Modern25DCombatRenderer {
 
   private updateParticlesAndBars(dtMs: number, W: number, H: number): void {
     const dt = dtMs / 1000;
-    const groundY = H * 0.81;
 
-    // Smoothly drain displayed HP toward target HP (authentic FD2 bar drain speed: ~48 HP/sec)
-    const drainRate = 48 * dt;
+    // Smoothly drain displayed HP from Green right tip toward Red left anchor (~38 HP/sec)
+    const drainRate = 38 * dt;
     if (this.banditDisplayedHp > this.banditTargetHp) {
       this.banditDisplayedHp = Math.max(this.banditTargetHp, this.banditDisplayedHp - drainRate);
     }
@@ -371,8 +394,8 @@ export class Modern25DCombatRenderer {
       s.y += s.vy * dt;
       s.vx *= Math.pow(0.92, dt * 60);
       s.vy += 1650 * dt;
-      if (s.y >= groundY && s.vy > 0 && s.bounces < 2) {
-        s.y = groundY;
+      if (s.y >= s.groundY && s.vy > 0 && s.bounces < 2) {
+        s.y = s.groundY;
         s.vy = -s.vy * 0.46;
         s.vx *= 0.78;
         s.bounces++;
@@ -395,28 +418,28 @@ export class Modern25DCombatRenderer {
 
   private getPhaseStartTimes(): { thorStart: number; banditStart: number } {
     if (this.scenario === 'bandit_first_duel') {
-      // Bandit initiates at 280ms; Thor retaliates at 2200ms!
       return { banditStart: 280, thorStart: 2200 };
     }
     if (this.scenario === 'thor_crit') {
       return { thorStart: 320, banditStart: -1 };
     }
-    // Default 'thor_first_duel': Thor initiates at 320ms; Bandit retaliates at 2250ms!
     return { thorStart: 320, banditStart: 2250 };
   }
 
   private renderClassic1995Scene(ctx: CanvasRenderingContext2D, W: number, H: number): void {
+    // Emulate exact 1995 320x200 diagonal battle stage (BG.DAT at y=50..150, Bandit at top-left, Thor at bottom-right)
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    if (this.vfxAssets.forestBg) {
-      ctx.drawImage(this.vfxAssets.forestBg, 0, 0, W, H);
-    } else {
-      ctx.fillStyle = '#183018';
-      ctx.fillRect(0, 0, W, H);
-    }
+    ctx.fillStyle = '#05080c';
+    ctx.fillRect(0, 0, W, H);
 
     const scaleX = W / 320;
     const scaleY = H / 200;
+
+    if (this.vfxAssets.forestBg) {
+      ctx.drawImage(this.vfxAssets.forestBg, 0, 42 * scaleY, W, 112 * scaleY);
+    }
+
     const t = this.elapsedMs;
     const { thorStart, banditStart } = this.getPhaseStartTimes();
 
@@ -427,20 +450,22 @@ export class Modern25DCombatRenderer {
 
     let thorSprite = cThorIdle;
     let thorFrameIdx = Math.floor(t / 180) % Math.max(1, cThorIdle?.strip.frames.length ?? 1);
-    let thorGridX = 0;
+    let thorRecoilX = 0;
+    let thorRecoilY = 0;
 
     let banditSprite = cBanditIdle;
     let banditFrameIdx = Math.floor(t / 180) % Math.max(1, cBanditIdle?.strip.frames.length ?? 1);
-    let banditGridX = 0;
+    let banditRecoilX = 0;
+    let banditRecoilY = 0;
 
     if (thorStart >= 0 && t >= thorStart && t < thorStart + 1600 && cThorAtk && cThorAtk.strip.frames.length > 0) {
       thorSprite = cThorAtk;
       const p = Math.min(0.999, (t - thorStart) / 1550);
       thorFrameIdx = Math.floor(p * cThorAtk.strip.frames.length);
-      if (p < 0.65) {
-        thorGridX = Math.floor((p / 0.65) * 4) * 28;
-      } else {
-        thorGridX = Math.floor(((1 - p) / 0.35) * 4) * 28;
+      if (p >= 0.52 && p <= 0.78) {
+        const rp = Math.sin(((p - 0.52) / 0.26) * Math.PI);
+        banditRecoilX = -Math.round(rp * 16);
+        banditRecoilY = -Math.round(rp * 8);
       }
     }
 
@@ -454,14 +479,20 @@ export class Modern25DCombatRenderer {
       banditSprite = cBanditAtk;
       const p = Math.min(0.999, (t - banditStart) / 1500);
       banditFrameIdx = Math.floor(p * cBanditAtk.strip.frames.length);
-      if (p < 0.65) {
-        banditGridX = Math.floor((p / 0.65) * 4) * 28;
-      } else {
-        banditGridX = Math.floor(((1 - p) / 0.35) * 4) * 28;
+      if (p >= 0.52 && p <= 0.78) {
+        const rp = Math.sin(((p - 0.52) / 0.26) * Math.PI);
+        thorRecoilX = Math.round(rp * 16);
+        thorRecoilY = Math.round(rp * 8);
       }
     }
 
-    const drawClassicFig = (bundle: ClassicFigBundle | null, fIdx: number, anchorX: number, anchorY: number) => {
+    // Draw using exact FD2.EXE `f.ox, f.oy` 320x200 screen coordinates!
+    const drawClassicFigExact = (
+      bundle: ClassicFigBundle | null,
+      fIdx: number,
+      slideX: number,
+      slideY: number
+    ) => {
       if (!bundle || bundle.strip.frames.length === 0) return;
       const frames = bundle.strip.frames;
       const f = frames[Math.max(0, Math.min(frames.length - 1, fIdx))];
@@ -469,43 +500,61 @@ export class Modern25DCombatRenderer {
       const sx = f.sx * imgScale;
       const sw = f.w * imgScale;
       const sh = f.h * imgScale;
-      const dx = (anchorX - f.ox) * scaleX;
-      const dy = (anchorY - f.oy) * scaleY;
+      const dx = (f.ox + slideX) * scaleX;
+      const dy = (f.oy + slideY) * scaleY;
       const dw = f.w * scaleX;
       const dh = f.h * scaleY;
       ctx.drawImage(bundle.img, sx, 0, sw, sh, dx, dy, dw, dh);
     };
 
-    drawClassicFig(banditSprite, banditFrameIdx, 76 + banditGridX, 146);
-    drawClassicFig(thorSprite, thorFrameIdx, 240 - thorGridX, 152);
+    drawClassicFigExact(banditSprite, banditFrameIdx, banditRecoilX, banditRecoilY);
+    drawClassicFigExact(thorSprite, thorFrameIdx, thorRecoilX, thorRecoilY);
     ctx.restore();
 
-    // Draw the bottom HUD so split-screen shows the HP/MP bars across the full bottom
     this.drawModernDualHud(ctx, W, H);
   }
 
   private renderModernScene(ctx: CanvasRenderingContext2D, W: number, H: number): void {
     const t = this.elapsedMs;
-    const groundY = H * 0.82;
     const { thorStart, banditStart } = this.getPhaseStartTimes();
 
-    let thorPoseIdx = 0;
-    let thorX = W * 0.73;
-    let thorY = groundY;
-    let thorScaleX = 1.0;
-    let thorScaleY = 1.0;
-    let thorRot = 0;
-    let thorFlashWhite = 0;
-    let thorAfterimages = 0;
+    // -------------------------------------------------------------------------
+    // Authentic Flame Dragon II Diagonal Isometric Battle Geometry:
+    //  - Enemy Bandit (#96): Top-Left (x = 0.25W, y = 0.67H), facing Down-Right (↘)
+    //  - Hero Thor (#0): Bottom-Right (x = 0.72W, y = 0.90H on TAI), facing Up-Left (↖)
+    // -------------------------------------------------------------------------
+    const banditHomeX = W * 0.25;
+    const banditHomeY = H * 0.67;
+    const thorHomeX = W * 0.71;
+    const thorHomeY = H * 0.91;
 
-    let banditPoseIdx = 0;
-    let banditX = W * 0.27;
-    let banditY = groundY;
-    let banditScaleX = 1.0;
-    let banditScaleY = 1.0;
-    let banditRot = 0;
-    let banditFlashWhite = 0;
-    let banditAfterimages = 0;
+    const breath = this.config.enableAfterimagesAndSpring ? Math.sin(t * 0.0055) * 0.014 : 0;
+
+    const thorSpec: PoseRenderSpec = {
+      primaryIdx: 0,
+      x: thorHomeX,
+      y: thorHomeY,
+      scaleX: 1.0 - breath * 0.5,
+      scaleY: 1.0 + breath,
+      rot: 0,
+      flashWhite: 0,
+      afterimages: 0,
+      dashDirX: -1,
+      dashDirY: -0.48,
+    };
+
+    const banditSpec: PoseRenderSpec = {
+      primaryIdx: 0,
+      x: banditHomeX,
+      y: banditHomeY,
+      scaleX: 1.0,
+      scaleY: 1.0 + Math.sin(t * 0.005 + 1.4) * (this.config.enableAfterimagesAndSpring ? 0.014 : 0),
+      rot: 0,
+      flashWhite: 0,
+      afterimages: 0,
+      dashDirX: 1,
+      dashDirY: 0.48,
+    };
 
     let camX = 0;
     let camY = 0;
@@ -518,55 +567,83 @@ export class Modern25DCombatRenderer {
     let cutInProgress = -1;
     let impactFlashAlpha = 0;
     let shockwaveProgress = -1;
-    let shockwaveCenter = { x: W * 0.36, y: groundY - 210 };
-
-    const breath = this.config.enableAfterimagesAndSpring ? Math.sin(t * 0.0055) * 0.014 : 0;
-    thorScaleY += breath;
-    thorScaleX -= breath * 0.5;
-    banditScaleY += Math.sin(t * 0.005 + 1.4) * (this.config.enableAfterimagesAndSpring ? 0.014 : 0);
+    let shockwaveCenter = { x: banditHomeX + 40, y: banditHomeY - 180 };
+    let shockwaveGroundY = banditHomeY;
+    const thorDrawsInFront = true;
 
     // -------------------------------------------------------------------------
-    // Thor Strike Sequence (runs at `thorStart`, whether initiating or retaliating!)
+    // Thor Diagonal Up-Left (↖) Strike Sequence
     // -------------------------------------------------------------------------
     if (thorStart >= 0 && t >= thorStart && t < thorStart + 1830) {
       const localT = t - thorStart;
       if (localT < 460) {
+        // 1. Coiled Wind-Up at Bottom-Right (Pose 0 -> Pose 1 smooth blend)
         const p = localT / 460;
         const ease = 1 - Math.pow(1 - p, 3);
-        thorPoseIdx = 1;
-        thorX = W * 0.73 + ease * 26;
-        thorScaleY = 1.0 - Math.sin(p * Math.PI) * 0.05;
-        camZoom = 1.0 + ease * 0.14;
-        camX = ease * W * 0.09;
-        camTilt = -ease * 0.018;
+        if (p < 0.28) {
+          thorSpec.primaryIdx = 0;
+          thorSpec.secondaryIdx = 1;
+          thorSpec.blend = p / 0.28;
+        } else {
+          thorSpec.primaryIdx = 1;
+        }
+        thorSpec.x = thorHomeX + ease * 24;
+        thorSpec.y = thorHomeY + ease * 10;
+        thorSpec.scaleY = 1.0 - Math.sin(p * Math.PI) * 0.04;
+        camZoom = 1.0 + ease * 0.13;
+        camX = ease * W * 0.08;
+        camY = ease * H * 0.05;
+        camTilt = -ease * 0.016;
         this.fireOnce('thor_windup_sfx', () => {
           this.sound.playSfx('step_foot');
-          this.spawnDustPlume(thorX, groundY, 1, 8);
+          this.spawnDustPlume(thorSpec.x, thorSpec.y, 1, 0.4, 8);
         });
       } else if (localT < 820) {
+        // 2. Diagonal Up-Left (↖) High-Speed Lunge + Optional Anime Eye Cut-In
         const p = (localT - 460) / 360;
-        thorPoseIdx = 1;
+        thorSpec.primaryIdx = 1;
         if (this.config.enableAnimeCutIn) {
           cutInProgress = p;
         }
-        const dashP = Math.max(0, (p - 0.25) / 0.75);
+        const dashP = Math.max(0, (p - 0.2) / 0.8);
         const dashEase = 1 - Math.pow(1 - dashP, 3);
-        thorX = W * 0.75 - dashEase * (W * 0.31);
-        thorAfterimages = this.config.enableAfterimagesAndSpring && dashP > 0.05 ? 4 : 0;
-        camZoom = 1.14 + dashEase * 0.08;
-        camX = W * 0.09 - dashEase * (W * 0.19);
-        camTilt = -0.018 + dashEase * 0.036;
+        thorSpec.x = thorHomeX + 24 - dashEase * (W * 0.31);
+        thorSpec.y = thorHomeY + 10 - dashEase * (H * 0.19);
+        thorSpec.afterimages = this.config.enableAfterimagesAndSpring && dashP > 0.05 ? 4 : 0;
+
+        // During the final 30% of the dash, begin the rotational whip into Pose 2!
+        if (dashP > 0.7) {
+          const whipP = (dashP - 0.7) / 0.3;
+          thorSpec.secondaryIdx = 2;
+          thorSpec.blend = whipP * 0.55;
+          thorSpec.rot = -whipP * 0.06;
+        }
+
+        camZoom = 1.13 + dashEase * 0.09;
+        camX = W * 0.08 - dashEase * (W * 0.18);
+        camY = H * 0.05 - dashEase * (H * 0.11);
+        camTilt = -0.016 + dashEase * 0.032;
         this.fireOnce('thor_dash_sfx', () => {
           this.sound.playSfx('slash');
-          this.spawnDustPlume(W * 0.74, groundY, 1, 14);
+          this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.5, 14);
         });
       } else if (localT < 1400) {
+        // 3. Diagonal Up-Left Cleave Impact & Follow-Through (Pose 1 -> Pose 2)
         const p = (localT - 820) / 580;
-        thorPoseIdx = 2;
-        thorX = W * 0.44 - Math.min(1, p * 4) * 28;
+        if (p < 0.12) {
+          thorSpec.primaryIdx = 1;
+          thorSpec.secondaryIdx = 2;
+          thorSpec.blend = 0.55 + (p / 0.12) * 0.45;
+        } else {
+          thorSpec.primaryIdx = 2;
+        }
+        thorSpec.x = thorHomeX + 24 - W * 0.31 - Math.min(1, p * 4) * 24;
+        thorSpec.y = thorHomeY + 10 - H * 0.19 - Math.min(1, p * 4) * 12;
+
         slashArcProgress = Math.min(1, p * 2.1);
         shockwaveProgress = Math.min(1, p * 1.8);
-        shockwaveCenter = { x: banditX + 55, y: groundY - 210 };
+        shockwaveCenter = { x: banditHomeX + 45, y: banditHomeY - 195 };
+        shockwaveGroundY = banditHomeY;
 
         this.fireOnce('thor_impact', () => {
           this.sound.playSfx('crit');
@@ -574,76 +651,125 @@ export class Modern25DCombatRenderer {
             this.hitStopRemainingMs = 95;
           }
           this.spawnImpactSparks(
-            banditX + 55,
-            groundY - 210,
+            banditHomeX + 45,
+            banditHomeY - 195,
+            banditHomeY,
             80,
             ['#ffffff', '#fde047', '#f59e0b', '#38bdf8', '#7dd3fc'],
-            -1
+            -1,
+            -0.5
           );
-          this.spawnDustPlume(banditX, groundY, -1, 16);
-          // Drain Bandit HP bar smoothly (no floating damage numbers!)
+          this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.4, 16);
           this.banditTargetHp = Math.max(0, this.banditTargetHp - this.thorStrikeDmg);
         });
 
+        // Bandit diagonal Up-Left recoil (matching FD2.EXE dx < 0, dy < 0!)
         const recoil = Math.sin(Math.min(1, p * 2.2) * Math.PI);
-        banditX = W * 0.27 - recoil * 58;
-        banditRot = -recoil * 0.11;
-        banditScaleX = 1.0 - recoil * 0.08;
-        banditScaleY = 1.0 + recoil * 0.06;
-        banditFlashWhite = Math.max(0, 1 - p * 3.5);
+        banditSpec.x = banditHomeX - recoil * 52;
+        banditSpec.y = banditHomeY - recoil * 26;
+        banditSpec.rot = -recoil * 0.1;
+        banditSpec.scaleX = 1.0 - recoil * 0.07;
+        banditSpec.scaleY = 1.0 + recoil * 0.05;
+        banditSpec.flashWhite = Math.max(0, 1 - p * 3.5);
         impactFlashAlpha = Math.max(0, 1 - p * 4.5);
 
         camZoom = 1.22 - p * 0.12;
         camX = -W * 0.1 * (1 - p * 0.5);
-        camTilt = 0.018 * (1 - p);
+        camY = -H * 0.06 * (1 - p * 0.5);
+        camTilt = 0.016 * (1 - p);
         camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 24) : 0;
       } else {
+        // 4. Diagonal Down-Right (↘) Backstep Return to Bottom-Right TAI Platform
         const p = (localT - 1400) / 430;
         const ease = 1 - Math.pow(1 - p, 2);
-        thorPoseIdx = p < 0.35 ? 2 : 0;
-        thorX = W * 0.42 + ease * (W * 0.31);
-        thorAfterimages = this.config.enableAfterimagesAndSpring && p < 0.65 ? 2 : 0;
+        if (p < 0.4) {
+          thorSpec.primaryIdx = 2;
+          thorSpec.secondaryIdx = 0;
+          thorSpec.blend = p / 0.4;
+        } else {
+          thorSpec.primaryIdx = 0;
+        }
+        const startX = thorHomeX + 24 - W * 0.31 - 24;
+        const startY = thorHomeY + 10 - H * 0.19 - 12;
+        thorSpec.x = startX + ease * (thorHomeX - startX);
+        thorSpec.y = startY + ease * (thorHomeY - startY);
+        thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.65 ? 2 : 0;
+        thorSpec.dashDirX = 1;
+        thorSpec.dashDirY = 0.48;
         camZoom = 1.1 - ease * 0.1;
         camX = -W * 0.05 * (1 - ease);
+        camY = -H * 0.03 * (1 - ease);
       }
     }
 
     // -------------------------------------------------------------------------
-    // Bandit Strike Sequence (runs at `banditStart`, whether initiating or retaliating!)
+    // Bandit Diagonal Down-Right (↘) Strike Sequence
     // -------------------------------------------------------------------------
     if (banditStart >= 0 && t >= banditStart && t < banditStart + 1850) {
       const localB = t - banditStart;
       if (localB < 520) {
+        // 1. Bandit Overhead Wind-Up at Top-Left (Pose 0 -> Pose 1 blend)
         const p = localB / 520;
         const ease = 1 - Math.pow(1 - p, 3);
-        banditPoseIdx = 1;
-        banditX = W * 0.27 - ease * 18;
+        if (p < 0.28) {
+          banditSpec.primaryIdx = 0;
+          banditSpec.secondaryIdx = 1;
+          banditSpec.blend = p / 0.28;
+        } else {
+          banditSpec.primaryIdx = 1;
+        }
+        banditSpec.x = banditHomeX - ease * 18;
+        banditSpec.y = banditHomeY - ease * 10;
         camZoom = 1.0 + ease * 0.12;
         camX = -ease * W * 0.08;
+        camY = -ease * H * 0.05;
         camTilt = ease * 0.015;
         this.fireOnce('bandit_windup', () => {
           this.sound.playSfx('step_foot');
-          this.spawnDustPlume(banditX, groundY, -1, 8);
+          this.spawnDustPlume(banditSpec.x, banditSpec.y, -1, -0.4, 8);
         });
       } else if (localB < 820) {
+        // 2. Bandit Diagonal Down-Right (↘) Lunge toward Bottom-Right Thor
         const p = (localB - 520) / 300;
         const ease = 1 - Math.pow(1 - p, 3);
-        banditPoseIdx = 1;
-        banditX = W * 0.26 + ease * (W * 0.3);
-        banditAfterimages = this.config.enableAfterimagesAndSpring ? 3 : 0;
+        banditSpec.primaryIdx = 1;
+        banditSpec.x = banditHomeX - 18 + ease * (W * 0.3);
+        banditSpec.y = banditHomeY - 10 + ease * (H * 0.18);
+        banditSpec.afterimages = this.config.enableAfterimagesAndSpring ? 3 : 0;
+        banditSpec.dashDirX = -1;
+        banditSpec.dashDirY = -0.48;
+
+        if (p > 0.7) {
+          const whipP = (p - 0.7) / 0.3;
+          banditSpec.secondaryIdx = 2;
+          banditSpec.blend = whipP * 0.55;
+          banditSpec.rot = whipP * 0.06;
+        }
+
         camZoom = 1.12 + ease * 0.07;
         camX = -W * 0.08 + ease * (W * 0.16);
+        camY = -H * 0.05 + ease * (H * 0.1);
         this.fireOnce('bandit_dash', () => {
           this.sound.playSfx('slash');
-          this.spawnDustPlume(W * 0.27, groundY, -1, 12);
+          this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.4, 12);
         });
       } else if (localB < 1400) {
+        // 3. Bandit Down-Right Cleave Impact (Pose 1 -> Pose 2)
         const p = (localB - 820) / 580;
-        banditPoseIdx = 2;
-        banditX = W * 0.56 + Math.min(1, p * 4) * 22;
+        if (p < 0.12) {
+          banditSpec.primaryIdx = 1;
+          banditSpec.secondaryIdx = 2;
+          banditSpec.blend = 0.55 + (p / 0.12) * 0.45;
+        } else {
+          banditSpec.primaryIdx = 2;
+        }
+        banditSpec.x = banditHomeX - 18 + W * 0.3 + Math.min(1, p * 4) * 20;
+        banditSpec.y = banditHomeY - 10 + H * 0.18 + Math.min(1, p * 4) * 10;
+
         banditSlashProgress = Math.min(1, p * 2.2);
         shockwaveProgress = Math.min(1, p * 1.9);
-        shockwaveCenter = { x: thorX - 45, y: groundY - 210 };
+        shockwaveCenter = { x: thorHomeX - 35, y: thorHomeY - 210 };
+        shockwaveGroundY = thorHomeY;
 
         this.fireOnce('bandit_impact', () => {
           this.sound.playSfx('hit');
@@ -651,34 +777,51 @@ export class Modern25DCombatRenderer {
             this.hitStopRemainingMs = 75;
           }
           this.spawnImpactSparks(
-            thorX - 45,
-            groundY - 210,
+            thorHomeX - 35,
+            thorHomeY - 210,
+            thorHomeY,
             55,
             ['#ffffff', '#fca5a5', '#ef4444', '#fb923c', '#fde047'],
-            1
+            1,
+            0.5
           );
-          this.spawnDustPlume(thorX, groundY, 1, 14);
-          // Drain Thor HP bar smoothly (no floating damage numbers!)
+          this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.4, 14);
           this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
         });
 
+        // Thor diagonal Down-Right recoil (matching FD2.EXE dx > 0, dy > 0!)
         const recoil = Math.sin(Math.min(1, p * 2.2) * Math.PI);
-        thorX = W * 0.73 + recoil * 44;
-        thorRot = recoil * 0.08;
-        thorFlashWhite = Math.max(0, 1 - p * 3.8);
+        thorSpec.x = thorHomeX + recoil * 44;
+        thorSpec.y = thorHomeY + recoil * 22;
+        thorSpec.rot = recoil * 0.08;
+        thorSpec.flashWhite = Math.max(0, 1 - p * 3.8);
         impactFlashAlpha = Math.max(0, (1 - p * 4.8) * 0.7);
 
         camZoom = 1.19 - p * 0.1;
         camX = W * 0.08 * (1 - p * 0.5);
+        camY = H * 0.05 * (1 - p * 0.5);
         camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.5) * 18) : 0;
       } else {
+        // 4. Bandit leaps diagonally Up-Left (↖) back to Top-Left
         const p = (localB - 1400) / 450;
         const ease = 1 - Math.pow(1 - p, 2);
-        banditPoseIdx = p < 0.35 ? 2 : 0;
-        banditX = W * 0.58 - ease * (W * 0.31);
-        banditAfterimages = this.config.enableAfterimagesAndSpring && p < 0.6 ? 2 : 0;
+        if (p < 0.4) {
+          banditSpec.primaryIdx = 2;
+          banditSpec.secondaryIdx = 0;
+          banditSpec.blend = p / 0.4;
+        } else {
+          banditSpec.primaryIdx = 0;
+        }
+        const startX = banditHomeX - 18 + W * 0.3 + 20;
+        const startY = banditHomeY - 10 + H * 0.18 + 10;
+        banditSpec.x = startX + ease * (banditHomeX - startX);
+        banditSpec.y = startY + ease * (banditHomeY - startY);
+        banditSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.6 ? 2 : 0;
+        banditSpec.dashDirX = 1;
+        banditSpec.dashDirY = 0.48;
         camZoom = 1.09 - ease * 0.09;
         camX = W * 0.04 * (1 - ease);
+        camY = H * 0.025 * (1 - ease);
       }
     }
 
@@ -697,86 +840,46 @@ export class Modern25DCombatRenderer {
     ctx.rotate(camTilt);
     ctx.translate(-W * 0.5 - camX, -H * 0.5 - camY);
 
-    this.drawForestBackground(ctx, W, H, camX, camY, groundY);
+    this.drawForestBackground(ctx, W, H, camX, camY, thorHomeY);
 
-    this.drawGroundShadow(ctx, banditX, groundY, 210);
-    this.drawGroundShadow(ctx, thorX, groundY, 210);
+    // Draw Foreground Elevated TAI Terrain Mound at Bottom-Right (under Thor)
+    this.drawForegroundTaiMound(ctx, thorHomeX, thorHomeY);
+
+    this.drawGroundShadow(ctx, banditSpec.x, banditSpec.y, 195);
+    this.drawGroundShadow(ctx, thorSpec.x, thorSpec.y, 215);
 
     if (shockwaveProgress >= 0 && shockwaveProgress <= 1 && this.config.enableHitStopAndSparks) {
-      this.drawGroundShockwave(ctx, shockwaveCenter.x, groundY - 12, shockwaveProgress);
+      this.drawGroundShockwave(ctx, shockwaveCenter.x, shockwaveGroundY - 10, shockwaveProgress);
     }
 
-    const banditImg = this.vfxAssets.banditPoses[banditPoseIdx] || this.vfxAssets.banditPoses[0];
-    const thorImg = this.vfxAssets.thorPoses[thorPoseIdx] || this.vfxAssets.thorPoses[0];
-
-    if (banditAfterimages > 0) {
-      for (let g = banditAfterimages; g >= 1; g--) {
-        this.drawCharacterSprite(
-          ctx,
-          banditImg,
-          banditX - g * 34,
-          banditY,
-          banditScaleX,
-          banditScaleY,
-          banditRot,
-          0.16 * (1 - g / (banditAfterimages + 1)),
-          '#ef4444'
-        );
-      }
-    }
-    this.drawCharacterSprite(
-      ctx,
-      banditImg,
-      banditX,
-      banditY,
-      banditScaleX,
-      banditScaleY,
-      banditRot,
-      1.0,
-      banditFlashWhite > 0.15 ? '#ffffff' : undefined
-    );
-
-    if (banditPoseIdx === 1) {
-      this.drawBanditVisorGlint(ctx, banditX + 26, banditY - 375, t);
+    // Render Bandit (Top-Left, lower Y -> drawn first in painter's algorithm)
+    this.renderCombatantWithBlend(ctx, this.vfxAssets.banditPoses, banditSpec, '#ef4444', 475);
+    if (banditSpec.primaryIdx === 1) {
+      this.drawBanditVisorGlint(ctx, banditSpec.x + 24, banditSpec.y - 340, t);
     }
 
-    if (thorAfterimages > 0) {
-      for (let g = thorAfterimages; g >= 1; g--) {
-        this.drawCharacterSprite(
-          ctx,
-          thorImg,
-          thorX + g * 38,
-          thorY,
-          thorScaleX,
-          thorScaleY,
-          thorRot,
-          0.22 * (1 - g / (thorAfterimages + 1)),
-          '#38bdf8'
-        );
-      }
-    }
-    this.drawCharacterSprite(
-      ctx,
-      thorImg,
-      thorX,
-      thorY,
-      thorScaleX,
-      thorScaleY,
-      thorRot,
-      1.0,
-      thorFlashWhite > 0.15 ? '#ffffff' : undefined
-    );
-
-    if (thorPoseIdx === 1 && thorStart >= 0 && t >= thorStart && t < thorStart + 820 && this.config.enableVolumetricSlash) {
-      this.drawBladeChargeAura(ctx, thorX + 45, thorY - 430, (t - thorStart) / 820);
+    // Render Thor (Bottom-Right Foreground, higher Y -> drawn on top in painter's algorithm!)
+    if (thorDrawsInFront) {
+      this.renderCombatantWithBlend(ctx, this.vfxAssets.thorPoses, thorSpec, '#38bdf8', 515);
     }
 
+    if (
+      thorSpec.primaryIdx === 1 &&
+      thorStart >= 0 &&
+      t >= thorStart &&
+      t < thorStart + 820 &&
+      this.config.enableVolumetricSlash
+    ) {
+      this.drawBladeChargeAura(ctx, thorSpec.x + 55, thorSpec.y - 420, (t - thorStart) / 820);
+    }
+
+    // Volumetric Crescent Slash Shaders aligned with the diagonal swing plane!
     if (slashArcProgress >= 0 && slashArcProgress <= 1 && this.config.enableVolumetricSlash) {
       this.drawVolumetricCrescentSlash(
         ctx,
-        banditX + 85,
-        groundY - 225,
-        345,
+        banditHomeX + 85,
+        banditHomeY - 190,
+        330,
         slashArcProgress,
         'thor_golden_azure'
       );
@@ -785,9 +888,9 @@ export class Modern25DCombatRenderer {
     if (banditSlashProgress >= 0 && banditSlashProgress <= 1 && this.config.enableVolumetricSlash) {
       this.drawVolumetricCrescentSlash(
         ctx,
-        thorX - 75,
-        groundY - 220,
-        310,
+        thorHomeX - 65,
+        thorHomeY - 210,
+        305,
         banditSlashProgress,
         'bandit_crimson_steel'
       );
@@ -822,8 +925,92 @@ export class Modern25DCombatRenderer {
       this.drawAnimeCutInBanner(ctx, W, H, cutInProgress);
     }
 
-    // Bottom HUD with smooth-draining HP and MP bars (no floating damage numbers)
     this.drawModernDualHud(ctx, W, H);
+  }
+
+  private renderCombatantWithBlend(
+    ctx: CanvasRenderingContext2D,
+    poses: HTMLImageElement[],
+    spec: PoseRenderSpec,
+    afterimageColor: string,
+    displaySize: number
+  ): void {
+    const img1 = poses[spec.primaryIdx] || poses[0];
+    if (spec.afterimages > 0) {
+      for (let g = spec.afterimages; g >= 1; g--) {
+        this.drawCharacterSprite(
+          ctx,
+          img1,
+          spec.x - spec.dashDirX * g * 34,
+          spec.y - spec.dashDirY * g * 34,
+          spec.scaleX,
+          spec.scaleY,
+          spec.rot,
+          0.2 * (1 - g / (spec.afterimages + 1)),
+          displaySize,
+          afterimageColor
+        );
+      }
+    }
+
+    const tint = spec.flashWhite > 0.15 ? '#ffffff' : undefined;
+    if (spec.secondaryIdx !== undefined && spec.blend !== undefined && spec.blend > 0.02) {
+      const img2 = poses[spec.secondaryIdx] || img1;
+      const b = Math.max(0, Math.min(1, spec.blend));
+      this.drawCharacterSprite(
+        ctx,
+        img1,
+        spec.x,
+        spec.y,
+        spec.scaleX,
+        spec.scaleY,
+        spec.rot * (1 - b),
+        1 - b * 0.75,
+        displaySize,
+        tint
+      );
+      this.drawCharacterSprite(
+        ctx,
+        img2,
+        spec.x,
+        spec.y,
+        spec.scaleX,
+        spec.scaleY,
+        spec.rot * b,
+        b,
+        displaySize,
+        tint
+      );
+    } else {
+      this.drawCharacterSprite(
+        ctx,
+        img1,
+        spec.x,
+        spec.y,
+        spec.scaleX,
+        spec.scaleY,
+        spec.rot,
+        1.0,
+        displaySize,
+        tint
+      );
+    }
+  }
+
+  private drawForegroundTaiMound(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
+    ctx.save();
+    ctx.translate(cx + 25, cy + 4);
+    ctx.scale(1, 0.32);
+    const grad = ctx.createRadialGradient(0, 0, 40, 0, 0, 390);
+    grad.addColorStop(0, 'rgba(42, 62, 34, 0.65)');
+    grad.addColorStop(0.55, 'rgba(28, 44, 24, 0.45)');
+    grad.addColorStop(0.85, 'rgba(18, 28, 16, 0.2)');
+    grad.addColorStop(1, 'rgba(18, 28, 16, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 390, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   private drawForestBackground(
@@ -892,8 +1079,8 @@ export class Modern25DCombatRenderer {
     ctx.translate(x, y - 10);
     ctx.scale(1, 0.24);
     const grad = ctx.createRadialGradient(0, 0, radiusX * 0.1, 0, 0, radiusX);
-    grad.addColorStop(0, 'rgba(5, 8, 6, 0.72)');
-    grad.addColorStop(0.6, 'rgba(5, 8, 6, 0.35)');
+    grad.addColorStop(0, 'rgba(5, 8, 6, 0.74)');
+    grad.addColorStop(0.6, 'rgba(5, 8, 6, 0.36)');
     grad.addColorStop(1, 'rgba(5, 8, 6, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -932,10 +1119,10 @@ export class Modern25DCombatRenderer {
     scaleY: number,
     rotation: number,
     alpha: number,
+    displaySize: number,
     tintColor?: string
   ): void {
     if (!img || !img.complete || img.naturalWidth === 0) return;
-    const displaySize = 530;
     const anchorRatioX = 0.5;
     const anchorRatioY = 648 / 680;
 
@@ -1016,10 +1203,11 @@ export class Modern25DCombatRenderer {
 
     ctx.translate(cx, cy);
     if (theme === 'thor_golden_azure') {
-      ctx.rotate(-0.32);
+      // Sweeps diagonally from top-right (↗) across to up-left/bottom-left (↖) matching Thor's Pose 1 -> Pose 2 swing!
+      ctx.rotate(-0.42);
     } else {
       ctx.scale(-1, 1);
-      ctx.rotate(-0.25);
+      ctx.rotate(-0.22);
     }
 
     const startAngle = -Math.PI * 0.62;
@@ -1208,13 +1396,13 @@ export class Modern25DCombatRenderer {
   }
 
   /**
-   * Draws the bottom-left (Enemy Bandit) and bottom-right (Hero Thor) HUD cards
-   * featuring both HP and MP bars with smooth continuous damage drain (no floating numbers).
+   * Draws the authentic Flame Dragon II diagonal HUD placement:
+   *  - Enemy Bandit (#96): Bottom-Left `(38, H - 124)`
+   *  - Hero Thor (#0): Top-Right `(W - 38 - cardW, 24)`
+   * Both HP and MP bars anchor on the LEFT (`0` at left, `max` at right) and reduce from RIGHT (Green) -> Middle (Yellow) -> LEFT (Red)!
    */
   private drawModernDualHud(ctx: CanvasRenderingContext2D, W: number, H: number): void {
     const isEn = getLocale() === 'en';
-    const padX = 42;
-    const topY = H - 122;
     const cardW = 450;
     const cardH = 96;
 
@@ -1228,11 +1416,10 @@ export class Modern25DCombatRenderer {
       maxHp: number,
       mp: number,
       maxMp: number,
-      accentColor: string,
-      alignRight: boolean
+      accentColor: string
     ) => {
       ctx.save();
-      ctx.fillStyle = 'rgba(10, 14, 24, 0.86)';
+      ctx.fillStyle = 'rgba(10, 14, 24, 0.88)';
       ctx.strokeStyle = accentColor;
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -1242,21 +1429,20 @@ export class Modern25DCombatRenderer {
 
       ctx.fillStyle = '#f8fafc';
       ctx.font = 'bold 20px "Cinzel", "Noto Serif TC", sans-serif';
-      ctx.textAlign = alignRight ? 'right' : 'left';
-      const textX = alignRight ? x + cardW - 20 : x + 20;
-      ctx.fillText(`${name}   Lv.${lv}`, textX, y + 27);
+      ctx.textAlign = 'left';
+      ctx.fillText(`${name}   Lv.${lv}`, x + 20, y + 27);
 
       const shownHpInt = Math.ceil(dispHp);
       ctx.fillStyle = '#fde047';
       ctx.font = 'bold 15px monospace';
-      ctx.textAlign = alignRight ? 'left' : 'right';
-      const statTextX = alignRight ? x + 20 : x + cardW - 20;
-      ctx.fillText(`HP ${shownHpInt}/${maxHp}   MP ${mp}/${maxMp}`, statTextX, y + 27);
+      ctx.textAlign = 'right';
+      ctx.fillText(`HP ${shownHpInt}/${maxHp}   MP ${mp}/${maxMp}`, x + cardW - 20, y + 27);
 
       const barX = x + 64;
       const barW = cardW - 84;
 
-      // 1. HP Bar (with smooth golden-white drain lag indicator)
+      // 1. HP Bar: Anchored on the LEFT (0% = Red left end, 50% = Yellow middle, 100% = Green right end).
+      // As HP decreases, the fill width shrinks from the RIGHT (Green) toward the LEFT (Red)!
       const hpBarY = y + 40;
       const hpBarH = 15;
       ctx.fillStyle = '#fde047';
@@ -1264,7 +1450,8 @@ export class Modern25DCombatRenderer {
       ctx.textAlign = 'left';
       ctx.fillText('HP', x + 20, hpBarY + 12);
 
-      ctx.fillStyle = 'rgba(24, 32, 48, 0.95)';
+      // Empty trough
+      ctx.fillStyle = 'rgba(42, 16, 22, 0.95)';
       ctx.fillRect(barX, hpBarY, barW, hpBarH);
 
       const dispRatio = Math.max(0, Math.min(1, dispHp / Math.max(1, maxHp)));
@@ -1272,33 +1459,28 @@ export class Modern25DCombatRenderer {
       const dispFillW = barW * dispRatio;
       const targFillW = barW * targRatio;
 
-      // Trailing drain bar (shows the HP currently draining away!)
-      if (dispFillW > targFillW + 0.5) {
-        ctx.fillStyle = 'rgba(253, 224, 71, 0.85)';
-        ctx.fillRect(
-          alignRight ? barX + (barW - dispFillW) : barX,
-          hpBarY,
-          dispFillW,
-          hpBarH
-        );
+      // Fixed full-width gradient from Left (0% Red) -> Middle (50% Yellow) -> Right (100% Green)
+      const hpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+      hpGrad.addColorStop(0, '#ef4444');
+      hpGrad.addColorStop(0.45, '#f59e0b');
+      hpGrad.addColorStop(1, '#22c55e');
+
+      if (dispFillW > 0) {
+        ctx.fillStyle = hpGrad;
+        ctx.fillRect(barX, hpBarY, dispFillW, hpBarH);
       }
 
-      const hpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-      hpGrad.addColorStop(0, '#dc2626');
-      hpGrad.addColorStop(0.5, '#f59e0b');
-      hpGrad.addColorStop(1, '#22c55e');
-      ctx.fillStyle = hpGrad;
-      ctx.fillRect(
-        alignRight ? barX + (barW - targFillW) : barX,
-        hpBarY,
-        targFillW,
-        hpBarH
-      );
+      // Highlight ONLY the actively draining segment [targFillW .. dispFillW] with a subtle white flash overlay
+      if (dispFillW > targFillW + 0.5) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.fillRect(barX + targFillW, hpBarY, dispFillW - targFillW, hpBarH);
+      }
+
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
       ctx.lineWidth = 1;
       ctx.strokeRect(barX, hpBarY, barW, hpBarH);
 
-      // 2. MP Bar
+      // 2. MP Bar (also left-anchored, reducing from right to left)
       const mpBarY = y + 64;
       const mpBarH = 12;
       ctx.fillStyle = '#38bdf8';
@@ -1306,22 +1488,18 @@ export class Modern25DCombatRenderer {
       ctx.textAlign = 'left';
       ctx.fillText('MP', x + 20, mpBarY + 11);
 
-      ctx.fillStyle = 'rgba(24, 32, 48, 0.95)';
+      ctx.fillStyle = 'rgba(18, 28, 46, 0.95)';
       ctx.fillRect(barX, mpBarY, barW, mpBarH);
 
       const mpRatio = maxMp > 0 ? Math.max(0, Math.min(1, mp / maxMp)) : 0;
       const mpFillW = barW * mpRatio;
       if (mpFillW > 0) {
         const mpGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-        mpGrad.addColorStop(0, '#0284c7');
+        mpGrad.addColorStop(0, '#1d4ed8');
+        mpGrad.addColorStop(0.5, '#0284c7');
         mpGrad.addColorStop(1, '#38bdf8');
         ctx.fillStyle = mpGrad;
-        ctx.fillRect(
-          alignRight ? barX + (barW - mpFillW) : barX,
-          mpBarY,
-          mpFillW,
-          mpBarH
-        );
+        ctx.fillRect(barX, mpBarY, mpFillW, mpBarH);
       }
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
       ctx.lineWidth = 1;
@@ -1330,10 +1508,10 @@ export class Modern25DCombatRenderer {
       ctx.restore();
     };
 
-    // Left: Enemy Bandit (#96)
+    // Bottom-Left: Enemy Bandit (#96) (matching FD2.EXE `(0, 154)`)
     drawHudCard(
-      padX,
-      topY,
+      38,
+      H - 122,
       isEn ? 'Bandit (#96)' : '盜賊 (#96)',
       1,
       this.banditDisplayedHp,
@@ -1341,14 +1519,13 @@ export class Modern25DCombatRenderer {
       this.banditMaxHp,
       this.banditMp,
       this.banditMaxMp,
-      '#ef4444',
-      false
+      '#ef4444'
     );
 
-    // Right: Hero Thor (#0)
+    // Top-Right: Hero Thor (#0) (matching FD2.EXE `(171, 4)`)
     drawHudCard(
-      W - padX - cardW,
-      topY,
+      W - 38 - cardW,
+      24,
       isEn ? 'Thor (#0)' : '索爾 (#0)',
       1,
       this.thorDisplayedHp,
@@ -1356,8 +1533,7 @@ export class Modern25DCombatRenderer {
       this.thorMaxHp,
       this.thorMp,
       this.thorMaxMp,
-      '#38bdf8',
-      true
+      '#38bdf8'
     );
   }
 }
@@ -1392,13 +1568,13 @@ export async function mountVfxLabInGallery(
         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
           <span style="font-size: 18px; font-weight: 800; color: #38bdf8;">
             ⚡ ${tr(
-              '2026 現代 2.5D 戰鬥動畫實驗室 — 第 1 章：索爾 (#0) vs 盜賊 (#96)',
-              '2026 现代 2.5D 战斗动画实验室 — 第 1 章：索尔 (#0) vs 盗贼 (#96)',
-              '2026 Modern 2.5D VFX Combat Lab — Ch.1: Thor (#0) vs. Bandit (#96)'
+              '2026 現代 2.5D 戰鬥動畫實驗室 — 第 1 章：索爾 (#0 右下↖) vs 盜賊 (#96 左上↘)',
+              '2026 现代 2.5D 战斗动画实验室 — 第 1 章：索尔 (#0 右下↖) vs 盗贼 (#96 左上↘)',
+              '2026 Modern 2.5D VFX Lab — Ch.1: Thor (#0 Bottom-Right ↖) vs. Bandit (#96 Top-Left ↘)'
             )}
           </span>
           <span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35);">
-            ${tr('保留原版底部 HP/MP 扣血條（無浮動數字）', '保留原版底部 HP/MP 扣血条（无浮动数字）', 'Authentic HP/MP Bar Drain (No Floating Numbers)')}
+            ${tr('原版對角站位 (左上敵↘ vs 右下我↖) + 綠→黃→紅 HP/MP 條', '原版对角站位 (左上敌↘ vs 右下我↖) + 绿→黄→红 HP/MP 条', 'Authentic Diagonal Orientation + Green→Yellow→Red HP/MP Drain')}
           </span>
         </div>
 
@@ -1416,16 +1592,16 @@ export async function mountVfxLabInGallery(
       <div id="vfx-art-container" style="display: none; padding: 20px; background: var(--bg-panel, #090d16); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(410px, 1fr)); gap: 18px;">
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
-            <h4 style="margin: 0 0 8px 0; color: #fde047;">1. Widescreen 16:9 Chapter 1 Clash Key Art</h4>
-            <img src="assets/vfx_lab/clash_keyart.jpg" style="width: 100%; border-radius: 8px; border: 1px solid #475569;" />
+            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">1. Thor (#0 索爾) 3/4 Rear-Isometric (↖) 3-Pose Sheet</h4>
+            <img src="assets/vfx_lab/thor_sheet_raw.png?v=2" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
-            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">2. Thor (#0 索爾) 3-Pose Modern Anime Keyframe Sheet</h4>
-            <img src="assets/vfx_lab/thor_sheet_raw.png" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <h4 style="margin: 0 0 8px 0; color: #f87171;">2. Bandit (#96 盜賊) 3/4 Front-Isometric (↘) 3-Pose Sheet</h4>
+            <img src="assets/vfx_lab/bandit_sheet_raw.png?v=2" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
-            <h4 style="margin: 0 0 8px 0; color: #f87171;">3. Bandit (#96 盜賊) 3-Pose Modern Anime Keyframe Sheet</h4>
-            <img src="assets/vfx_lab/bandit_sheet_raw.png" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <h4 style="margin: 0 0 8px 0; color: #fde047;">3. Widescreen 16:9 Chapter 1 Clash Key Art</h4>
+            <img src="assets/vfx_lab/clash_keyart.jpg?v=2" style="width: 100%; border-radius: 8px; border: 1px solid #475569;" />
           </div>
         </div>
       </div>
@@ -1433,10 +1609,10 @@ export async function mountVfxLabInGallery(
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: var(--bg-panel, #0f172a); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <button class="gal-btn active" id="vfx-play-thor-first" type="button">
-            ⚔️ ${tr('我方先攻 + 敵方反擊 (索爾 → 盜賊)', '我方先攻 + 敌方反击 (索尔 → 盗贼)', 'Hero Initiates + Enemy Retaliates')}
+            ⚔️ ${tr('我方先攻 + 敵方反擊 (索爾↖ → 盜賊↘)', '我方先攻 + 敌方反击 (索尔↖ → 盗贼↘)', 'Hero Initiates (↖) + Enemy Retaliates (↘)')}
           </button>
           <button class="gal-btn" id="vfx-play-bandit-first" type="button">
-            🛡️ ${tr('敵方先攻 + 我方反擊 (盜賊 → 索爾)', '敌方先攻 + 我方反击 (盗贼 → 索尔)', 'Enemy Initiates + Hero Retaliates')}
+            🛡️ ${tr('敵方先攻 + 我方反擊 (盜賊↘ → 索爾↖)', '敌方先攻 + 我方反击 (盗贼↘ → 索尔↖)', 'Enemy Initiates (↘) + Hero Retaliates (↖)')}
           </button>
           <button class="gal-btn" id="vfx-play-crit" type="button">
             🔥 ${tr('索爾烈焰斬單擊必殺', '索尔烈焰斩单击必杀', 'Thor Critical Flame Slash KO')}
@@ -1460,7 +1636,7 @@ export async function mountVfxLabInGallery(
             <input type="checkbox" id="vfx-chk-sparks" checked /> ${tr('90ms 頓幀與物理火花', '90ms 顿帧与物理火花', '90ms Hit-Stop & Sparks')}
           </label>
           <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-            <input type="checkbox" id="vfx-chk-spring" checked /> ${tr('高速殘影與呼吸律動', '高速残影与呼吸律动', 'Dash Afterimages')}
+            <input type="checkbox" id="vfx-chk-spring" checked /> ${tr('高速殘影與補間律動', '高速残影与补间律动', 'Dash Afterimages & Blend')}
           </label>
         </div>
       </div>
