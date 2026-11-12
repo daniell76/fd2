@@ -106,7 +106,7 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
   if (vfxAssetsCache.loaded) {
     return vfxAssetsCache;
   }
-  const cacheBust = '?v=3';
+  const cacheBust = '?v=4';
   const [
     t0,
     t1,
@@ -631,7 +631,7 @@ export class Modern25DCombatRenderer {
         const p = localT / 460;
         const ease = 1 - Math.pow(1 - p, 3);
         if (srcMode === 'omni_video') {
-          this.setContinuousFrame(thorSpec, p * 4.5, 9);
+          this.setContinuousFrame(thorSpec, p * 2.5, 9);
         } else if (srcMode === 'nb2_6frame') {
           this.setContinuousFrame(thorSpec, p * 2.0, 5);
         } else if (p < 0.28) {
@@ -665,7 +665,7 @@ export class Modern25DCombatRenderer {
         thorSpec.afterimages = this.config.enableAfterimagesAndSpring && dashP > 0.05 ? 4 : 0;
 
         if (srcMode === 'omni_video') {
-          this.setContinuousFrame(thorSpec, 4.5 + dashP * 1.7, 9);
+          this.setContinuousFrame(thorSpec, 2.5 + dashP * 1.5, 9);
         } else if (srcMode === 'nb2_6frame') {
           if (dashP > 0.65) {
             this.setContinuousFrame(thorSpec, 2.0 + ((dashP - 0.65) / 0.35) * 1.0, 5);
@@ -694,8 +694,8 @@ export class Modern25DCombatRenderer {
         // 3. Diagonal Up-Left Cleave Impact & Follow-Through
         const p = (localT - 820) / 580;
         if (srcMode === 'omni_video') {
-          if (p < 0.45) {
-            this.setContinuousFrame(thorSpec, 6.2 + (p / 0.45) * 2.8, 9);
+          if (p < 0.65) {
+            this.setContinuousFrame(thorSpec, 4.0 + (p / 0.65) * 5.0, 9);
           } else {
             thorSpec.primaryIdx = 9;
           }
@@ -969,7 +969,8 @@ export class Modern25DCombatRenderer {
 
     // Render Thor (Bottom-Right Foreground, higher Y -> drawn on top in painter's algorithm!)
     if (thorDrawsInFront) {
-      this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, '#38bdf8', 535);
+      const thorDispSize = srcMode === 'omni_video' ? 545 : 735;
+      this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, '#38bdf8', thorDispSize);
     }
 
     if (
