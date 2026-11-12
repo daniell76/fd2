@@ -1617,6 +1617,18 @@ export function renderTimelineStep(
       u.maxMp,
       u.nameZh
     );
+    if (isHd) {
+      const rightAct = step.rightFlash || step.rightFrameIdx > 0;
+      const pFrame = rightAct ? ((_talkTick & 1) + 1) : 0;
+      ctx.save();
+      ctx.fillStyle = 'rgba(12, 16, 26, 0.92)';
+      ctx.fillRect(126, 4, 42, 42);
+      assets.drawPortrait(ctx, u.portraitId, pFrame, 127, 5, 40, 40);
+      ctx.strokeStyle = step.rightFlash ? 'rgba(255, 196, 110, 0.95)' : 'rgba(186, 152, 86, 0.78)';
+      ctx.lineWidth = 0.75;
+      ctx.strokeRect(126.5, 4.5, 41, 41);
+      ctx.restore();
+    }
   }
 
   if (showLeftHud && step.leftUnit) {
@@ -1633,6 +1645,18 @@ export function renderTimelineStep(
       u.maxMp,
       u.nameZh
     );
+    if (isHd) {
+      const leftAct = step.leftFlash || step.leftFrameIdx > 0;
+      const pFrame = leftAct ? ((_talkTick & 1) + 1) : 0;
+      ctx.save();
+      ctx.fillStyle = 'rgba(12, 16, 26, 0.92)';
+      ctx.fillRect(152, 154, 42, 42);
+      assets.drawPortrait(ctx, u.portraitId, pFrame, 153, 155, 40, 40);
+      ctx.strokeStyle = step.leftFlash ? 'rgba(255, 196, 110, 0.95)' : 'rgba(186, 152, 86, 0.78)';
+      ctx.lineWidth = 0.75;
+      ctx.strokeRect(152.5, 154.5, 41, 41);
+      ctx.restore();
+    }
   }
 
   const drawUnit = (
@@ -1650,7 +1674,7 @@ export function renderTimelineStep(
     if (pack && pack.strip.frames.length > 0) {
       const idx = Math.max(0, Math.min(pack.strip.frames.length - 1, frameIdx));
       const fr = pack.strip.frames[idx];
-      assets.drawFigAniFrame(ctx, pack.img, fr.sx, 0, fr.w, fr.h, fr.ox + slideX, fr.oy + slideY, fr.w, fr.h);
+      assets.drawFigAniFrame(ctx, pack.img, fr.sx, 0, fr.w, fr.h, fr.ox + slideX, fr.oy + slideY, fr.w, fr.h, unit.uid);
     } else {
       assets.drawUnitSprite(
         ctx,

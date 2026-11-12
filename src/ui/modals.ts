@@ -299,7 +299,7 @@ export class ModalController {
 
       this.bodyEl.innerHTML = `
         <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
-          <img class="pixel-crisp" src="assets/screens/ending.png" style="width:min(640px, 100%); border-radius:8px; border:1px solid var(--border-brass); box-shadow:var(--shadow-elevated);" alt="Ending" />
+          <img class="pixel-crisp" src="${this.assets.getScreenUrl('ending')}" style="width:min(760px, 100%); border-radius:8px; border:1px solid var(--border-brass); box-shadow:var(--shadow-elevated);" alt="Ending" />
           <div style="width:100%;">
             <div class="panel-heading"><span>${tr(`遠征英雄名錄 (${party.length} 名夥伴)`, `远征英雄名录 (${party.length} 名伙伴)`, `Expedition Heroes (${party.length} Companions)`)}</span></div>
             <div class="chapter-grid">${rosterHtml}</div>
@@ -543,7 +543,7 @@ export class ModalController {
       if (!member) return;
       const gd = this.assets.gameData;
       const clsLabel = member.classNameZh ?? getUnitClassLabel(member.uid, member.classId, gd);
-      const artSrc = activeTab === 'church' ? 'assets/screens/church.png' : 'assets/screens/camp.png';
+      const artSrc = activeTab === 'church' ? this.assets.getScreenUrl('church') : this.assets.getScreenUrl('camp');
       const npcPid = activeTab === 'weapon' ? 128 : activeTab === 'item' ? 130 : activeTab === 'church' ? 131 : 75;
       const npcDex = gd.unitDex[npcPid];
       const npcBannerHtml = npcDex

@@ -149,6 +149,175 @@ const GLYPH_HEX: Record<GlyphColor, string> = {
   hud_shadow: '#102465',
 };
 
+// Front / 3-Quarter Camera-Facing Units whose 1995 DOS FIGANI head region had a blank faceless skin oval
+const FRONT_FACE_UNIT_IDS = new Set<number>([
+  76, 80, 87, 96, 97, 100, 101, 102, 103, 106, 108, 109,
+  117, 118, 119, 120, 122, 123, 124, 125, 126,
+]);
+
+// Side-Profile Camera-Visible Heroes facing top-left whose cheek/profile is visible
+const SIDE_PROFILE_UNIT_IDS = new Set<number>([
+  8, 9, 10, 11, 12, 14, 18, 20, 23, 35,
+  40, 41, 42, 43, 44, 46, 53,
+  58, 59, 60, 61, 62, 64, 133,
+]);
+
+// Battle Stage Background IDs repainted in 4K HD by Nano Banana 2 (models/gempix2-flash)
+const HD_REPAINTED_BG_IDS = new Set<number>([
+  4, 5, 6, 9, 10, 14, 16, 18, 19, 21, 25, 28, 29, 31, 33, 38, 40, 42, 44, 45, 48, 49, 50, 51, 52, 53, 55,
+]);
+
+function isSkinTonePixel(r: number, g: number, b: number, a: number): boolean {
+  if (a < 200) return false;
+  return r > 145 && g > 78 && b < 142 && r - g > 16 && g - b >= 10;
+}
+
+/**
+ * Replaces the 1995 DOS 1-pixel checkerboard ground shadow mesh (`(x+y)%2` alternating black & transparent pixels)
+ * at the base of `FIGANI` combat sprites with a smooth, soft alpha-gradient contact shadow before `4x` upscaling.
+ */
+function deDitherShadowInPlace(src: ImageData): void {
+  const w = src.width;
+  const h = src.height;
+  const d = src.data;
+  const startY = Math.floor(h * 0.52);
+  const shadowMask = new Uint8Array(w * h);
+
+  const isTrans = (x: number, y: number): boolean => {
+    if (x < 0 || x >= w || y < 0 || y >= h) return true;
+    return d[(y * w + x) * 4 + 3] < 32;
+  };
+
+  for (let y = startY; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      const r = d[idx];
+      const g = d[idx + 1];
+      const b = d[idx + 2];
+      const a = d[idx + 3];
+      if (a > 128 && r < 28 && g < 28 && b < 36) {
+        let transOrth = 0;
+        if (isTrans(x - 1, y)) transOrth++;
+        if (isTrans(x + 1, y)) transOrth++;
+        if (isTrans(x, y - 1)) transOrth++;
+        if (isTrans(x, y + 1)) transOrth++;
+        if (transOrth >= 3) {
+          shadowMask[y * w + x] = 1;
+        }
+      }
+    }
+  }
+
+  for (let y = startY; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (isTrans(x, y)) {
+        let shOrth = 0;
+        if (x > 0 && shadowMask[y * w + (x - 1)] === 1) shOrth++;
+        if (x + 1 < w && shadowMask[y * w + (x + 1)] === 1) shOrth++;
+        if (y > startY && shadowMask[(y - 1) * w + x] === 1) shOrth++;
+        if (y + 1 < h && shadowMask[(y + 1) * w + x] === 1) shOrth++;
+        if (shOrth >= 2) {
+          shadowMask[y * w + x] = 2;
+        }
+      }
+    }
+  }
+
+  for (let y = startY; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const m = shadowMask[y * w + x];
+      if (m > 0) {
+        let neigh = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < w && ny >= startY && ny < h && shadowMask[ny * w + nx] > 0) {
+              neigh++;
+            }
+          }
+        }
+        const idx = (y * w + x) * 4;
+        d[idx] = 8;
+        d[idx + 1] = 10;
+        d[idx + 2] = 18;
+        d[idx + 3] = Math.min(118, 42 + neigh * 9);
+      }
+    }
+  }
+}
+
+/**
+ * Multi-pass HD Cel-Shading & Directional Specular Rim-Light Polish on `4x` upscaled sprite frames.
+ * Smooths stepped 16-color palette bands inside interior material surfaces while sharpening dark ink outlines.
+ */
+function polishHdSpriteCelShading4x(img4x: ImageData): void {
+  const w = img4x.width;
+  const h = img4x.height;
+  const src = new Uint8ClampedArray(img4x.data);
+  const dst = img4x.data;
+
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = (y * w + x) * 4;
+      const a = src[i + 3];
+      if (a < 140) continue;
+      const r = src[i];
+      const g = src[i + 1];
+      const b = src[i + 2];
+      const luma = (r * 77 + g * 150 + b * 29) >> 8;
+
+      // Keep dark ink contour lines crisp and slightly deepened
+      if (luma < 42) {
+        dst[i] = (r * 215) >> 8;
+        dst[i + 1] = (g * 215) >> 8;
+        dst[i + 2] = (b * 225) >> 8;
+        continue;
+      }
+
+      // Edge-preserving bilateral smooth across 4-neighborhood + top-left directional specular micro-gradient
+      let sr = r * 4;
+      let sg = g * 4;
+      let sb = b * 4;
+      let sw = 4;
+      const nOffsets = [-w * 4, w * 4, -4, 4];
+      for (let k = 0; k < 4; k++) {
+        const ni = i + nOffsets[k];
+        if (src[ni + 3] > 140) {
+          const nr = src[ni];
+          const ng = src[ni + 1];
+          const nb = src[ni + 2];
+          const diff = Math.abs(r - nr) + Math.abs(g - ng) + Math.abs(b - nb);
+          if (diff < 88) {
+            sr += nr;
+            sg += ng;
+            sb += nb;
+            sw++;
+          }
+        }
+      }
+
+      let outR = Math.round(sr / sw);
+      let outG = Math.round(sg / sw);
+      let outB = Math.round(sb / sw);
+
+      // Subtle top-left rim highlight where top-left neighbor is dark outline or brighter ridge
+      const nwIdx = i - w * 4 - 4;
+      const seIdx = i + w * 4 + 4;
+      const nwLuma = src[nwIdx + 3] > 120 ? (src[nwIdx] * 77 + src[nwIdx + 1] * 150 + src[nwIdx + 2] * 29) >> 8 : luma;
+      const seLuma = src[seIdx + 3] > 120 ? (src[seIdx] * 77 + src[seIdx + 1] * 150 + src[seIdx + 2] * 29) >> 8 : luma;
+      const slope = (nwLuma - seLuma) * 0.14;
+      outR = Math.max(0, Math.min(255, Math.round(outR + slope)));
+      outG = Math.max(0, Math.min(255, Math.round(outG + slope)));
+      outB = Math.max(0, Math.min(255, Math.round(outB + slope)));
+
+      dst[i] = outR;
+      dst[i + 1] = outG;
+      dst[i + 2] = outB;
+    }
+  }
+}
+
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -179,6 +348,7 @@ export class AssetManager {
   public fxAtlas!: HTMLImageElement;
 
   public screens: Record<string, HTMLImageElement> = {};
+  public hdScreens: Record<string, HTMLImageElement> = {};
 
   private tintedFonts = new Map<GlyphColor, HTMLCanvasElement>();
   private glyphUrlCache = new Map<string, string>();
@@ -188,7 +358,15 @@ export class AssetManager {
   private chapterCache = new Map<number, { data: ChapterData; tileset: HTMLImageElement }>();
   private figaniStripCache = new Map<string, HTMLImageElement | null>();
   private hdRegionCache = new Map<string, HTMLCanvasElement>();
+  private hdBgImages = new Map<number, HTMLImageElement | 'loading' | 'none'>();
+  private portraitFaceCropCache = new Map<number, HTMLCanvasElement>();
   private editionMode: EditionMode = detectInitialEditionMode();
+
+  constructor() {
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.toggle('edition-hd', this.editionMode === 'hd');
+    }
+  }
 
   getEditionMode(): EditionMode {
     return this.editionMode;
@@ -201,6 +379,9 @@ export class AssetManager {
   setEditionMode(mode: EditionMode): void {
     if (this.editionMode === mode) return;
     this.editionMode = mode;
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.toggle('edition-hd', this.editionMode === 'hd');
+    }
     try {
       localStorage.setItem(EDITION_STORAGE_KEY, mode);
     } catch {
@@ -209,6 +390,259 @@ export class AssetManager {
     this.portraitUrlCache.clear();
     this.spriteUrlCache.clear();
     this.chibiUrlCache.clear();
+    this.glyphUrlCache.clear();
+  }
+
+  getScreenUrl(name: 'title_0' | 'shop' | 'camp' | 'church' | 'world' | 'ending' | 'gameover'): string {
+    return this.editionMode === 'hd' ? `assets/hd_screens/${name}.png` : `assets/screens/${name}.png`;
+  }
+
+  getScreenImage(key: 'title' | 'shop' | 'camp' | 'church' | 'world' | 'ending' | 'gameover'): HTMLImageElement {
+    if (this.editionMode === 'hd' && this.hdScreens[key]) {
+      return this.hdScreens[key];
+    }
+    return this.screens[key];
+  }
+
+  /**
+   * Extracts and caches the face bounding-box region from a unit's `80x80` portrait (`portraits_atlas.png`)
+   * so it can guide high-resolution facial detail synthesis onto `4x` HD `FIGANI` battle animation frames.
+   */
+  private getPortraitFaceCanvas(unitId: number): HTMLCanvasElement {
+    const pid = Math.max(0, Math.min((this.gameData?.portraitCount ?? 136) - 1, unitId));
+    const cached = this.portraitFaceCropCache.get(pid);
+    if (cached) return cached;
+
+    const sx = (pid % 4) * 320;
+    const sy = Math.floor(pid / 4) * 80;
+    const c = document.createElement('canvas');
+    c.width = 80;
+    c.height = 80;
+    const ctx = c.getContext('2d')!;
+    ctx.drawImage(this.portraitsAtlas, sx, sy, 80, 80, 0, 0, 80, 80);
+    const idata = ctx.getImageData(0, 0, 80, 80);
+    const d = idata.data;
+
+    let minX = 70;
+    let maxX = 10;
+    let minY = 70;
+    let maxY = 10;
+    let count = 0;
+    for (let y = 12; y < 70; y++) {
+      for (let x = 12; x < 68; x++) {
+        const i = (y * 80 + x) * 4;
+        if (isSkinTonePixel(d[i], d[i + 1], d[i + 2], d[i + 3])) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+          count++;
+        }
+      }
+    }
+
+    const x0 = count >= 40 ? Math.max(8, minX) : 20;
+    const y0 = count >= 40 ? Math.max(8, minY) : 20;
+    const x1 = count >= 40 ? Math.min(72, maxX) : 60;
+    const y1 = count >= 40 ? Math.min(72, maxY) : 64;
+    const cw = Math.max(12, x1 - x0 + 1);
+    const ch = Math.max(12, y1 - y0 + 1);
+
+    const faceC = document.createElement('canvas');
+    faceC.width = cw;
+    faceC.height = ch;
+    const faceCtx = faceC.getContext('2d')!;
+    faceCtx.drawImage(c, x0, y0, cw, ch, 0, 0, cw, ch);
+    this.portraitFaceCropCache.set(pid, faceC);
+    return faceC;
+  }
+
+  /**
+   * Synthesizes fine facial features (eyes, iris/sclera catchlights, eyebrows, nose shadow, mouth,
+   * and portrait facial shading) onto blank faceless head regions of `4x` HD `FIGANI` battle sprites.
+   */
+  private synthesizePortraitFaceOnFigAni4x(
+    src1x: ImageData,
+    ctx4: CanvasRenderingContext2D,
+    unitId: number
+  ): void {
+    const isFront = FRONT_FACE_UNIT_IDS.has(unitId);
+    const isSide = SIDE_PROFILE_UNIT_IDS.has(unitId);
+    if (!isFront && !isSide) return;
+
+    const w = src1x.width;
+    const h = src1x.height;
+    const d1 = src1x.data;
+    const maxY = Math.min(h, Math.floor(h * 0.42));
+    const visited = new Uint8Array(w * maxY);
+
+    let bestMinY = 9999;
+    let bestX0 = 0;
+    let bestY0 = 0;
+    let bestX1 = 0;
+    let bestY1 = 0;
+    let found = false;
+
+    for (let y = 0; y < maxY; y++) {
+      for (let x = 0; x < w; x++) {
+        if (visited[y * w + x]) continue;
+        const idx = (y * w + x) * 4;
+        if (!isSkinTonePixel(d1[idx], d1[idx + 1], d1[idx + 2], d1[idx + 3])) continue;
+
+        const qx: number[] = [x];
+        const qy: number[] = [y];
+        visited[y * w + x] = 1;
+        let minX = x;
+        let maxX = x;
+        let minY = y;
+        let maxYComp = y;
+        let count = 0;
+
+        while (qx.length > 0) {
+          const cx = qx.pop()!;
+          const cy = qy.pop()!;
+          count++;
+          if (cx < minX) minX = cx;
+          if (cx > maxX) maxX = cx;
+          if (cy < minY) minY = cy;
+          if (cy > maxYComp) maxYComp = cy;
+
+          for (let ny = cy - 1; ny <= cy + 1; ny++) {
+            for (let nx = cx - 1; nx <= cx + 1; nx++) {
+              if (nx >= 0 && nx < w && ny >= 0 && ny < maxY && !visited[ny * w + nx]) {
+                const ni = (ny * w + nx) * 4;
+                if (isSkinTonePixel(d1[ni], d1[ni + 1], d1[ni + 2], d1[ni + 3])) {
+                  visited[ny * w + nx] = 1;
+                  qx.push(nx);
+                  qy.push(ny);
+                }
+              }
+            }
+          }
+        }
+
+        // For bare-chested monk/colossus (#100, #122), clamp vertical extent to top head oval (10px)
+        if ((unitId === 100 || unitId === 122) && maxYComp - minY > 10) {
+          maxYComp = minY + 9;
+        }
+
+        const bw = maxX - minX + 1;
+        const bh = maxYComp - minY + 1;
+        const minPts = isSide ? 7 : 10;
+        if (count >= minPts && bw >= 3 && bw <= 18 && bh >= 4 && bh <= 18) {
+          if (minY < bestMinY) {
+            bestMinY = minY;
+            bestX0 = minX;
+            bestY0 = minY;
+            bestX1 = maxX;
+            bestY1 = maxYComp;
+            found = true;
+          }
+        }
+      }
+    }
+
+    if (!found) return;
+
+    const fx0 = bestX0 * 4;
+    const fy0 = bestY0 * 4;
+    const fw = (bestX1 - bestX0 + 1) * 4;
+    const fh = (bestY1 - bestY0 + 1) * 4;
+    if (fw < 12 || fh < 14) return;
+
+    // 1. Project & blend the character's 80x80 portrait face shading into the 4x HD skin region
+    if (this.portraitsAtlas) {
+      const pFace = this.getPortraitFaceCanvas(unitId);
+      const tmp = document.createElement('canvas');
+      tmp.width = fw;
+      tmp.height = fh;
+      const tCtx = tmp.getContext('2d')!;
+      tCtx.imageSmoothingEnabled = true;
+      tCtx.imageSmoothingQuality = 'high';
+      tCtx.drawImage(pFace, 0, 0, pFace.width, pFace.height, 0, 0, fw, fh);
+
+      const pData = tCtx.getImageData(0, 0, fw, fh).data;
+      const patch = ctx4.getImageData(fx0, fy0, fw, fh);
+      const pd = patch.data;
+      for (let i = 0; i < pd.length; i += 4) {
+        if (isSkinTonePixel(pd[i], pd[i + 1], pd[i + 2], pd[i + 3])) {
+          pd[i] = Math.round(pData[i] * 0.56 + pd[i] * 0.44);
+          pd[i + 1] = Math.round(pData[i + 1] * 0.56 + pd[i + 1] * 0.44);
+          pd[i + 2] = Math.round(pData[i + 2] * 0.56 + pd[i + 2] * 0.44);
+        }
+      }
+      ctx4.putImageData(patch, fx0, fy0);
+    }
+
+    // 2. Render crisp high-resolution anime eyes, catchlights, eyebrows, nose shadow & mouth in 4x HD space
+    ctx4.save();
+    const eyeY = fy0 + Math.round(fh * 0.36);
+    const browY = eyeY - Math.max(2, Math.round(fh * 0.09));
+    const eyeW = Math.max(3, Math.round(fw * 0.14));
+    const eyeH = Math.max(2, Math.round(fh * 0.11));
+
+    if (isFront) {
+      const lx = fx0 + Math.round(fw * 0.25);
+      const rx = fx0 + Math.round(fw * 0.65);
+
+      if (unitId === 117) {
+        // #117 Katana (卡特那): Signature dark eyepatch over her right eye (viewer's left) + diagonal strap
+        ctx4.fillStyle = 'rgba(20, 24, 34, 0.96)';
+        ctx4.fillRect(lx - 1, browY, eyeW + 3, eyeH + 3);
+        ctx4.strokeStyle = 'rgba(20, 24, 34, 0.9)';
+        ctx4.lineWidth = 1.5;
+        ctx4.beginPath();
+        ctx4.moveTo(fx0 + 1, browY);
+        ctx4.lineTo(lx + eyeW + 3, eyeY + 1);
+        ctx4.stroke();
+      } else {
+        // Viewer's left eye
+        ctx4.fillStyle = 'rgba(244, 240, 234, 0.92)';
+        ctx4.fillRect(lx, eyeY, eyeW, eyeH);
+        ctx4.fillStyle = 'rgba(26, 20, 22, 0.96)';
+        ctx4.fillRect(lx + 1, eyeY, Math.max(1, eyeW - 1), eyeH);
+        ctx4.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx4.fillRect(lx + 1, eyeY, 1, 1);
+        // Eyebrow
+        ctx4.fillStyle = 'rgba(36, 26, 24, 0.88)';
+        ctx4.fillRect(lx - 1, browY, eyeW + 2, 1);
+      }
+
+      // Viewer's right eye
+      ctx4.fillStyle = 'rgba(244, 240, 234, 0.92)';
+      ctx4.fillRect(rx, eyeY, eyeW, eyeH);
+      ctx4.fillStyle = 'rgba(26, 20, 22, 0.96)';
+      ctx4.fillRect(rx + 1, eyeY, Math.max(1, eyeW - 1), eyeH);
+      ctx4.fillStyle = 'rgba(255, 255, 255, 0.95)';
+      ctx4.fillRect(rx + 1, eyeY, 1, 1);
+      // Eyebrow
+      ctx4.fillStyle = 'rgba(36, 26, 24, 0.88)';
+      ctx4.fillRect(rx - 1, browY, eyeW + 2, 1);
+
+      // Nose bridge shadow & mouth
+      const nx = fx0 + Math.round(fw * 0.52);
+      const ny = fy0 + Math.round(fh * 0.57);
+      ctx4.fillStyle = 'rgba(130, 72, 52, 0.78)';
+      ctx4.fillRect(nx, eyeY + 2, 1, Math.max(2, ny - (eyeY + 2)));
+      ctx4.fillRect(nx - 1, ny, 2, 1);
+
+      const my = fy0 + Math.round(fh * 0.75);
+      const mw = Math.max(3, Math.round(fw * 0.28));
+      ctx4.fillStyle = 'rgba(118, 54, 46, 0.85)';
+      ctx4.fillRect(fx0 + Math.round(fw * 0.37), my, mw, 1);
+    } else if (isSide) {
+      // Side-profile hero facing top-left: draw profile eye near left edge of cheek
+      const px = fx0 + Math.max(2, Math.round(fw * 0.22));
+      ctx4.fillStyle = 'rgba(244, 240, 234, 0.9)';
+      ctx4.fillRect(px, eyeY, eyeW, eyeH);
+      ctx4.fillStyle = 'rgba(26, 20, 22, 0.95)';
+      ctx4.fillRect(px, eyeY, Math.max(1, eyeW - 1), eyeH);
+      ctx4.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx4.fillRect(px, eyeY, 1, 1);
+      ctx4.fillStyle = 'rgba(36, 26, 24, 0.85)';
+      ctx4.fillRect(px, browY, eyeW + 1, 1);
+    }
+    ctx4.restore();
   }
 
   /**
@@ -217,11 +651,12 @@ export class AssetManager {
    */
   getHdRegion4x(
     cacheKey: string,
-    img: HTMLImageElement,
+    img: HTMLImageElement | HTMLCanvasElement,
     sx: number,
     sy: number,
     sw: number,
-    sh: number
+    sh: number,
+    options?: { isFigAniSprite?: boolean; unitId?: number }
   ): HTMLCanvasElement {
     const cached = this.hdRegionCache.get(cacheKey);
     if (cached) return cached;
@@ -234,8 +669,14 @@ export class AssetManager {
     ctx1.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
     const srcData = ctx1.getImageData(0, 0, sw, sh);
+    if (options?.isFigAniSprite) {
+      deDitherShadowInPlace(srcData);
+    }
     const pass2x = upscaleImageData2x(srcData);
     const pass4x = upscaleImageData2x(pass2x);
+    if (options?.isFigAniSprite) {
+      polishHdSpriteCelShading4x(pass4x);
+    }
 
     const c4 = document.createElement('canvas');
     c4.width = sw * 4;
@@ -243,12 +684,16 @@ export class AssetManager {
     const ctx4 = c4.getContext('2d')!;
     ctx4.putImageData(pass4x, 0, 0);
 
+    if (options?.isFigAniSprite && options.unitId !== undefined) {
+      this.synthesizePortraitFaceOnFigAni4x(srcData, ctx4, options.unitId);
+    }
+
     this.hdRegionCache.set(cacheKey, c4);
     return c4;
   }
 
   /** Lazily upscales an entire image (e.g. a chapter tileset or a FIGANI combat strip) by `4x`. */
-  getHdImage4x(cacheKey: string, img: HTMLImageElement): HTMLCanvasElement {
+  getHdImage4x(cacheKey: string, img: HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
     return this.getHdRegion4x(cacheKey, img, 0, 0, img.width, img.height);
   }
 
@@ -330,6 +775,30 @@ export class AssetManager {
       ending: endingBg,
       gameover: gameoverBg,
     };
+
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.toggle('edition-hd', this.editionMode === 'hd');
+    }
+
+    // Asynchronously warm Nano Banana 2 (gempix2-flash) 1280x800 HD repainted screens
+    const hdScreenFiles: Array<[string, string]> = [
+      ['title', 'assets/hd_screens/title_0.png'],
+      ['shop', 'assets/hd_screens/shop.png'],
+      ['camp', 'assets/hd_screens/camp.png'],
+      ['church', 'assets/hd_screens/church.png'],
+      ['world', 'assets/hd_screens/world.png'],
+      ['ending', 'assets/hd_screens/ending.png'],
+      ['gameover', 'assets/hd_screens/gameover.png'],
+    ];
+    for (const [k, url] of hdScreenFiles) {
+      loadImage(url)
+        .then((img) => {
+          this.hdScreens[k] = img;
+        })
+        .catch(() => {
+          // fallback to 4x upscaled classic screen
+        });
+    }
 
     onProgress?.('Preparing 16x16 calligraphy glyph sheets...');
     (Object.keys(GLYPH_HEX) as GlyphColor[]).forEach((color) => {
@@ -455,7 +924,12 @@ export class AssetManager {
     const cols = this.gameData.font.cols;
     const cellH = Math.round(16 * scale);
     const shOff = Math.max(1, Math.round(scale));
-    ctx.imageSmoothingEnabled = false;
+    const isHd = this.editionMode === 'hd';
+    ctx.save();
+    ctx.imageSmoothingEnabled = isHd;
+    if (isHd) {
+      ctx.imageSmoothingQuality = 'high';
+    }
     let cx = Math.round(x);
     const cy = Math.round(y);
     for (const gid of valid) {
@@ -464,12 +938,22 @@ export class AssetManager {
       const step = Math.round((gw + 1) * scale);
       const sx = (gid % cols) * 16;
       const sy = Math.floor(gid / cols) * 16;
-      if (withShadow) {
-        ctx.drawImage(shadowSheet, sx, sy, gw, 16, cx + shOff, cy + shOff, drawW, cellH);
+      if (isHd) {
+        if (withShadow) {
+          const hdSh = this.getHdRegion4x(`font:shadow:${gid}`, shadowSheet, sx, sy, gw, 16);
+          ctx.drawImage(hdSh, 0, 0, gw * 4, 64, cx + shOff, cy + shOff, drawW, cellH);
+        }
+        const hdFg = this.getHdRegion4x(`font:${color}:${gid}`, sheet, sx, sy, gw, 16);
+        ctx.drawImage(hdFg, 0, 0, gw * 4, 64, cx, cy, drawW, cellH);
+      } else {
+        if (withShadow) {
+          ctx.drawImage(shadowSheet, sx, sy, gw, 16, cx + shOff, cy + shOff, drawW, cellH);
+        }
+        ctx.drawImage(sheet, sx, sy, gw, 16, cx, cy, drawW, cellH);
       }
-      ctx.drawImage(sheet, sx, sy, gw, 16, cx, cy, drawW, cellH);
       cx += step;
     }
+    ctx.restore();
     return cx - Math.round(x);
   }
 
@@ -662,16 +1146,34 @@ export class AssetManager {
     return url;
   }
 
-  /** Draws a 320x100 cutaway battle background from bgs_atlas.png. */
+  /** Draws a 320x100 cutaway battle background from bgs_atlas.png (or Nano Banana 2 1280x400 HD repainted background in HD mode). */
   drawBattleBg(ctx: CanvasRenderingContext2D, bgId: number, dx: number, dy: number, dw: number, dh: number): void {
     const bid = Math.max(0, Math.min(this.gameData.bgCount - 1, bgId));
     const sx = (bid % 4) * 320;
     const sy = Math.floor(bid / 4) * 100;
     if (this.editionMode === 'hd') {
-      const hdBg = this.getHdRegion4x(`bg:${bid}`, this.bgsAtlas, sx, sy, 320, 100);
       ctx.save();
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
+      if (HD_REPAINTED_BG_IDS.has(bid)) {
+        const entry = this.hdBgImages.get(bid);
+        if (entry && entry !== 'loading' && entry !== 'none') {
+          ctx.drawImage(entry, 0, 0, entry.width, entry.height, dx, dy, dw, dh);
+          ctx.restore();
+          return;
+        }
+        if (!entry) {
+          this.hdBgImages.set(bid, 'loading');
+          loadImage(`assets/hd_bgs/bg_${bid}.png`)
+            .then((img) => {
+              this.hdBgImages.set(bid, img);
+            })
+            .catch(() => {
+              this.hdBgImages.set(bid, 'none');
+            });
+        }
+      }
+      const hdBg = this.getHdRegion4x(`bg:${bid}`, this.bgsAtlas, sx, sy, 320, 100);
       ctx.drawImage(hdBg, 0, 0, 1280, 400, dx, dy, dw, dh);
       ctx.restore();
       return;
@@ -737,12 +1239,22 @@ export class AssetManager {
     const hudMeta = this.gameData.battleHud;
     if (!hudMeta || !this.battleHudAtlas) return;
     const rects = hudMeta.rects;
-    ctx.imageSmoothingEnabled = false;
+    const isHd = this.editionMode === 'hd';
+    ctx.save();
+    ctx.imageSmoothingEnabled = isHd;
+    if (isHd) {
+      ctx.imageSmoothingQuality = 'high';
+    }
 
+    const hdHudSheet = isHd ? this.getHdImage4x('battle_hud_4x', this.battleHudAtlas) : null;
     const blitHudSprite = (id: number, dx: number, dy: number) => {
       const r = rects[String(id)];
       if (!r) return;
-      ctx.drawImage(this.battleHudAtlas, r[0], r[1], r[2], r[3], dx, dy, r[2], r[3]);
+      if (isHd && hdHudSheet) {
+        ctx.drawImage(hdHudSheet, r[0] * 4, r[1] * 4, r[2] * 4, r[3] * 4, dx, dy, r[2], r[3]);
+      } else {
+        ctx.drawImage(this.battleHudAtlas, r[0], r[1], r[2], r[3], dx, dy, r[2], r[3]);
+      }
     };
 
     // 1. Base 149x42 steel-blue panel with dark-red empty HP/MP troughs (`FDOTHER[5][22]`)
@@ -806,11 +1318,20 @@ export class AssetManager {
       const sx = (gid % cols) * 16;
       const sy = Math.floor(gid / cols) * 16;
       // Exact fn_256554 row-major overwrite behavior: shadow at (x-1, y+1) and (x, y+1), foreground on top at (x, y)
-      ctx.drawImage(shSheet, sx, sy, gw, 16, cx - 1, cy + 1, gw, 16);
-      ctx.drawImage(shSheet, sx, sy, gw, 16, cx, cy + 1, gw, 16);
-      ctx.drawImage(fgSheet, sx, sy, gw, 16, cx, cy, gw, 16);
+      if (isHd) {
+        const hdSh = this.getHdRegion4x(`font:hud_shadow:${gid}`, shSheet, sx, sy, gw, 16);
+        const hdFg = this.getHdRegion4x(`font:hud_fg:${gid}`, fgSheet, sx, sy, gw, 16);
+        ctx.drawImage(hdSh, 0, 0, gw * 4, 64, cx - 1, cy + 1, gw, 16);
+        ctx.drawImage(hdSh, 0, 0, gw * 4, 64, cx, cy + 1, gw, 16);
+        ctx.drawImage(hdFg, 0, 0, gw * 4, 64, cx, cy, gw, 16);
+      } else {
+        ctx.drawImage(shSheet, sx, sy, gw, 16, cx - 1, cy + 1, gw, 16);
+        ctx.drawImage(shSheet, sx, sy, gw, 16, cx, cy + 1, gw, 16);
+        ctx.drawImage(fgSheet, sx, sy, gw, 16, cx, cy, gw, 16);
+      }
       cx += adv;
     }
+    ctx.restore();
   }
 
   /**
@@ -899,7 +1420,7 @@ export class AssetManager {
     ctx.drawImage(tileset, sx, sy, 24, 24, dx, dy, tilePx, tilePx);
   }
 
-  /** Draws a FIGANI combat/spell frame (using `4x` edge-directed HD frame in HD mode). */
+  /** Draws a FIGANI combat/spell frame (using `4x` edge-directed HD frame + de-dithered shadow + portrait-guided face synthesis in HD mode). */
   drawFigAniFrame(
     ctx: CanvasRenderingContext2D,
     img: HTMLImageElement,
@@ -910,11 +1431,20 @@ export class AssetManager {
     dx: number,
     dy: number,
     dw = sw,
-    dh = sh
+    dh = sh,
+    unitId?: number
   ): void {
     if (sw <= 0 || sh <= 0) return;
     if (this.editionMode === 'hd') {
-      const hdFrame = this.getHdRegion4x(`fig:${img.src}:${sx}:${sy}:${sw}:${sh}`, img, sx, sy, sw, sh);
+      const hdFrame = this.getHdRegion4x(
+        `fig:${unitId ?? 'fx'}:${img.src}:${sx}:${sy}:${sw}:${sh}`,
+        img,
+        sx,
+        sy,
+        sw,
+        sh,
+        { isFigAniSprite: true, unitId }
+      );
       ctx.save();
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';

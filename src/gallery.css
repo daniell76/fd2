@@ -55,6 +55,11 @@ img.pixel-crisp {
   image-rendering: crisp-edges;
 }
 
+body.edition-hd canvas.pixel-crisp,
+body.edition-hd img.pixel-crisp {
+  image-rendering: auto;
+}
+
 #gallery-app {
   min-height: 100vh;
   display: flex;

@@ -79,6 +79,11 @@ img.pixel-crisp {
   image-rendering: crisp-edges;
 }
 
+body.edition-hd canvas.pixel-crisp,
+body.edition-hd img.pixel-crisp {
+  image-rendering: auto;
+}
+
 /* =========================================================================
    TOP COMMAND BAR
    ========================================================================= */
@@ -655,7 +660,7 @@ img.pixel-crisp {
 
 .title-art-frame {
   position: relative;
-  width: min(680px, 92vw);
+  width: min(1160px, 92vw, calc((70vh) * 1.6));
   aspect-ratio: 320 / 200;
   border-radius: 10px;
   overflow: hidden;
@@ -717,7 +722,7 @@ img.pixel-crisp {
 }
 
 .cutscene-window {
-  width: min(700px, 95vw);
+  width: min(1560px, 94vw, calc((92vh - 54px) * 1.6));
   background: var(--surface-1);
   border: 1px solid var(--border-brass);
   border-radius: 10px;
@@ -763,7 +768,7 @@ img.pixel-crisp {
 }
 
 .dialogue-box {
-  width: min(720px, 95vw);
+  width: min(940px, 95vw);
   background: linear-gradient(180deg, hsla(220, 22%, 13%, 0.96) 0%, hsla(220, 24%, 9%, 0.98) 100%);
   border: 1.5px solid var(--border-brass);
   border-radius: 10px;

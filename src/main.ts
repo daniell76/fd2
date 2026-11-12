@@ -3870,7 +3870,7 @@ class FlameDragonWebApp {
 
     this.subPopupEl.innerHTML = `
       <div style="display:flex; align-items:center; gap:12px;">
-        <img class="pixel-crisp" src="assets/screens/gameover.png" width="96" height="60" style="border-radius:4px; border:1px solid var(--border-brass);" alt="Game Over" />
+        <img class="pixel-crisp" src="${this.assets.getScreenUrl('gameover')}" width="96" height="60" style="border-radius:4px; border:1px solid var(--border-brass);" alt="Game Over" />
         <div>
           <div style="color:var(--enemy-red); font-weight:700; margin-bottom:6px;">${tr('遠征挫敗 · GAME OVER', '远征挫败 · GAME OVER', 'EXPEDITION DEFEATED · GAME OVER')}</div>
           <div style="display:flex; gap:8px;">
@@ -4272,11 +4272,15 @@ class FlameDragonWebApp {
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, targetW, targetH);
 
-    const logo = this.assets.screens.title;
+    const logo = this.assets.getScreenImage('title');
     if (logo) {
       if (isHd) {
-        const hdLogo = this.assets.getHdImage4x('screen:title', logo);
-        ctx.drawImage(hdLogo, 0, 0, 1280, 800, 0, 0, targetW, targetH);
+        if (this.assets.hdScreens.title) {
+          ctx.drawImage(this.assets.hdScreens.title, 0, 0, targetW, targetH);
+        } else {
+          const hdLogo = this.assets.getHdImage4x('screen:title', logo);
+          ctx.drawImage(hdLogo, 0, 0, 1280, 800, 0, 0, targetW, targetH);
+        }
       } else {
         ctx.drawImage(logo, 0, 0, 320, 200);
       }

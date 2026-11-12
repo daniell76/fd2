@@ -89,6 +89,7 @@ export class SoundEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
+  private midiFadeGain: GainNode | null = null;
   private hdBassBoost: BiquadFilterNode | null = null;
   private hdPresenceBoost: BiquadFilterNode | null = null;
   private hdReverbNode: ConvolverNode | null = null;
@@ -103,6 +104,9 @@ export class SoundEngine {
   private hdMusicBuffers = new Map<number, AudioBuffer>();
   private hdMusicLoading = new Set<number>();
   private activeHdMusicSource: AudioBufferSourceNode | null = null;
+  private activeHdMusicGain: GainNode | null = null;
+  private hdLoopTimer: number | null = null;
+  private midiLoopFadeScheduled = false;
 
   private sfxPayload: SfxBanksPayload | null = null;
   private decodedPcmSamples = new Map<string, Float32Array>();
@@ -172,19 +176,23 @@ export class SoundEngine {
       this.masterGain.connect(comp);
 
       this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = 0.46;
+      this.musicGain.gain.value = 0.22; // Balanced lower BGM level so combat & movement SFX stay front-and-center
       this.musicGain.connect(this.masterGain);
+
+      this.midiFadeGain = this.ctx.createGain();
+      this.midiFadeGain.gain.value = 1.0;
+      this.midiFadeGain.connect(this.musicGain);
 
       // Hans Zimmer / Warcraft II Low-End Sub-Bass & Concert Hall Mastering Bus for HD Remastered Mode
       this.hdBassBoost = this.ctx.createBiquadFilter();
       this.hdBassBoost.type = 'lowshelf';
       this.hdBassBoost.frequency.value = 90;
-      this.hdBassBoost.gain.value = 6.8; // Thunderous low-end timpani, taiko & contrabass weight
+      this.hdBassBoost.gain.value = 4.2; // Warm low-end timpani, taiko & contrabass weight without overpowering SFX
 
       this.hdPresenceBoost = this.ctx.createBiquadFilter();
       this.hdPresenceBoost.type = 'highshelf';
       this.hdPresenceBoost.frequency.value = 3800;
-      this.hdPresenceBoost.gain.value = 2.4; // Crisp brass & harpsichord transients
+      this.hdPresenceBoost.gain.value = 1.8; // Crisp brass & harpsichord transients
 
       this.hdBassBoost.connect(this.hdPresenceBoost);
       this.hdPresenceBoost.connect(this.musicGain);
@@ -204,14 +212,19 @@ export class SoundEngine {
       this.hdReverbNode = this.ctx.createConvolver();
       this.hdReverbNode.buffer = revBuf;
       this.hdReverbGain = this.ctx.createGain();
-      this.hdReverbGain.gain.value = 0.28;
+      this.hdReverbGain.gain.value = 0.18;
       this.hdPresenceBoost.connect(this.hdReverbNode);
       this.hdReverbNode.connect(this.hdReverbGain);
-      this.hdReverbGain.connect(this.masterGain);
+      this.hdReverbGain.connect(this.musicGain);
 
       this.sfxGain = this.ctx.createGain();
-      this.sfxGain.gain.value = 0.65;
+      this.sfxGain.gain.value = 0.72;
       this.sfxGain.connect(this.masterGain);
+
+      const sfxRevOut = this.ctx.createGain();
+      sfxRevOut.gain.value = 0.24;
+      this.hdReverbNode.connect(sfxRevOut);
+      sfxRevOut.connect(this.sfxGain);
 
       this.hdSfxReverbSend = this.ctx.createGain();
       this.hdSfxReverbSend.gain.value = 0.34;
@@ -272,7 +285,7 @@ export class SoundEngine {
     if (this.tracks.length === 0) return;
     const idx = ((trackIdx % this.tracks.length) + this.tracks.length) % this.tracks.length;
     if (this.isPlayingMusic && this.currentTrackIdx === idx && this.loopCurrentTrack === loop && !this.muted) return;
-    this.stopMusic();
+    this.stopMusic(true);
     this.currentTrackIdx = idx;
     const sourceIndex = this.tracks[idx]?.sourceIndex ?? -1;
     this.currentSourceIndex = sourceIndex;
@@ -289,12 +302,20 @@ export class SoundEngine {
     if (this.editionMode === 'hd' && sourceIndex > 0) {
       const cachedBuf = this.hdMusicBuffers.get(sourceIndex);
       if (cachedBuf) {
-        this.startHdAudioBufferPlayback(cachedBuf, loop);
+        this.startHdAudioBufferPlayback(cachedBuf, loop, 0.55);
         return;
       }
       this.loadAndSwitchToHdTrack(sourceIndex, idx, loop);
     }
 
+    // Smooth fade-in on Classic MIDI track start / switch
+    if (this.midiFadeGain) {
+      const now = ctx.currentTime;
+      this.midiFadeGain.gain.cancelScheduledValues(now);
+      this.midiFadeGain.gain.setValueAtTime(0.0001, now);
+      this.midiFadeGain.gain.linearRampToValueAtTime(1.0, now + 0.42);
+    }
+    this.midiLoopFadeScheduled = false;
     this.trackStartTime = ctx.currentTime + 0.08;
     this.noteCursor = 0;
 
@@ -302,34 +323,99 @@ export class SoundEngine {
     this.scheduleAhead();
   }
 
-  private startHdAudioBufferPlayback(buffer: AudioBuffer, loop: boolean): void {
+  /**
+   * Smoothly fades out and stops the active HD MP3 buffer source over `fadeSec` seconds
+   * so track switches and loop transitions never produce an abrupt cut.
+   */
+  private fadeOutActiveHdSource(fadeSec = 0.45): void {
+    if (this.hdLoopTimer !== null) {
+      clearTimeout(this.hdLoopTimer);
+      this.hdLoopTimer = null;
+    }
+    const oldSrc = this.activeHdMusicSource;
+    const oldGain = this.activeHdMusicGain;
+    this.activeHdMusicSource = null;
+    this.activeHdMusicGain = null;
+    if (!oldSrc) return;
+    if (!this.ctx || !oldGain || fadeSec <= 0.01) {
+      try {
+        oldSrc.stop();
+      } catch {
+        // ignore
+      }
+      return;
+    }
+    try {
+      const now = this.ctx.currentTime;
+      const curVal = Math.max(0.0001, oldGain.gain.value);
+      oldGain.gain.cancelScheduledValues(now);
+      oldGain.gain.setValueAtTime(curVal, now);
+      oldGain.gain.exponentialRampToValueAtTime(0.0001, now + fadeSec);
+      oldSrc.stop(now + fadeSec + 0.03);
+    } catch {
+      try {
+        oldSrc.stop();
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  private startHdAudioBufferPlayback(buffer: AudioBuffer, loop: boolean, fadeInSec = 0.55): void {
     if (!this.ctx || !this.hdBassBoost) return;
     if (this.schedulerTimer !== null) {
       clearInterval(this.schedulerTimer);
       this.schedulerTimer = null;
     }
-    if (this.activeHdMusicSource) {
-      try {
-        this.activeHdMusicSource.stop();
-      } catch {
-        // ignore
-      }
-      this.activeHdMusicSource = null;
-    }
+    // Smoothly fade out any currently playing HD MP3 source (e.g. previous track or previous loop cycle)
+    this.fadeOutActiveHdSource(Math.min(0.65, fadeInSec));
+
+    const now = this.ctx.currentTime;
+    const targetGain = 0.56;
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
-    src.loop = loop;
-    src.connect(this.hdBassBoost);
+    src.loop = false;
+
+    const srcGain = this.ctx.createGain();
+    srcGain.gain.setValueAtTime(0.0001, now);
+    srcGain.gain.linearRampToValueAtTime(targetGain, now + Math.max(0.08, fadeInSec));
+
+    src.connect(srcGain);
+    srcGain.connect(this.hdBassBoost);
+
     this.activeHdMusicSource = src;
+    this.activeHdMusicGain = srcGain;
+
+    const dur = buffer.duration;
+    const loopCrossfadeSec = 0.78;
+    if (loop && dur > loopCrossfadeSec * 2.2) {
+      // Schedule next loop iteration to crossfade in `loopCrossfadeSec` before this buffer ends
+      const nextLoopDelayMs = Math.max(200, Math.round((dur - loopCrossfadeSec) * 1000));
+      const expectedTrackIdx = this.currentTrackIdx;
+      this.hdLoopTimer = window.setTimeout(() => {
+        this.hdLoopTimer = null;
+        if (
+          this.isPlayingMusic &&
+          !this.muted &&
+          this.editionMode === 'hd' &&
+          this.loopCurrentTrack &&
+          this.currentTrackIdx === expectedTrackIdx
+        ) {
+          this.startHdAudioBufferPlayback(buffer, true, loopCrossfadeSec);
+        }
+      }, nextLoopDelayMs);
+    }
+
     src.onended = () => {
       if (this.activeHdMusicSource === src) {
         this.activeHdMusicSource = null;
+        this.activeHdMusicGain = null;
         if (!loop) {
           this.isPlayingMusic = false;
         }
       }
     };
-    src.start(this.ctx.currentTime);
+    src.start(now);
   }
 
   private loadAndSwitchToHdTrack(sourceIndex: number, expectedTrackIdx: number, loop: boolean): void {
@@ -354,7 +440,7 @@ export class SoundEngine {
           !this.muted &&
           this.currentTrackIdx === expectedTrackIdx
         ) {
-          this.startHdAudioBufferPlayback(audioBuf, loop);
+          this.startHdAudioBufferPlayback(audioBuf, loop, 0.55);
         }
       })
       .catch(() => {
@@ -362,20 +448,13 @@ export class SoundEngine {
       });
   }
 
-  stopMusic(): void {
+  stopMusic(smoothFade = true): void {
     this.isPlayingMusic = false;
     if (this.schedulerTimer !== null) {
       clearInterval(this.schedulerTimer);
       this.schedulerTimer = null;
     }
-    if (this.activeHdMusicSource) {
-      try {
-        this.activeHdMusicSource.stop();
-      } catch {
-        // ignore
-      }
-      this.activeHdMusicSource = null;
-    }
+    this.fadeOutActiveHdSource(smoothFade ? 0.45 : 0);
   }
 
   private scheduleAhead(): void {
@@ -400,10 +479,31 @@ export class SoundEngine {
       this.noteCursor++;
     }
 
-    if (this.noteCursor >= track.notes.length && now >= this.trackStartTime + track.duration) {
+    // Smooth fade-out right before Classic MIDI loop boundary
+    const trackEndTime = this.trackStartTime + track.duration;
+    if (
+      this.loopCurrentTrack &&
+      !this.midiLoopFadeScheduled &&
+      this.midiFadeGain &&
+      track.duration > 1.2 &&
+      now >= trackEndTime - 0.36
+    ) {
+      this.midiLoopFadeScheduled = true;
+      this.midiFadeGain.gain.cancelScheduledValues(now);
+      this.midiFadeGain.gain.setValueAtTime(Math.max(0.0001, this.midiFadeGain.gain.value), now);
+      this.midiFadeGain.gain.linearRampToValueAtTime(0.04, trackEndTime);
+    }
+
+    if (this.noteCursor >= track.notes.length && now >= trackEndTime) {
       if (this.loopCurrentTrack) {
-        this.trackStartTime = now + 0.25;
+        this.trackStartTime = now + 0.18;
         this.noteCursor = 0;
+        this.midiLoopFadeScheduled = false;
+        if (this.midiFadeGain) {
+          this.midiFadeGain.gain.cancelScheduledValues(now);
+          this.midiFadeGain.gain.setValueAtTime(0.04, now);
+          this.midiFadeGain.gain.linearRampToValueAtTime(1.0, now + 0.42);
+        }
       } else {
         this.stopMusic();
       }
@@ -452,7 +552,8 @@ export class SoundEngine {
 
     osc.connect(filter);
     filter.connect(gain);
-    const outBus = this.editionMode === 'hd' && this.hdBassBoost ? this.hdBassBoost : this.musicGain;
+    const midiOut = this.midiFadeGain ?? this.musicGain;
+    const outBus = this.editionMode === 'hd' && this.hdBassBoost ? this.hdBassBoost : midiOut;
     gain.connect(outBus);
 
     osc.start(when);
@@ -479,7 +580,8 @@ export class SoundEngine {
 
   private triggerDrum(when: number, note: number, vel: number): void {
     if (!this.ctx || !this.musicGain) return;
-    const outBus = this.editionMode === 'hd' && this.hdBassBoost ? this.hdBassBoost : this.musicGain;
+    const midiOut = this.midiFadeGain ?? this.musicGain;
+    const outBus = this.editionMode === 'hd' && this.hdBassBoost ? this.hdBassBoost : midiOut;
     const amp = (vel / 127) * (this.editionMode === 'hd' ? 0.26 : 0.18);
     if (note === 35 || note === 36 || note === 41 || note === 45) {
       // Kick / Low Tom / Taiko War Drum
