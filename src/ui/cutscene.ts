@@ -49,10 +49,17 @@ export class CutscenePlayer {
     if (steps.length === 0) return;
 
     backdropEl.classList.remove('hidden');
-    canvas.width = 320;
-    canvas.height = 200;
+    const syncStageResolution = () => {
+      const targetW = this.assets.isHdMode() ? 1280 : 320;
+      const targetH = this.assets.isHdMode() ? 800 : 200;
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+    };
+    syncStageResolution();
     const ctx = canvas.getContext('2d')!;
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = this.assets.isHdMode();
 
     let skipped = false;
     const onSkip = () => {
@@ -92,7 +99,7 @@ export class CutscenePlayer {
 
       // Render Step 0 immediately so there isn't even a 1-frame blank canvas on open
       triggerSfxUpTo(0);
-      renderTimelineStep(ctx, this.assets, bgId, steps[0], Math.floor(performance.now() / 180));
+      renderTimelineStep(ctx, this.assets, bgId, steps[0], Math.floor(performance.now() / 180), steps[1], 0);
       lastRenderedStep = 0;
 
       const frame = (now: number) => {
@@ -100,6 +107,7 @@ export class CutscenePlayer {
           resolve();
           return;
         }
+        syncStageResolution();
         if (animStartMs === null) {
           animStartMs = now;
         }
@@ -118,8 +126,20 @@ export class CutscenePlayer {
 
         triggerSfxUpTo(stepIdx);
         const idleBucket = Math.floor(now / 180);
-        if (stepIdx !== lastRenderedStep || idleBucket !== lastIdleBucket) {
-          renderTimelineStep(ctx, this.assets, bgId, steps[stepIdx], idleBucket);
+        const isHd = this.assets.isHdMode();
+        if (isHd || stepIdx !== lastRenderedStep || idleBucket !== lastIdleBucket) {
+          const prevCum = stepIdx > 0 ? cumTicks[stepIdx - 1] : 0;
+          const stepDur = Math.max(1, cumTicks[stepIdx] - prevCum);
+          const subProgress = isHd ? Math.max(0, Math.min(1, (elapsedTicks - prevCum) / stepDur)) : 0;
+          renderTimelineStep(
+            ctx,
+            this.assets,
+            bgId,
+            steps[stepIdx],
+            idleBucket,
+            steps[stepIdx + 1],
+            subProgress
+          );
           lastRenderedStep = stepIdx;
           lastIdleBucket = idleBucket;
         }
@@ -429,6 +449,11 @@ export class CutscenePlayer {
       const t0 = performance.now();
       const animateLipSync = (now: number) => {
         if (hasPortrait) {
+          const pSize = this.assets.isHdMode() ? 320 : 80;
+          if (portraitCanvas.width !== pSize || portraitCanvas.height !== pSize) {
+            portraitCanvas.width = pSize;
+            portraitCanvas.height = pSize;
+          }
           const elapsed = now - t0;
           const talking = elapsed < 1050;
           const frame = talking
@@ -436,8 +461,8 @@ export class CutscenePlayer {
             : Math.floor(elapsed / 2200) % 6 === 5
               ? 3
               : 0;
-          pCtx.clearRect(0, 0, 80, 80);
-          this.assets.drawPortrait(pCtx, pid, frame, 0, 0, 80, 80);
+          pCtx.clearRect(0, 0, pSize, pSize);
+          this.assets.drawPortrait(pCtx, pid, frame, 0, 0, pSize, pSize);
         }
         animId = requestAnimationFrame(animateLipSync);
       };

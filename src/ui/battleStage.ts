@@ -1542,17 +1542,44 @@ export function renderTimelineStep(
   assets: AssetManager,
   bgId: number,
   step: TimelineStep,
-  _talkTick = 0
+  _talkTick = 0,
+  nextStep?: TimelineStep,
+  subProgress = 0
 ): void {
-  ctx.imageSmoothingEnabled = false;
+  const isHd = assets.isHdMode();
+  const scaleX = ctx.canvas.width / 320;
+  const scaleY = ctx.canvas.height / 200;
+  ctx.save();
+  if (scaleX !== 1 || scaleY !== 1) {
+    ctx.scale(scaleX, scaleY);
+  }
+  ctx.imageSmoothingEnabled = isHd;
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, 320, 200);
 
   if (step.mode === 'bridge') {
     const speedBgId = (step.bridgeStep ?? 0) % 3;
     assets.drawBattleBg(ctx, speedBgId, 0, 50, 320, 100);
+    ctx.restore();
     return;
   }
+
+  // Smooth 60fps sub-tick motion & HP bar interpolation in HD Remastered Mode
+  const canLerp = Boolean(isHd && nextStep && nextStep.mode === step.mode && subProgress > 0);
+  const t = canLerp ? Math.max(0, Math.min(1, subProgress)) : 0;
+  const lerp = (a: number, b: number) => a + (b - a) * t;
+
+  const leftSlideX = canLerp ? lerp(step.leftSlideX ?? 0, nextStep!.leftSlideX ?? 0) : (step.leftSlideX ?? 0);
+  const leftSlideY = canLerp ? lerp(step.leftSlideY ?? 0, nextStep!.leftSlideY ?? 0) : (step.leftSlideY ?? 0);
+  const rightSlideX = canLerp ? lerp(step.rightSlideX ?? 0, nextStep!.rightSlideX ?? 0) : (step.rightSlideX ?? 0);
+  const rightSlideY = canLerp ? lerp(step.rightSlideY ?? 0, nextStep!.rightSlideY ?? 0) : (step.rightSlideY ?? 0);
+  const rightTaiSlideX = canLerp
+    ? lerp(step.rightTaiSlideX ?? 0, nextStep!.rightTaiSlideX ?? 0)
+    : (step.rightTaiSlideX ?? 0);
+  const dispRightHp = canLerp ? lerp(step.rightHp, nextStep!.rightHp) : step.rightHp;
+  const dispRightMp = canLerp ? lerp(step.rightMp, nextStep!.rightMp) : step.rightMp;
+  const dispLeftHp = canLerp ? lerp(step.leftHp, nextStep!.leftHp) : step.leftHp;
+  const dispLeftMp = canLerp ? lerp(step.leftMp, nextStep!.leftMp) : step.leftMp;
 
   // 1. Authentic DOS 320x200 stage backdrop: BG.DAT at (0, 50) + single right-hand TAI.DAT at (320 - w, 156)
   // Both BG.DAT and TAI.DAT remain completely stationary during physical/magic hits (FD2.EXE L105058..105105).
@@ -1566,7 +1593,7 @@ export function renderTimelineStep(
     const rightTai = assets.gameData.taiPlatforms[taiId];
     if (rightTai && rightTai.valid) {
       // Note: TAI platform stays fixed at `320 - rightTai.w` during hit recoil (`rightTaiSlideX` is only set for magic slide-in/out)
-      assets.drawTaiPlatform(ctx, taiId, 320 - rightTai.w + (step.rightTaiSlideX ?? 0), 156, false);
+      assets.drawTaiPlatform(ctx, taiId, 320 - rightTai.w + rightTaiSlideX, 156, false);
     }
   }
 
@@ -1584,9 +1611,9 @@ export function renderTimelineStep(
       4,
       u.nameGlyphs,
       u.level,
-      step.rightHp,
+      dispRightHp,
       u.maxHp,
-      step.rightMp,
+      dispRightMp,
       u.maxMp,
       u.nameZh
     );
@@ -1600,9 +1627,9 @@ export function renderTimelineStep(
       154,
       u.nameGlyphs,
       u.level,
-      step.leftHp,
+      dispLeftHp,
       u.maxHp,
-      step.leftMp,
+      dispLeftMp,
       u.maxMp,
       u.nameZh
     );
@@ -1623,7 +1650,7 @@ export function renderTimelineStep(
     if (pack && pack.strip.frames.length > 0) {
       const idx = Math.max(0, Math.min(pack.strip.frames.length - 1, frameIdx));
       const fr = pack.strip.frames[idx];
-      ctx.drawImage(pack.img, fr.sx, 0, fr.w, fr.h, fr.ox + slideX, fr.oy + slideY, fr.w, fr.h);
+      assets.drawFigAniFrame(ctx, pack.img, fr.sx, 0, fr.w, fr.h, fr.ox + slideX, fr.oy + slideY, fr.w, fr.h);
     } else {
       assets.drawUnitSprite(
         ctx,
@@ -1637,6 +1664,27 @@ export function renderTimelineStep(
       );
     }
     ctx.restore();
+
+    // HD Remastered Mode: Dynamic radial impact shockwave & bloom on struck combatant
+    if (isHd && flashing) {
+      const cx = (unit.isHeroSide ? 236 : 82) + slideX;
+      const cy = (unit.isHeroSide ? 132 : 112) + slideY;
+      ctx.save();
+      const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 46);
+      grad.addColorStop(0, 'rgba(255, 250, 210, 0.72)');
+      grad.addColorStop(0.45, 'rgba(255, 165, 65, 0.36)');
+      grad.addColorStop(1, 'rgba(255, 90, 30, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 46, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 232, 150, 0.65)';
+      ctx.lineWidth = 1.25;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 18 + t * 22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
   };
 
   const drawSpellLayer = (behindPass: boolean) => {
@@ -1647,7 +1695,7 @@ export function renderTimelineStep(
         if (Boolean(inst.behindTarget) !== behindPass) continue;
         const fr = strip.frames[Math.max(0, Math.min(strip.frames.length - 1, inst.fIdx))];
         if (fr) {
-          ctx.drawImage(img, fr.sx, 0, fr.w, fr.h, fr.ox + inst.dx, fr.oy + inst.dy, fr.w, fr.h);
+          assets.drawFigAniFrame(ctx, img, fr.sx, 0, fr.w, fr.h, fr.ox + inst.dx, fr.oy + inst.dy, fr.w, fr.h);
         }
       }
       return;
@@ -1661,7 +1709,22 @@ export function renderTimelineStep(
         const anchorBaseX = Math.round(targetCenterX - maxExtent * 0.5);
         drawX = anchorBaseX + fr.ox;
       }
-      ctx.drawImage(img, fr.sx, 0, fr.w, fr.h, drawX, fr.oy, fr.w, fr.h);
+      if (isHd) {
+        ctx.save();
+        const cx = drawX + fr.w * 0.5;
+        const cy = fr.oy + fr.h * 0.5;
+        const r = Math.max(28, Math.max(fr.w, fr.h) * 0.65);
+        const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, r);
+        glow.addColorStop(0, 'rgba(255, 235, 165, 0.34)');
+        glow.addColorStop(0.55, 'rgba(130, 200, 255, 0.16)');
+        glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+      assets.drawFigAniFrame(ctx, img, fr.sx, 0, fr.w, fr.h, drawX, fr.oy, fr.w, fr.h);
     }
   };
 
@@ -1674,8 +1737,8 @@ export function renderTimelineStep(
         step.leftUnit,
         step.leftPack,
         step.leftFrameIdx,
-        step.leftSlideX ?? 0,
-        step.leftSlideY ?? 0,
+        leftSlideX,
+        leftSlideY,
         Boolean(step.leftFlash)
       );
     }
@@ -1686,8 +1749,8 @@ export function renderTimelineStep(
         step.rightUnit,
         step.rightPack,
         step.rightFrameIdx,
-        step.rightSlideX ?? 0,
-        step.rightSlideY ?? 0,
+        rightSlideX,
+        rightSlideY,
         Boolean(step.rightFlash)
       );
     }
@@ -1754,10 +1817,11 @@ export function renderTimelineStep(
     const { img, strip, fIdx } = step.missileFrame;
     const fr = strip.frames[Math.max(0, Math.min(strip.frames.length - 1, fIdx))];
     if (fr) {
-      ctx.drawImage(img, fr.sx, 0, fr.w, fr.h, fr.ox, fr.oy, fr.w, fr.h);
+      assets.drawFigAniFrame(ctx, img, fr.sx, 0, fr.w, fr.h, fr.ox, fr.oy, fr.w, fr.h);
     }
   }
 
   // Phase 5 (FD2.EXE GLOBAL_9145): Foreground-layer FDOTHER.DAT spell / summon effect overlay
   drawSpellLayer(false);
+  ctx.restore();
 }

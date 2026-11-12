@@ -89,8 +89,17 @@ export class SoundEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
+  private hdBassBoost: BiquadFilterNode | null = null;
+  private hdPresenceBoost: BiquadFilterNode | null = null;
+  private hdReverbNode: ConvolverNode | null = null;
+  private hdReverbGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
   private noiseBuffer: AudioBuffer | null = null;
+
+  private editionMode: 'classic' | 'hd' = 'classic';
+  private hdMusicBuffers = new Map<number, AudioBuffer>();
+  private hdMusicLoading = new Set<number>();
+  private activeHdMusicSource: AudioBufferSourceNode | null = null;
 
   private sfxPayload: SfxBanksPayload | null = null;
   private decodedPcmSamples = new Map<string, Float32Array>();
@@ -107,6 +116,21 @@ export class SoundEngine {
   private trackStartTime = 0;
   private noteCursor = 0;
   private schedulerTimer: number | null = null;
+
+  getEditionMode(): 'classic' | 'hd' {
+    return this.editionMode;
+  }
+
+  setEditionMode(mode: 'classic' | 'hd'): void {
+    if (this.editionMode === mode) return;
+    this.editionMode = mode;
+    if (this.isPlayingMusic && this.currentTrackIdx >= 0 && !this.muted) {
+      const idx = this.currentTrackIdx;
+      const loop = this.loopCurrentTrack;
+      this.stopMusic();
+      this.playTrack(idx, loop);
+    }
+  }
 
   setTracks(tracks: MusicTrack[]): void {
     this.tracks = tracks;
@@ -145,8 +169,42 @@ export class SoundEngine {
       this.masterGain.connect(comp);
 
       this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = 0.42;
+      this.musicGain.gain.value = 0.46;
       this.musicGain.connect(this.masterGain);
+
+      // Hans Zimmer / Warcraft II Low-End Sub-Bass & Concert Hall Mastering Bus for HD Remastered Mode
+      this.hdBassBoost = this.ctx.createBiquadFilter();
+      this.hdBassBoost.type = 'lowshelf';
+      this.hdBassBoost.frequency.value = 90;
+      this.hdBassBoost.gain.value = 6.8; // Thunderous low-end timpani, taiko & contrabass weight
+
+      this.hdPresenceBoost = this.ctx.createBiquadFilter();
+      this.hdPresenceBoost.type = 'highshelf';
+      this.hdPresenceBoost.frequency.value = 3800;
+      this.hdPresenceBoost.gain.value = 2.4; // Crisp brass & harpsichord transients
+
+      this.hdBassBoost.connect(this.hdPresenceBoost);
+      this.hdPresenceBoost.connect(this.musicGain);
+
+      // Algorithmic Stereo Concert Hall Impulse Response (`ConvolverNode`)
+      const revDur = 1.85;
+      const revLen = Math.floor(this.ctx.sampleRate * revDur);
+      const revBuf = this.ctx.createBuffer(2, revLen, this.ctx.sampleRate);
+      for (let c = 0; c < 2; c++) {
+        const chData = revBuf.getChannelData(c);
+        for (let i = 0; i < revLen; i++) {
+          const t = i / this.ctx.sampleRate;
+          const decay = Math.exp(-t * 3.1);
+          chData[i] = (Math.random() * 2 - 1) * decay * (1 - 0.25 * Math.cos(t * 19));
+        }
+      }
+      this.hdReverbNode = this.ctx.createConvolver();
+      this.hdReverbNode.buffer = revBuf;
+      this.hdReverbGain = this.ctx.createGain();
+      this.hdReverbGain.gain.value = 0.28;
+      this.hdPresenceBoost.connect(this.hdReverbNode);
+      this.hdReverbNode.connect(this.hdReverbGain);
+      this.hdReverbGain.connect(this.masterGain);
 
       this.sfxGain = this.ctx.createGain();
       this.sfxGain.gain.value = 0.65;
@@ -209,7 +267,8 @@ export class SoundEngine {
     if (this.isPlayingMusic && this.currentTrackIdx === idx && this.loopCurrentTrack === loop && !this.muted) return;
     this.stopMusic();
     this.currentTrackIdx = idx;
-    this.currentSourceIndex = this.tracks[idx]?.sourceIndex ?? -1;
+    const sourceIndex = this.tracks[idx]?.sourceIndex ?? -1;
+    this.currentSourceIndex = sourceIndex;
     this.loopCurrentTrack = loop;
     if (this.muted) return;
 
@@ -217,6 +276,18 @@ export class SoundEngine {
     if (!ctx) return;
 
     this.isPlayingMusic = true;
+
+    // In HD Remastered Mode, play the Lyria 3 Hans Zimmer / Warcraft II orchestral MP3 track if cached,
+    // or fetch & decode it asynchronously and seamlessly crossfade into it!
+    if (this.editionMode === 'hd' && sourceIndex > 0) {
+      const cachedBuf = this.hdMusicBuffers.get(sourceIndex);
+      if (cachedBuf) {
+        this.startHdAudioBufferPlayback(cachedBuf, loop);
+        return;
+      }
+      this.loadAndSwitchToHdTrack(sourceIndex, idx, loop);
+    }
+
     this.trackStartTime = ctx.currentTime + 0.08;
     this.noteCursor = 0;
 
@@ -224,11 +295,79 @@ export class SoundEngine {
     this.scheduleAhead();
   }
 
+  private startHdAudioBufferPlayback(buffer: AudioBuffer, loop: boolean): void {
+    if (!this.ctx || !this.hdBassBoost) return;
+    if (this.schedulerTimer !== null) {
+      clearInterval(this.schedulerTimer);
+      this.schedulerTimer = null;
+    }
+    if (this.activeHdMusicSource) {
+      try {
+        this.activeHdMusicSource.stop();
+      } catch {
+        // ignore
+      }
+      this.activeHdMusicSource = null;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.loop = loop;
+    src.connect(this.hdBassBoost);
+    this.activeHdMusicSource = src;
+    src.onended = () => {
+      if (this.activeHdMusicSource === src) {
+        this.activeHdMusicSource = null;
+        if (!loop) {
+          this.isPlayingMusic = false;
+        }
+      }
+    };
+    src.start(this.ctx.currentTime);
+  }
+
+  private loadAndSwitchToHdTrack(sourceIndex: number, expectedTrackIdx: number, loop: boolean): void {
+    if (this.hdMusicLoading.has(sourceIndex)) return;
+    this.hdMusicLoading.add(sourceIndex);
+    fetch(`assets/hd_music/fdmus_${sourceIndex}.mp3`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.arrayBuffer();
+      })
+      .then((ab) => {
+        const ctx = this.ensureContext();
+        if (!ctx) throw new Error('No AudioContext');
+        return ctx.decodeAudioData(ab);
+      })
+      .then((audioBuf) => {
+        this.hdMusicBuffers.set(sourceIndex, audioBuf);
+        this.hdMusicLoading.delete(sourceIndex);
+        if (
+          this.editionMode === 'hd' &&
+          this.isPlayingMusic &&
+          !this.muted &&
+          this.currentTrackIdx === expectedTrackIdx
+        ) {
+          this.startHdAudioBufferPlayback(audioBuf, loop);
+        }
+      })
+      .catch(() => {
+        this.hdMusicLoading.delete(sourceIndex);
+      });
+  }
+
   stopMusic(): void {
     this.isPlayingMusic = false;
     if (this.schedulerTimer !== null) {
       clearInterval(this.schedulerTimer);
       this.schedulerTimer = null;
+    }
+    if (this.activeHdMusicSource) {
+      try {
+        this.activeHdMusicSource.stop();
+      } catch {
+        // ignore
+      }
+      this.activeHdMusicSource = null;
     }
   }
 
@@ -306,28 +445,49 @@ export class SoundEngine {
 
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(this.musicGain);
+    const outBus = this.editionMode === 'hd' && this.hdBassBoost ? this.hdBassBoost : this.musicGain;
+    gain.connect(outBus);
 
     osc.start(when);
     osc.stop(when + safeDur + 0.07);
+
+    // Hans Zimmer / Warcraft II Heavy Sub-Bass Octave Doubling & Stereo Detuned Horn/String Layer in HD Mode
+    if (this.editionMode === 'hd') {
+      if (note <= 58 || (prog >= 32 && prog <= 55)) {
+        const subOsc = this.ctx.createOscillator();
+        const subGain = this.ctx.createGain();
+        subOsc.type = 'sine';
+        subOsc.frequency.setValueAtTime(freq * 0.5, when);
+        const subAmp = amp * (note <= 48 ? 1.15 : 0.65);
+        subGain.gain.setValueAtTime(0.0001, when);
+        subGain.gain.linearRampToValueAtTime(subAmp, when + 0.012);
+        subGain.gain.exponentialRampToValueAtTime(0.0001, when + safeDur + 0.08);
+        subOsc.connect(subGain);
+        subGain.connect(outBus);
+        subOsc.start(when);
+        subOsc.stop(when + safeDur + 0.09);
+      }
+    }
   }
 
   private triggerDrum(when: number, note: number, vel: number): void {
     if (!this.ctx || !this.musicGain) return;
-    const amp = (vel / 127) * 0.18;
+    const outBus = this.editionMode === 'hd' && this.hdBassBoost ? this.hdBassBoost : this.musicGain;
+    const amp = (vel / 127) * (this.editionMode === 'hd' ? 0.26 : 0.18);
     if (note === 35 || note === 36 || note === 41 || note === 45) {
-      // Kick / Low Tom
+      // Kick / Low Tom / Taiko War Drum
       const osc = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       osc.type = 'sine';
+      const dur = this.editionMode === 'hd' ? 0.24 : 0.13;
       osc.frequency.setValueAtTime(note <= 36 ? 135 : 180, when);
-      osc.frequency.exponentialRampToValueAtTime(38, when + 0.11);
-      g.gain.setValueAtTime(amp * 1.3, when);
-      g.gain.exponentialRampToValueAtTime(0.0001, when + 0.13);
+      osc.frequency.exponentialRampToValueAtTime(this.editionMode === 'hd' ? 31 : 38, when + dur * 0.85);
+      g.gain.setValueAtTime(amp * (this.editionMode === 'hd' ? 1.65 : 1.3), when);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
       osc.connect(g);
-      g.connect(this.musicGain);
+      g.connect(outBus);
       osc.start(when);
-      osc.stop(when + 0.14);
+      osc.stop(when + dur + 0.02);
     } else if (this.noiseBuffer) {
       // Snare / Hi-Hat / Crash
       const src = this.ctx.createBufferSource();
@@ -342,7 +502,7 @@ export class SoundEngine {
       g.gain.exponentialRampToValueAtTime(0.0001, when + d);
       src.connect(filter);
       filter.connect(g);
-      g.connect(this.musicGain);
+      g.connect(outBus);
       src.start(when);
       src.stop(when + d + 0.02);
     }

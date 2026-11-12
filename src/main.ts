@@ -187,9 +187,11 @@ class FlameDragonWebApp {
         <div class="title-heading-group">
           <h1 id="title-main-h1">炎龍騎士團II · 黃金城之謎</h1>
           <p class="title-subtitle" id="title-subtitle-p">Flame Dragon II: Legend of Golden Castle — Authentic 1995 DOS Engine & Directing Edition</p>
-          <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:8px;">
+          <div style="display:flex; justify-content:center; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap;">
             <span id="title-lang-label" style="font-size:11.5px; color:var(--ink-300);">語言 / Language:</span>
             ${langButtonsHtml}
+            <span style="margin-left:8px; font-size:11.5px; color:var(--ink-300);" id="title-edition-label">版本 / Edition:</span>
+            <button class="btn btn-sm btn-gold" id="btn-edition-title" type="button" style="padding:3px 10px; font-size:11.5px;">✨ HD 重製版</button>
           </div>
         </div>
 
@@ -226,6 +228,7 @@ class FlameDragonWebApp {
           <button class="btn btn-sm" id="btn-next-hero" type="button" title="定位下一位未行動隊員 (Tab)">下一隊員</button>
           <button class="btn btn-sm" id="btn-situation-top" type="button" title="開啟戰況一覽">戰況</button>
           <button class="btn btn-sm btn-gold" id="btn-end-turn" type="button" title="結束回合 (E)">回合結束</button>
+          <button class="btn btn-sm btn-gold" id="btn-edition-top" type="button" title="即時切換 1995 DOS 原版 / HD 高畫質交響重製版">✨ HD 重製</button>
           <button class="btn btn-sm" id="btn-anim-speed" type="button">動畫: 1x</button>
           <button class="btn btn-sm" id="btn-bgm-toggle" type="button">音樂: 開</button>
           <button class="btn btn-sm" id="btn-save-load" type="button">存取進度</button>
@@ -335,6 +338,7 @@ class FlameDragonWebApp {
 
     await this.assets.init();
     this.sound.setTracks(this.assets.musicTracks);
+    this.sound.setEditionMode(this.assets.getEditionMode());
     if (this.assets.sfxBanks) {
       this.sound.setSfxBanks(this.assets.sfxBanks);
     }
@@ -442,6 +446,23 @@ class FlameDragonWebApp {
       )
     );
     setTxt('title-lang-label', tr('語言 / Language:', '语言 / Language:', 'Language:'));
+    setTxt('title-edition-label', tr('版本 / Edition:', '版本 / Edition:', 'Edition:'));
+    const isHd = this.assets.isHdMode();
+    setTxt(
+      'btn-edition-title',
+      isHd
+        ? tr('✨ HD 高畫質交響版 (點擊切換 1995 原版)', '✨ HD 高画质交响版 (点击切换 1995 原版)', '✨ HD Remaster (4x GFX & Orchestral BGM)')
+        : tr('🕹️ 1995 DOS 懷舊原版 (點擊切換 HD 重製版)', '🕹️ 1995 DOS 怀旧原版 (点击切换 HD 重制版)', '🕹️ 1995 DOS Classic (Click for HD Remaster)')
+    );
+    setTxt(
+      'btn-edition-top',
+      isHd
+        ? tr('✨ HD 重製版', '✨ HD 重制版', '✨ HD Remaster')
+        : tr('🕹️ 1995 原版', '🕹️ 1995 原版', '🕹️ 1995 Classic')
+    );
+    document.getElementById('btn-edition-title')?.classList.toggle('btn-gold', isHd);
+    document.getElementById('btn-edition-top')?.classList.toggle('btn-gold', isHd);
+
     setTxt('btn-new-game', tr('新的傳奇 · New Legend', '新的传奇 · New Legend', 'New Legend (New Game)'));
     setTxt('btn-continue-game', tr('再續前緣 · Continue', '再续前缘 · Continue', 'Continue / Load Save'));
     setTxt('btn-chapter-select', tr('戰場回憶 · Chapter Select', '战场回忆 · Chapter Select', 'Chapter Select'));
@@ -516,7 +537,34 @@ class FlameDragonWebApp {
     if (this.sfxEnabled) this.sound.playSfx(kind);
   }
 
+  private toggleEditionMode(): void {
+    const nextMode = this.assets.isHdMode() ? 'classic' : 'hd';
+    this.assets.setEditionMode(nextMode);
+    this.sound.setEditionMode(nextMode);
+    this.playUiSfx('confirm');
+    this.refreshLocaleUi();
+    if (this.chapter) {
+      this.logMessage(
+        nextMode === 'hd'
+          ? tr(
+              '✨ 已即時切換至 <strong>HD 高畫質交響重製版</strong>（4× 邊緣導向高解析度圖像、60fps 流暢動畫與 Lyria 3 重低音戰鼓交響配樂）。',
+              '✨ 已即时切换至 <strong>HD 高画质交响重制版</strong>（4× 边缘导向高解析度图像、60fps 流畅动画与 Lyria 3 重低音战鼓交响配乐）。',
+              '✨ Switched live to <strong>HD Remastered Edition</strong> (4× Edge-Directed HD Graphics, 60fps Interpolated Animations & Lyria 3 Heavy-Bass Orchestral Soundtrack).'
+            )
+          : tr(
+              '🕹️ 已即時切換至 <strong>1995 DOS 懷舊原版</strong>（原版像素點陣、18.2fps 步進動畫與 OPL/AdLib 合成音樂）。',
+              '🕹️ 已即时切换至 <strong>1995 DOS 怀旧原版</strong>（原版像素点阵、18.2fps 步进动画与 OPL/AdLib 合成音乐）。',
+              '🕹️ Switched live to <strong>1995 DOS Classic Edition</strong> (Original 1× Pixel Art, 18.2fps Stepped Ticks & OPL/AdLib FM Synth).'
+            )
+      );
+    }
+  }
+
   private bindUiEvents(): void {
+    // Edition Switcher Buttons (Title Screen & Top Toolbar)
+    document.getElementById('btn-edition-title')?.addEventListener('click', () => this.toggleEditionMode());
+    document.getElementById('btn-edition-top')?.addEventListener('click', () => this.toggleEditionMode());
+
     // Language Switcher Buttons (Title Screen & Top Toolbar)
     document.querySelectorAll<HTMLButtonElement>('[data-set-locale]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -4212,14 +4260,26 @@ class FlameDragonWebApp {
   }
 
   private renderTitleCanvas(): void {
+    const isHd = this.assets.isHdMode();
+    const targetW = isHd ? 1280 : 320;
+    const targetH = isHd ? 800 : 200;
+    if (this.titleCanvas.width !== targetW || this.titleCanvas.height !== targetH) {
+      this.titleCanvas.width = targetW;
+      this.titleCanvas.height = targetH;
+    }
     const ctx = this.titleCanvas.getContext('2d')!;
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = isHd;
     ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, 320, 200);
+    ctx.fillRect(0, 0, targetW, targetH);
 
     const logo = this.assets.screens.title;
     if (logo) {
-      ctx.drawImage(logo, 0, 0, 320, 200);
+      if (isHd) {
+        const hdLogo = this.assets.getHdImage4x('screen:title', logo);
+        ctx.drawImage(hdLogo, 0, 0, 1280, 800, 0, 0, targetW, targetH);
+      } else {
+        ctx.drawImage(logo, 0, 0, 320, 200);
+      }
     }
   }
 
@@ -4229,8 +4289,9 @@ class FlameDragonWebApp {
     const ctx = this.battleCtx;
     const W = this.battleCanvas.width;
     const H = this.battleCanvas.height;
+    const isHd = this.assets.isHdMode();
 
-    ctx.imageSmoothingEnabled = false;
+    ctx.imageSmoothingEnabled = isHd;
     ctx.fillStyle = '#090b10';
     ctx.fillRect(0, 0, W, H);
 
@@ -4263,7 +4324,7 @@ class FlameDragonWebApp {
 
     const tsCols = ch.tileset.cols;
 
-    // 1. Terrain Tiles (pure `FDSHAP.DAT` pixel art — no artificial flashing overlay on treasure chests, matching `FD2.EXE`!)
+    // 1. Terrain Tiles (`1x` pixel art in Classic mode; `4x` edge-directed `96x96` HD tiles in HD Remastered mode!)
     for (let y = startRow; y <= endRow; y++) {
       for (let x = startCol; x <= endCol; x++) {
         const [tid] = ch.cells[y][x];
@@ -4271,7 +4332,7 @@ class FlameDragonWebApp {
         const sy = Math.floor(tid / tsCols) * 24;
         const dx = ox + x * tilePx;
         const dy = oy + y * tilePx;
-        ctx.drawImage(ts, sx, sy, 24, 24, dx, dy, tilePx, tilePx);
+        this.assets.drawTerrainTile(ctx, this.currentChapterId, ts, sx, sy, dx, dy, tilePx);
       }
     }
 

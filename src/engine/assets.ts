@@ -11,6 +11,132 @@ import type {
 } from '../types';
 
 export type GlyphColor = 'ivory' | 'gold' | 'crimson' | 'azure' | 'emerald' | 'shadow' | 'hud_fg' | 'hud_shadow';
+export type EditionMode = 'classic' | 'hd';
+
+const EDITION_STORAGE_KEY = 'fd2_edition_mode';
+
+function detectInitialEditionMode(): EditionMode {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('edition')?.toLowerCase();
+    if (q === 'hd' || q === 'remaster') return 'hd';
+    if (q === 'classic' || q === 'dos') return 'classic';
+    const saved = localStorage.getItem(EDITION_STORAGE_KEY);
+    if (saved === 'hd' || saved === 'classic') return saved;
+  } catch {
+    // ignore storage errors
+  }
+  return 'classic';
+}
+
+/**
+ * High-speed Edge-Directed Pixel-Art 2x Upscaling Pass (`EPX / Scale2x + xBR Knight-Slope Contour Blending`).
+ * Preserves crisp dark silhouettes and alpha boundaries while smoothing jagged 45° and 2:1 pixel stair-stepping.
+ */
+function upscaleImageData2x(src: ImageData): ImageData {
+  const sw = src.width;
+  const sh = src.height;
+  const dw = sw * 2;
+  const dh = sh * 2;
+  const dst = new ImageData(dw, dh);
+  const s32 = new Uint32Array(src.data.buffer);
+  const d32 = new Uint32Array(dst.data.buffer);
+
+  const getPx = (x: number, y: number): number => {
+    const cx = x < 0 ? 0 : x >= sw ? sw - 1 : x;
+    const cy = y < 0 ? 0 : y >= sh ? sh - 1 : y;
+    return s32[cy * sw + cx];
+  };
+
+  const similar = (c1: number, c2: number): boolean => {
+    if (c1 === c2) return true;
+    const a1 = (c1 >>> 24) & 0xff;
+    const a2 = (c2 >>> 24) & 0xff;
+    if (a1 < 32 && a2 < 32) return true;
+    if ((a1 < 32) !== (a2 < 32)) return false;
+    const r1 = c1 & 0xff;
+    const g1 = (c1 >>> 8) & 0xff;
+    const b1 = (c1 >>> 16) & 0xff;
+    const r2 = c2 & 0xff;
+    const g2 = (c2 >>> 8) & 0xff;
+    const b2 = (c2 >>> 16) & 0xff;
+    const dr = r1 > r2 ? r1 - r2 : r2 - r1;
+    const dg = g1 > g2 ? g1 - g2 : g2 - g1;
+    const db = b1 > b2 ? b1 - b2 : b2 - b1;
+    return dr * 3 + dg * 4 + db * 2 < 155;
+  };
+
+  const blend3 = (cA: number, cB: number, cBase: number, wAB: number): number => {
+    const aA = (cA >>> 24) & 0xff;
+    const aB = (cB >>> 24) & 0xff;
+    if (aA < 32 || aB < 32) return cBase;
+    const rAB = ((cA & 0xff) + (cB & 0xff)) >> 1;
+    const gAB = (((cA >>> 8) & 0xff) + ((cB >>> 8) & 0xff)) >> 1;
+    const bAB = (((cA >>> 16) & 0xff) + ((cB >>> 16) & 0xff)) >> 1;
+    const aBase = (cBase >>> 24) & 0xff;
+    if (aBase < 32) {
+      return (235 << 24) | (bAB << 16) | (gAB << 8) | rAB;
+    }
+    const r0 = cBase & 0xff;
+    const g0 = (cBase >>> 8) & 0xff;
+    const b0 = (cBase >>> 16) & 0xff;
+    const r = Math.round(rAB * wAB + r0 * (1 - wAB));
+    const g = Math.round(gAB * wAB + g0 * (1 - wAB));
+    const b = Math.round(bAB * wAB + b0 * (1 - wAB));
+    return (aBase << 24) | (b << 16) | (g << 8) | r;
+  };
+
+  for (let y = 0; y < sh; y++) {
+    const rowOut0 = (y * 2) * dw;
+    const rowOut1 = rowOut0 + dw;
+    for (let x = 0; x < sw; x++) {
+      const P = getPx(x, y);
+      const N = getPx(x, y - 1);
+      const S = getPx(x, y + 1);
+      const W = getPx(x - 1, y);
+      const E = getPx(x + 1, y);
+      const NW = getPx(x - 1, y - 1);
+      const NE = getPx(x + 1, y - 1);
+      const SW = getPx(x - 1, y + 1);
+      const SE = getPx(x + 1, y + 1);
+
+      let e0 = P;
+      let e1 = P;
+      let e2 = P;
+      let e3 = P;
+
+      if (!similar(N, S) && !similar(W, E)) {
+        if (similar(W, N) && (!similar(P, NW) || !similar(W, S) || !similar(N, E))) {
+          e0 = blend3(W, N, P, 0.82);
+          if (similar(N, NE) && !similar(P, NE)) e1 = blend3(W, N, P, 0.36);
+          if (similar(W, SW) && !similar(P, SW)) e2 = blend3(W, N, P, 0.36);
+        }
+        if (similar(N, E) && (!similar(P, NE) || !similar(N, W) || !similar(E, S))) {
+          e1 = blend3(N, E, P, 0.82);
+          if (similar(N, NW) && !similar(P, NW) && e0 === P) e0 = blend3(N, E, P, 0.36);
+          if (similar(E, SE) && !similar(P, SE)) e3 = blend3(N, E, P, 0.36);
+        }
+        if (similar(W, S) && (!similar(P, SW) || !similar(W, N) || !similar(S, E))) {
+          e2 = blend3(W, S, P, 0.82);
+          if (similar(W, NW) && !similar(P, NW) && e0 === P) e0 = blend3(W, S, P, 0.36);
+          if (similar(S, SE) && !similar(P, SE) && e3 === P) e3 = blend3(W, S, P, 0.36);
+        }
+        if (similar(S, E) && (!similar(P, SE) || !similar(S, W) || !similar(E, N))) {
+          e3 = blend3(S, E, P, 0.82);
+          if (similar(E, NE) && !similar(P, NE) && e1 === P) e1 = blend3(S, E, P, 0.36);
+          if (similar(S, SW) && !similar(P, SW) && e2 === P) e2 = blend3(S, E, P, 0.36);
+        }
+      }
+
+      const ox = x * 2;
+      d32[rowOut0 + ox] = e0;
+      d32[rowOut0 + ox + 1] = e1;
+      d32[rowOut1 + ox] = e2;
+      d32[rowOut1 + ox + 1] = e3;
+    }
+  }
+  return dst;
+}
 
 const GLYPH_HEX: Record<GlyphColor, string> = {
   ivory: '#f5efe2',
@@ -61,6 +187,70 @@ export class AssetManager {
   private chibiUrlCache = new Map<string, string>();
   private chapterCache = new Map<number, { data: ChapterData; tileset: HTMLImageElement }>();
   private figaniStripCache = new Map<string, HTMLImageElement | null>();
+  private hdRegionCache = new Map<string, HTMLCanvasElement>();
+  private editionMode: EditionMode = detectInitialEditionMode();
+
+  getEditionMode(): EditionMode {
+    return this.editionMode;
+  }
+
+  isHdMode(): boolean {
+    return this.editionMode === 'hd';
+  }
+
+  setEditionMode(mode: EditionMode): void {
+    if (this.editionMode === mode) return;
+    this.editionMode = mode;
+    try {
+      localStorage.setItem(EDITION_STORAGE_KEY, mode);
+    } catch {
+      // ignore
+    }
+    this.portraitUrlCache.clear();
+    this.spriteUrlCache.clear();
+    this.chibiUrlCache.clear();
+  }
+
+  /**
+   * Lazily upscales any sub-rectangle `(sx, sy, sw, sh)` of `img` by `4x` (`1x -> 2x -> 4x`)
+   * using our edge-directed `xBR`/`Scale4x` pixel-art contour reconstruction and caches the result.
+   */
+  getHdRegion4x(
+    cacheKey: string,
+    img: HTMLImageElement,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number
+  ): HTMLCanvasElement {
+    const cached = this.hdRegionCache.get(cacheKey);
+    if (cached) return cached;
+
+    const c1 = document.createElement('canvas');
+    c1.width = sw;
+    c1.height = sh;
+    const ctx1 = c1.getContext('2d')!;
+    ctx1.imageSmoothingEnabled = false;
+    ctx1.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    const srcData = ctx1.getImageData(0, 0, sw, sh);
+    const pass2x = upscaleImageData2x(srcData);
+    const pass4x = upscaleImageData2x(pass2x);
+
+    const c4 = document.createElement('canvas');
+    c4.width = sw * 4;
+    c4.height = sh * 4;
+    const ctx4 = c4.getContext('2d')!;
+    ctx4.putImageData(pass4x, 0, 0);
+
+    this.hdRegionCache.set(cacheKey, c4);
+    return c4;
+  }
+
+  /** Lazily upscales an entire image (e.g. a chapter tileset or a FIGANI combat strip) by `4x`. */
+  getHdImage4x(cacheKey: string, img: HTMLImageElement): HTMLCanvasElement {
+    return this.getHdRegion4x(cacheKey, img, 0, 0, img.width, img.height);
+  }
 
   async init(onProgress?: (label: string) => void): Promise<void> {
     onProgress?.('Loading Flame Dragon II archives...');
@@ -369,19 +559,29 @@ export class AssetManager {
     const f = ((frameIdx % 4) + 4) % 4;
     const sx = (pid % 4) * 320 + f * 80;
     const sy = Math.floor(pid / 4) * 80;
+    if (this.editionMode === 'hd') {
+      const hdCanvas = this.getHdRegion4x(`portrait:${pid}:${f}`, this.portraitsAtlas, sx, sy, 80, 80);
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hdCanvas, 0, 0, 320, 320, dx, dy, dw, dh);
+      ctx.restore();
+      return;
+    }
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.portraitsAtlas, sx, sy, 80, 80, dx, dy, dw, dh);
   }
 
   portraitToDataUrl(portraitId: number, frameIdx = 0): string {
-    const key = `${portraitId}:${frameIdx}`;
+    const key = `${this.editionMode}:${portraitId}:${frameIdx}`;
     const cached = this.portraitUrlCache.get(key);
     if (cached) return cached;
+    const size = this.editionMode === 'hd' ? 160 : 80;
     const c = document.createElement('canvas');
-    c.width = 80;
-    c.height = 80;
+    c.width = size;
+    c.height = size;
     const ctx = c.getContext('2d')!;
-    this.drawPortrait(ctx, portraitId, frameIdx, 0, 0, 80, 80);
+    this.drawPortrait(ctx, portraitId, frameIdx, 0, 0, size, size);
     const url = c.toDataURL();
     this.portraitUrlCache.set(key, url);
     return url;
@@ -406,16 +606,23 @@ export class AssetManager {
     const sx = col * 24;
     const sy = row * 24;
     ctx.save();
-    ctx.imageSmoothingEnabled = false;
     if (greyedOut) {
       ctx.filter = 'grayscale(85%) brightness(0.68)';
     }
-    ctx.drawImage(this.unitsAtlas, sx, sy, 24, 24, dx, dy, size, size);
+    if (this.editionMode === 'hd') {
+      const hdRow = this.getHdRegion4x(`unit_row:${row}`, this.unitsAtlas, 0, sy, 288, 24);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hdRow, col * 96, 0, 96, 96, dx, dy, size, size);
+    } else {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.unitsAtlas, sx, sy, 24, 24, dx, dy, size, size);
+    }
     ctx.restore();
   }
 
   spriteToDataUrl(spriteGroup: number, dir = 0, animFrame = 0, size = 48): string {
-    const key = `${spriteGroup}:${dir}:${animFrame}:${size}`;
+    const key = `${this.editionMode}:${spriteGroup}:${dir}:${animFrame}:${size}`;
     const cached = this.spriteUrlCache.get(key);
     if (cached) return cached;
     const c = document.createElement('canvas');
@@ -431,7 +638,7 @@ export class AssetManager {
   /** Draws a 24x24 save-slot chibi hero icon from item_icons.png (FDOTHER[96]). */
   chibiToDataUrl(chibiIdx: number, size = 48): string {
     const idx = Math.max(0, Math.min(67, chibiIdx));
-    const key = `${idx}:${size}`;
+    const key = `${this.editionMode}:${idx}:${size}`;
     const cached = this.chibiUrlCache.get(key);
     if (cached) return cached;
     const cols = this.gameData.itemIcons.cols;
@@ -441,8 +648,15 @@ export class AssetManager {
     c.width = size;
     c.height = size;
     const ctx = c.getContext('2d')!;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.itemIcons, sx, sy, 24, 24, 0, 0, size, size);
+    if (this.editionMode === 'hd') {
+      const hdIcon = this.getHdRegion4x(`chibi:${idx}`, this.itemIcons, sx, sy, 24, 24);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hdIcon, 0, 0, 96, 96, 0, 0, size, size);
+    } else {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.itemIcons, sx, sy, 24, 24, 0, 0, size, size);
+    }
     const url = c.toDataURL();
     this.chibiUrlCache.set(key, url);
     return url;
@@ -453,6 +667,15 @@ export class AssetManager {
     const bid = Math.max(0, Math.min(this.gameData.bgCount - 1, bgId));
     const sx = (bid % 4) * 320;
     const sy = Math.floor(bid / 4) * 100;
+    if (this.editionMode === 'hd') {
+      const hdBg = this.getHdRegion4x(`bg:${bid}`, this.bgsAtlas, sx, sy, 320, 100);
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hdBg, 0, 0, 1280, 400, dx, dy, dw, dh);
+      ctx.restore();
+      return;
+    }
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.bgsAtlas, sx, sy, 320, 100, dx, dy, dw, dh);
   }
@@ -464,6 +687,20 @@ export class AssetManager {
     const sx = (taiId % 4) * 160;
     const sy = Math.floor(taiId / 4) * 48;
     ctx.save();
+    if (this.editionMode === 'hd') {
+      const hdTai = this.getHdRegion4x(`tai:${taiId}`, this.taisAtlas, sx, sy, meta.w, meta.h);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      if (flipX) {
+        ctx.translate(dx + meta.w, dy);
+        ctx.scale(-1, 1);
+        ctx.drawImage(hdTai, 0, 0, meta.w * 4, meta.h * 4, 0, 0, meta.w, meta.h);
+      } else {
+        ctx.drawImage(hdTai, 0, 0, meta.w * 4, meta.h * 4, dx, dy, meta.w, meta.h);
+      }
+      ctx.restore();
+      return;
+    }
     ctx.imageSmoothingEnabled = false;
     if (flipX) {
       ctx.translate(dx + meta.w, dy);
@@ -640,6 +877,55 @@ export class AssetManager {
     return [dw, dh];
   }
 
+  /** Draws a 24x24 terrain tile from a chapter tileset (using `4x` edge-directed HD tileset in HD mode). */
+  drawTerrainTile(
+    ctx: CanvasRenderingContext2D,
+    chapterId: number,
+    tileset: HTMLImageElement,
+    sx: number,
+    sy: number,
+    dx: number,
+    dy: number,
+    tilePx: number
+  ): void {
+    if (this.editionMode === 'hd') {
+      const hdTs = this.getHdImage4x(`tileset:${chapterId}`, tileset);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hdTs, sx * 4, sy * 4, 96, 96, dx, dy, tilePx, tilePx);
+      return;
+    }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tileset, sx, sy, 24, 24, dx, dy, tilePx, tilePx);
+  }
+
+  /** Draws a FIGANI combat/spell frame (using `4x` edge-directed HD frame in HD mode). */
+  drawFigAniFrame(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+    dx: number,
+    dy: number,
+    dw = sw,
+    dh = sh
+  ): void {
+    if (sw <= 0 || sh <= 0) return;
+    if (this.editionMode === 'hd') {
+      const hdFrame = this.getHdRegion4x(`fig:${img.src}:${sx}:${sy}:${sw}:${sh}`, img, sx, sy, sw, sh);
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hdFrame, 0, 0, sw * 4, sh * 4, dx, dy, dw, dh);
+      ctx.restore();
+      return;
+    }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  }
+
   /** Draws a 12-frame `FDOTHER[9]` teleportation / rest-heal sparkle centered at `(cx, cy)`. */
   drawSparkleFrame(
     ctx: CanvasRenderingContext2D,
@@ -650,10 +936,20 @@ export class AssetManager {
   ): void {
     const fx = this.gameData.fxAtlas;
     if (!fx || !this.fxAtlas || !fx.sparkles.length) return;
-    const r = fx.sparkles[Math.max(0, Math.min(fx.sparkles.length - 1, frameIdx))];
+    const idx = Math.max(0, Math.min(fx.sparkles.length - 1, frameIdx));
+    const r = fx.sparkles[idx];
     if (!r) return;
     const dw = Math.round(r[2] * scale);
     const dh = Math.round(r[3] * scale);
+    if (this.editionMode === 'hd') {
+      const hdSp = this.getHdRegion4x(`sparkle:${idx}`, this.fxAtlas, r[0], r[1], r[2], r[3]);
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hdSp, 0, 0, r[2] * 4, r[3] * 4, Math.round(cx - dw / 2), Math.round(cy - dh / 2), dw, dh);
+      ctx.restore();
+      return;
+    }
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
       this.fxAtlas,
@@ -681,12 +977,22 @@ export class AssetManager {
   ): void {
     const fx = this.gameData.fxAtlas;
     if (!fx || !this.fxAtlas || !fx.explosions?.length) return;
-    const r = fx.explosions[Math.max(0, Math.min(fx.explosions.length - 1, frameIdx))];
+    const idx = Math.max(0, Math.min(fx.explosions.length - 1, frameIdx));
+    const r = fx.explosions[idx];
     if (!r) return;
     const dx = Math.round(tileLeftPx - 24 * scale);
     const dy = Math.round(tileTopPx - 30 * scale);
     const dw = Math.round(r[2] * scale);
     const dh = Math.round(r[3] * scale);
+    if (this.editionMode === 'hd') {
+      const hdExp = this.getHdRegion4x(`exp:${idx}`, this.fxAtlas, r[0], r[1], r[2], r[3]);
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hdExp, 0, 0, r[2] * 4, r[3] * 4, dx, dy, dw, dh);
+      ctx.restore();
+      return;
+    }
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.fxAtlas, r[0], r[1], r[2], r[3], dx, dy, dw, dh);
   }
@@ -711,6 +1017,15 @@ export class AssetManager {
     // Center horizontally on 24px tile if smaller/larger, and anchor at `-6px` vertically like `fn_50380` (`L50683: -2736 / 456 = -6`)
     const dx = Math.round(tileLeftPx + (24 * scale - dw) / 2);
     const dy = Math.round(tileTopPx - 6 * scale + (24 * scale - dh) / 2);
+    if (this.editionMode === 'hd') {
+      const hdMfx = this.getHdRegion4x(`mfx:${frameId}`, this.fxAtlas, r[0], r[1], r[2], r[3]);
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hdMfx, 0, 0, r[2] * 4, r[3] * 4, dx, dy, dw, dh);
+      ctx.restore();
+      return;
+    }
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.fxAtlas, r[0], r[1], r[2], r[3], dx, dy, dw, dh);
   }
