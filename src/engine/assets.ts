@@ -1,4 +1,5 @@
-import { applyLocaleToGameState, decodeGlyphsToText, getLocale } from '../i18n';
+import { CHAR_TO_GID_EN, GLYPH_WIDTHS } from '../glyphTable';
+import { applyLocaleToGameState, resolveLocaleGlyphs } from '../i18n';
 import type {
   ChapterData,
   ChoreographyScript,
@@ -229,7 +230,21 @@ export class AssetManager {
     }
   }
 
-  /** Draws an array of 16-bit glyph IDs (or localized fallback text when locale !== 'zh-TW') onto any Canvas context with crisp 1px drop shadow. */
+  /** Returns the total pixel width of a resolved glyph array at the given scale. */
+  measureGlyphs(glyphs: number[], fallbackText?: string, scale = 1, forceBitmap = false): number {
+    const valid = resolveLocaleGlyphs(glyphs, fallbackText, forceBitmap).filter(
+      (g) => g >= 0 && g < this.gameData.font.glyphCount
+    );
+    if (valid.length === 0) return 0;
+    let total = 0;
+    for (const gid of valid) {
+      const gw = GLYPH_WIDTHS[gid] ?? 16;
+      total += Math.round((gw + 1) * scale);
+    }
+    return total;
+  }
+
+  /** Draws an array of 16-bit glyph IDs (or localized text in zh-TW, zh-CN, or en) onto any Canvas context as crisp 1-bit DOS bitmap glyphs with 1px drop shadow. */
   drawGlyphs(
     ctx: CanvasRenderingContext2D,
     glyphs: number[],
@@ -241,47 +256,57 @@ export class AssetManager {
     fallbackText?: string,
     forceBitmap = false
   ): number {
-    const resolvedFallback =
-      !forceBitmap && getLocale() !== 'zh-TW'
-        ? fallbackText || decodeGlyphsToText(glyphs)
-        : fallbackText;
-    if (!forceBitmap && getLocale() !== 'zh-TW' && resolvedFallback) {
-      ctx.save();
-      const fontSize = Math.round(13 * scale);
-      ctx.font = `700 ${fontSize}px "Noto Serif TC", "Cinzel", Georgia, serif`;
-      ctx.textBaseline = 'top';
-      if (withShadow) {
-        ctx.fillStyle = GLYPH_HEX.shadow;
-        ctx.fillText(resolvedFallback, Math.round(x + Math.max(1, scale)), Math.round(y + 1 + Math.max(1, scale)));
-      }
-      ctx.fillStyle = GLYPH_HEX[color] ?? GLYPH_HEX.ivory;
-      ctx.fillText(resolvedFallback, Math.round(x), Math.round(y + 1));
-      const w = ctx.measureText(resolvedFallback).width;
-      ctx.restore();
-      return Math.ceil(w);
-    }
+    const valid = resolveLocaleGlyphs(glyphs, fallbackText, forceBitmap).filter(
+      (g) => g >= 0 && g < this.gameData.font.glyphCount
+    );
+    if (valid.length === 0) return 0;
     const sheet = this.tintedFonts.get(color) ?? this.tintedFonts.get('ivory')!;
     const shadowSheet = this.tintedFonts.get('shadow')!;
     const cols = this.gameData.font.cols;
-    const size = 16 * scale;
-    const step = Math.round(16 * scale + scale);
+    const cellH = Math.round(16 * scale);
+    const shOff = Math.max(1, Math.round(scale));
     ctx.imageSmoothingEnabled = false;
     let cx = Math.round(x);
     const cy = Math.round(y);
-    for (const gid of glyphs) {
-      if (gid < 0 || gid >= this.gameData.font.glyphCount) continue;
+    for (const gid of valid) {
+      const gw = GLYPH_WIDTHS[gid] ?? 16;
+      const drawW = Math.round(gw * scale);
+      const step = Math.round((gw + 1) * scale);
       const sx = (gid % cols) * 16;
       const sy = Math.floor(gid / cols) * 16;
       if (withShadow) {
-        ctx.drawImage(shadowSheet, sx, sy, 16, 16, cx + Math.max(1, scale), cy + Math.max(1, scale), size, size);
+        ctx.drawImage(shadowSheet, sx, sy, gw, 16, cx + shOff, cy + shOff, drawW, cellH);
       }
-      ctx.drawImage(sheet, sx, sy, 16, 16, cx, cy, size, size);
+      ctx.drawImage(sheet, sx, sy, gw, 16, cx, cy, drawW, cellH);
       cx += step;
     }
-    return cx - x;
+    return cx - Math.round(x);
   }
 
-  /** Renders a glyph array to a cached transparent PNG data-URL for crisp HTML UI labels, or styled localized text when locale !== 'zh-TW' (unless forceBitmap is true). */
+  private renderGlyphRunImg(
+    run: number[],
+    color: GlyphColor,
+    heightPx: number,
+    altText: string
+  ): string {
+    const nativeW = run.reduce((acc, g) => acc + (GLYPH_WIDTHS[g] ?? 16) + 1, 0) + 1;
+    const key = `${run.join(',')}:${color}`;
+    let url = this.glyphUrlCache.get(key);
+    if (!url) {
+      const c = document.createElement('canvas');
+      c.width = nativeW;
+      c.height = 18;
+      const ctx = c.getContext('2d')!;
+      this.drawGlyphs(ctx, run, 0, 1, color, 1, true, undefined, true);
+      url = c.toDataURL();
+      this.glyphUrlCache.set(key, url);
+    }
+    const w = Math.max(1, Math.round((nativeW * heightPx) / 18));
+    const safeAlt = altText.replace(/"/g, '&quot;');
+    return `<img class="pixel-crisp" src="${url}" width="${w}" height="${heightPx}" alt="${safeAlt}" style="vertical-align: -3px; display: inline-block;" />`;
+  }
+
+  /** Renders a glyph array (or localized text in zh-TW, zh-CN, or en) to cached transparent 1-bit DOS bitmap PNG data-URLs for crisp retro HTML UI labels. */
   glyphsToHtml(
     glyphs: number[],
     color: GlyphColor = 'ivory',
@@ -289,35 +314,45 @@ export class AssetManager {
     fallback = '—',
     forceBitmap = false
   ): string {
-    const loc = getLocale();
-    const resolvedText =
-      fallback && fallback !== '—'
-        ? fallback
-        : loc !== 'zh-TW' && glyphs && glyphs.length > 0
-          ? decodeGlyphsToText(glyphs, loc)
-          : fallback;
-    if (!forceBitmap && loc !== 'zh-TW' && resolvedText && resolvedText !== '—') {
-      const hex = GLYPH_HEX[color] ?? GLYPH_HEX.ivory;
-      const fSize = Math.max(12, heightPx - 2);
-      return `<span class="localized-glyph" style="color:${hex}; font-weight:700; font-size:${fSize}px; text-shadow:1px 1px 0 #07090e; display:inline-block;">${resolvedText}</span>`;
-    }
-    const valid = (glyphs ?? []).filter((g) => g >= 0 && g < this.gameData.font.glyphCount);
+    const valid = resolveLocaleGlyphs(glyphs, fallback, forceBitmap).filter(
+      (g) => g >= 0 && g < this.gameData.font.glyphCount
+    );
     if (valid.length === 0) {
       return `<span>${fallback}</span>`;
     }
-    const key = `${valid.join(',')}:${color}`;
-    let url = this.glyphUrlCache.get(key);
-    if (!url) {
-      const c = document.createElement('canvas');
-      c.width = valid.length * 17 + 1;
-      c.height = 18;
-      const ctx = c.getContext('2d')!;
-      this.drawGlyphs(ctx, valid, 0, 1, color, 1, true, undefined, true);
-      url = c.toDataURL();
-      this.glyphUrlCache.set(key, url);
+    const totalNativeW = valid.reduce((acc, g) => acc + (GLYPH_WIDTHS[g] ?? 16) + 1, 0) + 1;
+    const spaceGid = CHAR_TO_GID_EN[' '];
+
+    // If a long English/spaced string exceeds 190px native width, split on spaces so words wrap naturally inside narrow panels
+    if (!forceBitmap && totalNativeW > 190 && spaceGid !== undefined && valid.includes(spaceGid)) {
+      const words: number[][] = [];
+      let cur: number[] = [];
+      for (const g of valid) {
+        if (g === spaceGid) {
+          if (cur.length > 0) {
+            words.push(cur);
+            cur = [];
+          }
+        } else {
+          cur.push(g);
+        }
+      }
+      if (cur.length > 0) words.push(cur);
+      if (words.length > 1) {
+        return words.map((w) => this.renderGlyphRunImg(w, color, heightPx, '')).join(' ');
+      }
     }
-    const w = Math.round(((valid.length * 17 + 1) * heightPx) / 18);
-    return `<img class="pixel-crisp" src="${url}" width="${w}" height="${heightPx}" alt="${fallback}" style="vertical-align: -3px; display: inline-block;" />`;
+
+    // If a long unspaced CJK sentence exceeds 235px (>13 full-width chars, e.g. 19-char lose objective in sidebar), chunk into 2-char inline-block runs so it can wrap cleanly
+    if (!forceBitmap && totalNativeW > 235) {
+      const chunks: string[] = [];
+      for (let i = 0; i < valid.length; i += 2) {
+        chunks.push(this.renderGlyphRunImg(valid.slice(i, i + 2), color, heightPx, ''));
+      }
+      return chunks.join('');
+    }
+
+    return this.renderGlyphRunImg(valid, color, heightPx, fallback);
   }
 
   /** Draws an 80x80 portrait frame (0..3) from portraits_atlas.png (0-indexed: 0 = Sol). */
@@ -518,33 +553,26 @@ export class AssetManager {
     drawHudDigits(bx + 126, by + 21, dispHp, dispHp === Math.round(maxHp) ? 31 : 42, 3);
     drawHudDigits(bx + 126, by + 30, dispMp, dispMp === Math.round(maxMp) ? 31 : 42, 3);
 
-    // 4. Unit Name 16x16 Calligraphy Glyphs at `(bx+5, by+4)`, 16px advance, exact `fn_256554` dual shadow
-    if (getLocale() !== 'zh-TW' && nameText) {
-      ctx.save();
-      ctx.font = '700 11px "Cinzel", "Noto Serif TC", Georgia, serif';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = GLYPH_HEX.hud_shadow;
-      ctx.fillText(nameText, bx + 4, by + 6);
-      ctx.fillText(nameText, bx + 5, by + 6);
-      ctx.fillStyle = GLYPH_HEX.hud_fg;
-      ctx.fillText(nameText, bx + 5, by + 5);
-      ctx.restore();
-      return;
-    }
+    // 4. Unit Name 16x16 Calligraphy Glyphs at `(bx+5, by+4)`, exact `fn_256554` dual shadow across zh-TW, zh-CN, and en
+    const resolvedNameGlyphs = resolveLocaleGlyphs(nameGlyphs, nameText, false).filter(
+      (g) => g >= 0 && g < this.gameData.font.glyphCount
+    );
     const fgSheet = this.tintedFonts.get('hud_fg') ?? this.tintedFonts.get('ivory')!;
     const shSheet = this.tintedFonts.get('hud_shadow') ?? this.tintedFonts.get('shadow')!;
     const cols = this.gameData.font.cols;
     let cx = bx + 5;
     const cy = by + 4;
-    for (const gid of nameGlyphs) {
-      if (gid < 0 || gid >= this.gameData.font.glyphCount) continue;
+    for (const gid of resolvedNameGlyphs) {
+      const gw = GLYPH_WIDTHS[gid] ?? 16;
+      const adv = gid in GLYPH_WIDTHS ? gw + 1 : 16;
+      if (cx + gw > bx + 131) break;
       const sx = (gid % cols) * 16;
       const sy = Math.floor(gid / cols) * 16;
       // Exact fn_256554 row-major overwrite behavior: shadow at (x-1, y+1) and (x, y+1), foreground on top at (x, y)
-      ctx.drawImage(shSheet, sx, sy, 16, 16, cx - 1, cy + 1, 16, 16);
-      ctx.drawImage(shSheet, sx, sy, 16, 16, cx, cy + 1, 16, 16);
-      ctx.drawImage(fgSheet, sx, sy, 16, 16, cx, cy, 16, 16);
-      cx += 16;
+      ctx.drawImage(shSheet, sx, sy, gw, 16, cx - 1, cy + 1, gw, 16);
+      ctx.drawImage(shSheet, sx, sy, gw, 16, cx, cy + 1, gw, 16);
+      ctx.drawImage(fgSheet, sx, sy, gw, 16, cx, cy, gw, 16);
+      cx += adv;
     }
   }
 

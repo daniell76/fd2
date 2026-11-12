@@ -619,7 +619,8 @@ img.pixel-crisp {
 }
 
 .battle-log {
-  max-height: 155px;
+  flex: 1;
+  min-height: 120px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;

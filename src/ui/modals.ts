@@ -2,7 +2,6 @@ import type { SoundEngine } from '../audio/soundEngine';
 import type { AssetManager } from '../engine/assets';
 import { canUnitEquipItem, getEquippedStats, getUnitClassLabel, isUnitActiveOnMap } from '../engine/tactical';
 import {
-  getLocale,
   getLocalizedChapterLose,
   getLocalizedChapterTitle,
   getLocalizedChapterWin,
@@ -112,13 +111,9 @@ export class ModalController {
     color: 'ivory' | 'gold' | 'crimson' | 'azure' | 'emerald',
     heightPx: number,
     text: string,
-    subStyle = 'font-size:12px; color:var(--ink-200); margin-left:6px;'
+    _subStyle = 'font-size:12px; color:var(--ink-200); margin-left:6px;'
   ): string {
-    const primary = this.assets.glyphsToHtml(glyphs, color, heightPx, text);
-    if (getLocale() !== 'zh-TW') {
-      return primary;
-    }
-    return `${primary} <span style="${subStyle}">${text}</span>`;
+    return this.assets.glyphsToHtml(glyphs, color, heightPx, text);
   }
 
   /**

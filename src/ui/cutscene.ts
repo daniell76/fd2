@@ -355,11 +355,14 @@ export class CutscenePlayer {
         const speakerZh = getLocalizedSpeakerName(spkId, seg.speakerNameZh ?? dexEntry?.nameZh ?? '');
 
         if (!hasPortrait) {
-          speakerEl.innerHTML = `<span style="color: var(--gold-300); font-family: var(--font-display); font-size: 12.5px;">${tr('旁白 · Chronicle', '旁白 · Chronicle', 'Narrator · Chronicle')}</span>`;
-        } else if (speakerGlyphs.length > 0 && loc === 'zh-TW') {
-          speakerEl.innerHTML = `${this.assets.glyphsToHtml(speakerGlyphs, 'gold', 18, speakerZh)} <span style="font-size:12px; color:var(--ink-400); margin-left:6px;">${speakerZh}</span>`;
+          speakerEl.innerHTML = this.assets.glyphsToHtml(
+            [],
+            'gold',
+            16,
+            tr('旁白 · Chronicle', '旁白 · Chronicle', 'Narrator · Chronicle')
+          );
         } else {
-          speakerEl.innerHTML = `<span style="color: var(--gold-200); font-weight: 700; font-size: 14px; text-shadow: 1px 1px 0 #07090e;">${speakerZh}</span>`;
+          speakerEl.innerHTML = this.assets.glyphsToHtml(speakerGlyphs, 'gold', 18, speakerZh);
         }
 
         if (loc === 'en') {
@@ -368,10 +371,7 @@ export class CutscenePlayer {
               ? seg.linesEn
               : seg.lines.map((ln) => decodeGlyphsToText(ln, 'zh-TW'));
           linesEl.innerHTML = enLines
-            .map(
-              (ln) =>
-                `<div style="color: var(--ink-100); font-weight: 600; font-size: 14.5px; line-height: 1.5; text-shadow: 1px 1px 0 #07090e;">${ln}</div>`
-            )
+            .map((ln) => `<div style="line-height: 1.55;">${this.assets.glyphsToHtml([], 'ivory', 17, ln)}</div>`)
             .join('');
         } else if (loc === 'zh-CN') {
           const cnLines =
@@ -379,14 +379,11 @@ export class CutscenePlayer {
               ? seg.linesZhCn
               : seg.lines.map((ln) => decodeGlyphsToText(ln, 'zh-CN'));
           linesEl.innerHTML = cnLines
-            .map(
-              (ln) =>
-                `<div style="color: var(--ink-100); font-weight: 600; font-size: 15.5px; line-height: 1.55; text-shadow: 1px 1px 0 #07090e;">${ln}</div>`
-            )
+            .map((ln, lIdx) => `<div style="line-height: 1.55;">${this.assets.glyphsToHtml(seg.lines[lIdx] ?? [], 'ivory', 18, ln)}</div>`)
             .join('');
         } else {
           linesEl.innerHTML = seg.lines
-            .map((ln) => `<div>${this.assets.glyphsToHtml(ln, 'ivory', 18)}</div>`)
+            .map((ln, lIdx) => `<div style="line-height: 1.55;">${this.assets.glyphsToHtml(ln, 'ivory', 18, seg.linesZhTw?.[lIdx])}</div>`)
             .join('');
         }
 

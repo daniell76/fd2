@@ -322,13 +322,8 @@ export class CrossMenuController {
       ctx.strokeRect(bx, by, bannerW, bannerH);
 
       assets.drawPortrait(ctx, p.speakerPortraitId, Math.floor(nowMs / 180) % 2, bx + 6, by + 6, 54, 54);
-      ctx.font = 'bold 13px "Noto Sans TC", sans-serif';
-      ctx.fillStyle = '#f0c869';
-      ctx.textAlign = 'left';
-      ctx.fillText(p.speakerNameZh, bx + 68, by + 24);
-      ctx.font = '12.5px "Noto Sans TC", sans-serif';
-      ctx.fillStyle = '#f5efe2';
-      ctx.fillText(p.promptZh, bx + 68, by + 46);
+      assets.drawGlyphs(ctx, [], bx + 68, by + 11, 'gold', 1, true, p.speakerNameZh);
+      assets.drawGlyphs(ctx, [], bx + 68, by + 35, 'ivory', 1, true, p.promptZh);
 
       for (const r of rects) {
         const isSel = p.selected === r.choice;
@@ -368,7 +363,7 @@ export class CrossMenuController {
       }
     }
 
-    // Draw crisp Chinese label pill for the currently focused arm below the cross!
+    // Draw crisp retro bitmap label pill for the currently focused arm below the cross!
     const focusedRect = rects.find((r) => r.dir === this.focusedDir);
     if (focusedRect) {
       const bottomY = Math.max(...rects.map((r) => r.y + r.h));
@@ -376,19 +371,26 @@ export class CrossMenuController {
       const label = focusedRect.option.enabled
         ? focusedRect.option.labelZh
         : `${focusedRect.option.labelZh} (${tr('無法使用', '无法使用', 'Unavailable')})`;
-      ctx.font = 'bold 12px "Noto Sans TC", sans-serif';
-      const tw = Math.ceil(ctx.measureText(label).width) + 18;
+      const glyphW = assets.measureGlyphs([], label, 1);
+      const tw = Math.max(44, glyphW + 16);
       const lx = Math.max(8, Math.min(canvasW - tw - 8, Math.round(centerX - tw / 2)));
       const ly = Math.min(canvasH - 28, bottomY + 7);
 
       ctx.fillStyle = 'rgba(11, 15, 26, 0.92)';
-      ctx.fillRect(lx, ly, tw, 22);
+      ctx.fillRect(lx, ly, tw, 24);
       ctx.strokeStyle = focusedRect.option.enabled ? '#d8af57' : '#a84a46';
       ctx.lineWidth = 1;
-      ctx.strokeRect(lx + 0.5, ly + 0.5, tw - 1, 21);
-      ctx.fillStyle = focusedRect.option.enabled ? '#fce192' : '#f28b84';
-      ctx.textAlign = 'center';
-      ctx.fillText(label, lx + tw / 2, ly + 15);
+      ctx.strokeRect(lx + 0.5, ly + 0.5, tw - 1, 23);
+      assets.drawGlyphs(
+        ctx,
+        [],
+        Math.round(lx + (tw - glyphW) / 2),
+        ly + 4,
+        focusedRect.option.enabled ? 'gold' : 'crimson',
+        1,
+        true,
+        label
+      );
     }
 
     ctx.restore();

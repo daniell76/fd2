@@ -1561,7 +1561,6 @@ class FlameDragonWebApp {
     const gd = this.assets.gameData;
     const clsName = unit.classNameZh || getUnitClassLabel(unit.uid, unit.classId, gd);
     const eq = getEquippedStats(unit, gd);
-    const isTw = getLocale() === 'zh-TW';
 
     const tagEl = document.getElementById('inspector-faction-tag')!;
     tagEl.textContent = `${unit.faction.toUpperCase()}${unit.isBoss ? ' · BOSS' : ''}`;
@@ -1599,7 +1598,7 @@ class FlameDragonWebApp {
                     ? `<span style="font-size:10px; color:var(--player-blue); font-weight:700;">${tr('裝備中(防)', '装备中(防)', '[ARM]')}</span>`
                     : '';
               return `<div class="item-chip" style="padding:3px 7px;">
-                <span>${this.assets.glyphsToHtml(it.nameGlyphs, 'ivory', 14, it.nameZh)}${isTw ? ` <small style="color:var(--ink-400);">${it.nameZh}</small>` : ''}</span>
+                <span>${this.assets.glyphsToHtml(it.nameGlyphs, 'ivory', 14, it.nameZh)}</span>
                 ${badge}
               </div>`;
             })
@@ -1629,7 +1628,6 @@ class FlameDragonWebApp {
         <div class="unit-meta">
           <div class="unit-name-row">
             ${this.assets.glyphsToHtml(unit.nameGlyphs, 'gold', 18, unit.nameZh || `Unit #${unit.uid}`)}
-            ${isTw ? `<span style="font-size:12.5px; color:var(--ink-200); margin-left:4px;">${unit.nameZh}</span>` : ''}
           </div>
           <div style="font-size:12px; color:var(--ink-200);">Lv ${unit.level} · ${clsName}</div>
           <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-400);">
@@ -2210,7 +2208,6 @@ class FlameDragonWebApp {
 
   private openSpellBookPopup(u: BattleUnit): void {
     const gd = this.assets.gameData;
-    const isTw = getLocale() === 'zh-TW';
     this.reachableMap.clear();
     this.targetTiles.clear();
     this.uiState = 'choosing_spell';
@@ -2228,7 +2225,6 @@ class FlameDragonWebApp {
           <span class="dos-popup-item-main">
             <span class="dos-popup-cursor">▶</span>
             ${this.assets.glyphsToHtml(sp.nameGlyphs, 'ivory', 16, sp.nameZh)}
-            ${isTw ? `<span style="color:#ffffff;">${sp.nameZh}</span>` : ''}
           </span>
           <span class="dos-popup-meta">${sp.mpCost} MP</span>
         </button>`;
@@ -2288,7 +2284,6 @@ class FlameDragonWebApp {
   private openItemBagSelectionPopup(u: BattleUnit, mode: 'use' | 'give' | 'equip' | 'discard'): void {
     const gd = this.assets.gameData;
     const eq = getEquippedStats(u, gd);
-    const isTw = getLocale() === 'zh-TW';
     this.reachableMap.clear();
     this.targetTiles.clear();
     this.uiState = 'choosing_item_list';
@@ -2325,7 +2320,6 @@ class FlameDragonWebApp {
           <span class="dos-popup-item-main">
             <span class="dos-popup-cursor">▶</span>
             ${this.assets.glyphsToHtml(it.nameGlyphs, 'ivory', 16, it.nameZh)}
-            ${isTw ? `<span style="color:#ffffff;">${it.nameZh}</span>` : ''}
           </span>
           <span class="dos-popup-meta" style="${isEq ? 'color:#86efac;' : ''}">${eqTag}</span>
         </button>`;
@@ -2981,7 +2975,6 @@ class FlameDragonWebApp {
   private promptFullBagItemChoice(unit: BattleUnit, incomingItemId: number, messageZh: string): Promise<number | null> {
     const gd = this.assets.gameData;
     const incoming = gd.items[incomingItemId];
-    const isTw = getLocale() === 'zh-TW';
     return new Promise<number | null>((resolve) => {
       const btns = unit.items
         .map((cid, idx) => {
@@ -2991,7 +2984,6 @@ class FlameDragonWebApp {
             <span class="dos-popup-item-main">
               <span class="dos-popup-cursor">▶</span>
               ${this.assets.glyphsToHtml(cit?.nameGlyphs ?? [], 'ivory', 15, cName)}
-              ${isTw ? `<span style="color:#ffffff;">${cName}</span>` : ''}
             </span>
           </button>`;
         })
@@ -3000,7 +2992,6 @@ class FlameDragonWebApp {
         <div class="dos-popup-header" style="flex-direction:column; align-items:flex-start; gap:3px;">
           <div style="display:flex; align-items:center; gap:5px; color:#fde68a;">
             ${this.assets.glyphsToHtml(incoming?.nameGlyphs ?? [], 'gold', 15, incoming?.nameZh ?? '')}
-            <span>${incoming?.nameZh ?? ''}</span>
           </div>
           <span style="color:#ffffff; font-size:11.5px; font-weight:500;">${messageZh}</span>
         </div>
@@ -3176,7 +3167,7 @@ class FlameDragonWebApp {
             syncUnitEquipmentIndices(victor, this.assets.gameData);
             this.spawnMapFlash(victor.x, victor.y, '#f0c869', `${it.nameZh}!`);
             this.logMessage(
-              `${tr('獲得戰利品：', '获得战利品：', 'Obtained spoils: ')}${this.assets.glyphsToHtml(it.nameGlyphs, 'gold', 14, it.nameZh)} <strong>(${it.nameZh})</strong>！`
+              `${tr('獲得戰利品：', '获得战利品：', 'Obtained spoils: ')}${this.assets.glyphsToHtml(it.nameGlyphs, 'gold', 14, it.nameZh)}！`
             );
           } else {
             const discardIdx = await this.promptFullBagItemChoice(

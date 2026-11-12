@@ -2061,6 +2061,8 @@ def main():
     (OUT_DIR / "gamedata.json").write_text(
         json.dumps(gamedata, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )
+    import extend_font_atlas
+    extend_font_atlas.main()
     print("Done! All verified atlases, character_dex.json, and gamedata.json generated.")
 
 

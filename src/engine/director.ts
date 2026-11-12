@@ -1,5 +1,5 @@
 import type { SoundEngine } from '../audio/soundEngine';
-import { getLocale, getLocalizedClassName, getLocalizedItemName, getLocalizedUnitName, tr } from '../i18n';
+import { getLocalizedClassName, getLocalizedItemName, getLocalizedUnitName, tr } from '../i18n';
 import type { AssetManager } from './assets';
 import {
   createPartyMemberFromHeroDef,
@@ -451,9 +451,8 @@ export class ScenarioDirector {
     if (!awarded) return false;
     this.host.sound.playSfx('chest');
     const itemName = getLocalizedItemName(itemId, it.nameZh);
-    const subTag = getLocale() === 'zh-TW' ? ` <strong>(${itemName})</strong>` : '';
     this.host.logMessage(
-      `${tr('獲得關鍵寶物：', '获得关键宝物：', 'Obtained key relic: ')}${this.host.assets.glyphsToHtml(it.nameGlyphs, 'gold', 15, itemName)}${subTag}！`
+      `${tr('獲得關鍵寶物：', '获得关键宝物：', 'Obtained key relic: ')}${this.host.assets.glyphsToHtml(it.nameGlyphs, 'gold', 15, itemName)}！`
     );
     return true;
   }

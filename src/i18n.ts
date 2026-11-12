@@ -1,4 +1,11 @@
-import { GLYPHS_CN, GLYPHS_TW } from './glyphTable';
+import {
+  CHAR_TO_GID_CN,
+  CHAR_TO_GID_EN,
+  CHAR_TO_GID_TW,
+  GLYPHS_CN,
+  GLYPHS_TW,
+  TW_TO_CN_GID,
+} from './glyphTable';
 import type { BattleUnit, ChapterData, GameData, PartyMemberSave } from './types';
 
 export type LocaleCode = 'zh-TW' | 'zh-CN' | 'en';
@@ -63,6 +70,62 @@ export function tr(zhTw: string, zhCn: string, en: string, loc: LocaleCode = cur
 export function decodeGlyphsToText(glyphs: number[], loc: LocaleCode = currentLocale): string {
   const table = loc === 'zh-CN' ? GLYPHS_CN : GLYPHS_TW;
   return glyphs.map((g) => table[g] ?? '').join('');
+}
+
+/** Converts any UTF-8 string into an array of extended `font_atlas.png` glyph IDs for the given locale. */
+export function textToGlyphIds(text: string, loc: LocaleCode = currentLocale): number[] {
+  const primary = loc === 'zh-CN' ? CHAR_TO_GID_CN : loc === 'en' ? CHAR_TO_GID_EN : CHAR_TO_GID_TW;
+  const out: number[] = [];
+  for (const ch of text) {
+    const gid = primary[ch] ?? CHAR_TO_GID_EN[ch] ?? CHAR_TO_GID_TW[ch] ?? CHAR_TO_GID_CN[ch];
+    if (gid !== undefined) {
+      out.push(gid);
+    }
+  }
+  return out;
+}
+
+/**
+ * Resolves an array of `FD2.EXE` glyph IDs (`0..1823`) and optional localized `fallbackText`
+ * into the active locale's 1-bit DOS bitmap glyph IDs (`0..2681` in `font_atlas.png`).
+ */
+export function resolveLocaleGlyphs(
+  glyphs: number[] | undefined,
+  fallbackText?: string,
+  forceOriginalBitmap = false
+): number[] {
+  const base = (glyphs ?? []).filter((g) => g >= 0);
+  if (forceOriginalBitmap) {
+    return base;
+  }
+  const loc = currentLocale;
+  const cleanFallback = fallbackText && fallbackText !== '—' ? fallbackText : '';
+
+  if (loc === 'zh-TW') {
+    if (base.length > 0) {
+      if (!cleanFallback || decodeGlyphsToText(base, 'zh-TW') === cleanFallback) {
+        return base;
+      }
+      const converted = textToGlyphIds(cleanFallback, 'zh-TW');
+      return converted.length > 0 ? converted : base;
+    }
+    return cleanFallback ? textToGlyphIds(cleanFallback, 'zh-TW') : [];
+  }
+
+  if (loc === 'zh-CN') {
+    if (base.length > 0) {
+      if (!cleanFallback || decodeGlyphsToText(base, 'zh-CN') === cleanFallback) {
+        return base.map((g) => (g < TW_TO_CN_GID.length ? TW_TO_CN_GID[g] : g));
+      }
+      const converted = textToGlyphIds(cleanFallback, 'zh-CN');
+      return converted.length > 0 ? converted : base.map((g) => (g < TW_TO_CN_GID.length ? TW_TO_CN_GID[g] : g));
+    }
+    return cleanFallback ? textToGlyphIds(cleanFallback, 'zh-CN') : [];
+  }
+
+  // English ('en')
+  const enText = cleanFallback || (base.length > 0 ? decodeGlyphsToText(base, 'zh-TW') : '');
+  return enText ? textToGlyphIds(enText, 'en') : [];
 }
 
 // 1. Races (1..10)
