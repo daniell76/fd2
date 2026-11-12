@@ -1176,7 +1176,6 @@ class FlameDragonWebApp {
       return;
     }
 
-    this.currentChapterId = chapterId;
     if (!useCampaignParty || this.party.length === 0) {
       this.gold = chapterId === 0 ? 0 : 800 + chapterId * 650;
       this.party = buildPartyForChapter(chapterId, this.assets.gameData);
@@ -1329,7 +1328,6 @@ class FlameDragonWebApp {
   }
 
   private async loadFromSaveData(save: SaveSlotData): Promise<void> {
-    this.currentChapterId = save.chapterId;
     this.gold = save.gold;
     this.party = save.party.map((m) => {
       const copy = { ...m, items: [...m.items], spells: [...m.spells] };
@@ -3822,7 +3820,6 @@ class FlameDragonWebApp {
     }
 
     const nextChapter = postOutcome.nextChapterId;
-    this.currentChapterId = nextChapter;
 
     // Auto-Save A: Camp / Chapter Start Checkpoint upon entering Town/Camp!
     saveAutoSaveSlot('camp', {
@@ -4349,7 +4346,7 @@ class FlameDragonWebApp {
         const sy = Math.floor(tid / tsCols) * 24;
         const dx = ox + x * tilePx;
         const dy = oy + y * tilePx;
-        this.assets.drawTerrainTile(ctx, this.currentChapterId, ts, sx, sy, dx, dy, tilePx);
+        this.assets.drawTerrainTile(ctx, ch.id, ts, sx, sy, dx, dy, tilePx);
       }
     }
 

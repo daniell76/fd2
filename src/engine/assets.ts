@@ -1413,8 +1413,9 @@ export class AssetManager {
     dy: number,
     tilePx: number
   ): void {
-    if (this.editionMode === 'hd') {
-      const hdTs = this.getHdImage4x(`tileset:${chapterId}`, tileset);
+    if (this.editionMode === 'hd' && tileset.complete && tileset.naturalWidth > 0) {
+      const tsKey = `tileset:${tileset.src || chapterId}:${tileset.naturalWidth}x${tileset.naturalHeight}`;
+      const hdTs = this.getHdImage4x(tsKey, tileset);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(hdTs, sx * 4, sy * 4, 96, 96, dx, dy, tilePx, tilePx);
