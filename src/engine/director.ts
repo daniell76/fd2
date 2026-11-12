@@ -744,9 +744,7 @@ export class ScenarioDirector {
         m32Slots[4].hp = m32Slots[4].maxHp;
       }
       this.host.setCameraTopLeft(0, 43); // Exact `L140268: GLOBAL_2_15017 = 0, GLOBAL_2_15021 = 43`!
-      if (this.host.assets.musicTracks.length > 0) {
-        this.host.sound.playTrack(11 % this.host.assets.musicTracks.length); // `L140319: fn_88439(11, 0)`
-      }
+      this.host.sound.playBgmBySourceIndex(11); // `Obj1 + 140311: fn_88439(11, 0)` (Prologue Woods theme)
       await this.host.fadeScreen('#000000', 0, 380); // `L140314: fn_62757()` fade-in!
 
       await this.playChoreo(101); // `#4 亞雷斯` (`slot 4`) walks in `(13, 47) -> (10, 47)`!
@@ -781,6 +779,7 @@ export class ScenarioDirector {
     await this.playChoreo(93);
     await this.host.playDialogueIndex(4);
     this.hideSlot(2); // `#75 米蘭` departs (`L140846: M1[slot2 + 5] = 0`)
+    this.host.sound.playBgmBySourceIndex(18); // `Obj1 + 140848: fn_88439(18, 0)` (Uni pursued by assassins)
 
     this.spawnWave(5, true); // `#9 悠妮` (`slot 4`)
     await this.host.playDialogueIndex(5);

@@ -1914,6 +1914,24 @@ def main():
     print("  [OK] Wrote public/assets/character_dex.json")
 
     # 11. FDMUS.DAT -> XMI Soundtrack JSON
+    # Authentic FD2.EXE (`fn_88439`, `Obj2+7779` Player Phase & `Obj2+7809` Enemy Phase) BGM roles by FDMUS.DAT chunk index:
+    fdmus_titles = {
+        1: "敵軍行動 B / Enemy Phase B (Ch. 3, 8, 12, 14, 26, 28, 29)",
+        3: "我軍行動 B · 要塞攻堅 / Player Phase B (Ch. 5, 9, 15, 20, 22, 25)",
+        4: "我軍行動 C · 王城與黃金城 / Player Phase C & Epilogue (Ch. 10, 17, 23, 27 & Ending)",
+        6: "敵軍行動 C · 要塞強敵 / Enemy Phase C (Ch. 5, 9, 15, 20, 22, 25)",
+        8: "命運的交會 · 終章與空魔神 / Final Chapter 30 & Ancient Siege (Ch. 30; Enemy Ch. 17, 23, 27)",
+        10: "城鎮與營地整備 / Town & Base Encampment",
+        11: "森林啟程與戰後敘事 / Prologue Woods, Post-Battle Story & Tavern Save",
+        12: "敵軍行動 A / Enemy Phase A (Ch. 1, 2, 4, 6, 7, 11, 13, 16, 18, 19, 21, 24)",
+        13: "武器店與道具店 / Armory & Item Shop",
+        14: "聖堂教會 / Sanctuary Church",
+        15: "英雄轉職儀式 / Sanctuary Class Promotion Ceremony",
+        16: "戰場勝利號角 / Chapter Victory Fanfare (One-Shot)",
+        17: "遠征挫敗 · 戰敗曲 / Game Over Defeat Fanfare (One-Shot)",
+        18: "黃金城之謎 · 標題與首領決戰 / Title Screen, Royal Palace & Boss Combat Cutaway",
+        19: "我軍行動 A · 炎龍進軍 / Player Phase A (Ch. 1–4, 6–8, 11–14, 16, 18–19, 21, 24, 26, 28–29)",
+    }
     mus_chunks = read_llll_chunks(FD2_DIR / "FDMUS.DAT")
     tracks = []
     for midx, mch in enumerate(mus_chunks):
@@ -1924,15 +1942,16 @@ def main():
             notes = parse_xmi_evnt(payload)
             if notes:
                 dur = max(n[0] + n[4] for n in notes)
+                role_title = fdmus_titles.get(midx, f"FD2 Track {midx}")
                 tracks.append({
                     "id": len(tracks),
                     "sourceIndex": midx,
-                    "name": f"BGM #{len(tracks) + 1:02d} (FD2 Track {midx})",
+                    "name": f"BGM #{len(tracks) + 1:02d} (FDMUS[{midx}] · {role_title})",
                     "duration": round(dur, 2),
                     "noteCount": len(notes),
                     "notes": notes,
                 })
-    (OUT_DIR / "music.json").write_text(json.dumps(tracks, separators=(",", ":")), encoding="utf-8")
+    (OUT_DIR / "music.json").write_text(json.dumps(tracks, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
     # 11b. Choreography Bytecode Table (Obj 3 + 10,200: 106 scripts `choreo_id = 0..105`)
     choreo_ptrs = list(struct.unpack_from("<106I", exe, OBJ3_BASE + 10200))

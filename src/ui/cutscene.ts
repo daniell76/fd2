@@ -213,7 +213,21 @@ export class CutscenePlayer {
       else dispAtkHp = strike.targetHpAfter;
     }
 
-    await this.runTimelineOnCanvas(allSteps, outcome.bgId, backdropEl, canvas, skipBtn);
+    // Authentic `FD2.EXE` `fn_89499` (`Obj1 + 89525` & `89652`):
+    // If either combatant is a Boss (`isBoss`), switch cutaway BGM to `FDMUS[18]` (`fn_88439(18, 0)`) and restore on exit!
+    const isBossDuel = Boolean(outcome.attacker.isBoss || outcome.defender.isBoss);
+    const prevSourceIdx = this.sound.getCurrentSourceIndex();
+    const prevLoop = this.sound.isCurrentLooping();
+    if (isBossDuel && prevSourceIdx !== 18) {
+      this.sound.playBgmBySourceIndex(18);
+    }
+    try {
+      await this.runTimelineOnCanvas(allSteps, outcome.bgId, backdropEl, canvas, skipBtn);
+    } finally {
+      if (isBossDuel && prevSourceIdx > 0 && prevSourceIdx !== 18) {
+        this.sound.playBgmBySourceIndex(prevSourceIdx, prevLoop);
+      }
+    }
   }
 
   /**
@@ -308,7 +322,21 @@ export class CutscenePlayer {
       targets: targetEntries,
     });
 
-    await this.runTimelineOnCanvas(steps, primaryBgId, backdropEl, canvas, skipBtn);
+    // Authentic `FD2.EXE` `fn_108221` (`Obj1 + 108230` & `108785`):
+    // If caster or any target is a Boss (`isBoss`), switch cutaway BGM to `FDMUS[18]` (`fn_88439(18, 0)`) and restore on exit!
+    const isBossMagic = Boolean(caster.isBoss || affected.some((a) => a.unit.isBoss));
+    const prevSourceIdx = this.sound.getCurrentSourceIndex();
+    const prevLoop = this.sound.isCurrentLooping();
+    if (isBossMagic && prevSourceIdx !== 18) {
+      this.sound.playBgmBySourceIndex(18);
+    }
+    try {
+      await this.runTimelineOnCanvas(steps, primaryBgId, backdropEl, canvas, skipBtn);
+    } finally {
+      if (isBossMagic && prevSourceIdx > 0 && prevSourceIdx !== 18) {
+        this.sound.playBgmBySourceIndex(prevSourceIdx, prevLoop);
+      }
+    }
   }
 
   async playDialogueSequence(

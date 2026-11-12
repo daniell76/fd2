@@ -36,6 +36,55 @@ const WALK_TYPE_BY_CLASS: readonly number[] = [
   3, 1, 1, 1, 3, 1, 0, 0, 1, 1, 1, 1, 1, 1,
 ];
 
+/**
+ * Authentic `FD2.EXE` `Obj2 + 7779` (`GLOBAL_2_7779[0..29]`) Player Phase BGM Table (`FDMUS.DAT` chunk `sourceIndex`)
+ * indexed by `chapterId = 0..29` (Chapters 1..30):
+ *  - `19`: Standard Tactical March — Chapters 1..4, 6..8, 11..14, 16, 18, 19, 21, 24, 26, 28, 29
+ *  - `3`: Major Fortress Assault — Chapters 5, 9, 15, 20, 22, 25
+ *  - `4`: Royal Castle / Sky Island / Golden Castle Siege — Chapters 10, 17, 23, 27
+ *  - `8`: Final Chapter 30 (`命運的交會`) — Chapter 30
+ */
+export const PLAYER_PHASE_BGM_BY_CHAPTER: readonly number[] = [
+  19, 19, 19, 19, 3, 19, 19, 19, 3, 4,
+  19, 19, 19, 19, 3, 19, 4, 19, 19, 3,
+  19, 3, 4, 19, 3, 19, 4, 19, 19, 8,
+];
+
+/**
+ * Authentic `FD2.EXE` `Obj2 + 7809` (`GLOBAL_2_7809[0..29]`) Enemy Phase BGM Table (`FDMUS.DAT` chunk `sourceIndex`)
+ * indexed by `chapterId = 0..29` (Chapters 1..30):
+ *  - `12`: Standard Enemy Phase A — Chapters 1, 2, 4, 6, 7, 11, 13, 16, 18, 19, 21, 24
+ *  - `1`: Standard Enemy Phase B — Chapters 3, 8, 12, 14, 26, 28, 29
+ *  - `6`: Major Battle Enemy Phase — Chapters 5, 9, 15, 20, 22, 25
+ *  - `4`: Royal Castle Rescue Enemy Phase — Chapter 10 (continuous with Player Phase `4`)
+ *  - `8`: Late-Game Fortress / Final Boss Enemy Phase — Chapters 17, 23, 27, 30
+ */
+export const ENEMY_PHASE_BGM_BY_CHAPTER: readonly number[] = [
+  12, 12, 1, 12, 6, 12, 12, 1, 6, 4,
+  12, 1, 12, 1, 6, 12, 8, 12, 12, 6,
+  12, 6, 8, 12, 6, 1, 8, 1, 1, 8,
+];
+
+/**
+ * Returns the authentic `FDMUS.DAT` `sourceIndex` for the given `chapterId` and turn `phase`,
+ * matching `FD2.EXE` `Obj1 + 1147` (chapter start) and `fn_42150` (`Obj1 + 42370` Enemy Phase / `42520` Player Phase).
+ */
+export function getChapterPhaseBgmSourceIndex(
+  chapterId: number,
+  phase: 'player' | 'ally' | 'enemy' = 'player'
+): number {
+  // Cutscene maps: Map 32 (`序幕(一)`) starts at `18` (`Obj1+140066`), Map 31 (`序幕(二)`) uses `11` (`Obj1+140311`), Map 30 (`終幕`) uses `4` (`Obj1+146589`)
+  if (chapterId === 32) return 18;
+  if (chapterId === 31) return 11;
+  if (chapterId === 30) return 4;
+  if (chapterId >= 0 && chapterId < 30) {
+    return phase === 'enemy'
+      ? (ENEMY_PHASE_BGM_BY_CHAPTER[chapterId] ?? 12)
+      : (PLAYER_PHASE_BGM_BY_CHAPTER[chapterId] ?? 19);
+  }
+  return 19;
+}
+
 export class SoundEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
@@ -50,6 +99,8 @@ export class SoundEngine {
 
   private tracks: MusicTrack[] = [];
   private currentTrackIdx = -1;
+  private currentSourceIndex = -1;
+  private loopCurrentTrack = true;
   private isPlayingMusic = false;
   private muted = false;
 
@@ -122,22 +173,44 @@ export class SoundEngine {
     return this.currentTrackIdx;
   }
 
+  getCurrentSourceIndex(): number {
+    return this.currentSourceIndex;
+  }
+
+  isCurrentLooping(): boolean {
+    return this.loopCurrentTrack;
+  }
+
   toggleMute(): boolean {
     this.muted = !this.muted;
     if (this.muted) {
       this.stopMusic();
-    } else if (this.currentTrackIdx >= 0) {
-      this.playTrack(this.currentTrackIdx);
+    } else if (this.currentTrackIdx >= 0 && this.loopCurrentTrack) {
+      this.playTrack(this.currentTrackIdx, this.loopCurrentTrack);
     }
     return this.muted;
   }
 
-  playTrack(trackIdx: number): void {
+  /**
+   * Plays a BGM track by its authentic `FDMUS.DAT` chunk `sourceIndex` (`1, 3, 4, 6, 8, 10..19`),
+   * matching `FD2.EXE` `fn_88439(sourceIndex, oneShotFlag)`.
+   */
+  playBgmBySourceIndex(sourceIndex: number, loop = true): void {
+    if (this.tracks.length === 0) return;
+    const foundIdx = this.tracks.findIndex((t) => t.sourceIndex === sourceIndex);
+    if (foundIdx >= 0) {
+      this.playTrack(foundIdx, loop);
+    }
+  }
+
+  playTrack(trackIdx: number, loop = true): void {
     if (this.tracks.length === 0) return;
     const idx = ((trackIdx % this.tracks.length) + this.tracks.length) % this.tracks.length;
-    if (this.isPlayingMusic && this.currentTrackIdx === idx && !this.muted) return;
+    if (this.isPlayingMusic && this.currentTrackIdx === idx && this.loopCurrentTrack === loop && !this.muted) return;
     this.stopMusic();
     this.currentTrackIdx = idx;
+    this.currentSourceIndex = this.tracks[idx]?.sourceIndex ?? -1;
+    this.loopCurrentTrack = loop;
     if (this.muted) return;
 
     const ctx = this.ensureContext();
@@ -182,8 +255,12 @@ export class SoundEngine {
     }
 
     if (this.noteCursor >= track.notes.length && now >= this.trackStartTime + track.duration) {
-      this.trackStartTime = now + 0.25;
-      this.noteCursor = 0;
+      if (this.loopCurrentTrack) {
+        this.trackStartTime = now + 0.25;
+        this.noteCursor = 0;
+      } else {
+        this.stopMusic();
+      }
     }
   }
 

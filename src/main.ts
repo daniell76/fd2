@@ -1,5 +1,5 @@
 import './style.css';
-import { SoundEngine } from './audio/soundEngine';
+import { SoundEngine, getChapterPhaseBgmSourceIndex } from './audio/soundEngine';
 import { AssetManager } from './engine/assets';
 import {
   ScenarioDirector,
@@ -1166,7 +1166,9 @@ class FlameDragonWebApp {
     this.specialStripOverlay = null;
 
     if (this.assets.musicTracks.length > 0) {
-      this.sound.playTrack(chapterId % this.assets.musicTracks.length);
+      // Authentic `FD2.EXE` `Obj1 + 1147` (`fn_88439(M1[chapterId + 7779], 0)`):
+      // Plays the chapter's Player Phase BGM from `PLAYER_PHASE_BGM_BY_CHAPTER[chapterId]`!
+      this.sound.playBgmBySourceIndex(getChapterPhaseBgmSourceIndex(chapterId, 'player'));
     }
 
     const init = initChapterSlots(clonedData, this.party, this.assets.gameData);
@@ -3738,9 +3740,14 @@ class FlameDragonWebApp {
     this.uiState = 'busy';
     this.crossMenu.close();
     this.hideSubPopupAndForecast();
+    // Authentic `FD2.EXE` `Obj1 + 136516` (`fn_88439(16, 1)`): One-shot 2.67s Chapter Victory Fanfare (`FDMUS[16]`)!
+    this.sound.playBgmBySourceIndex(16, false);
     this.playUiSfx('fanfare');
     markChapterCleared(this.chapter.chapterNumber);
     await this.showPhaseBanner(tr('戰場勝利 · VICTORY!', '战场胜利 · VICTORY!', 'VICTORY!'));
+
+    // Authentic `FD2.EXE` `Obj1 + 136541` (`fn_88439(11, 0)`): Post-Battle Story Dialogue BGM (`FDMUS[11]`)!
+    this.sound.playBgmBySourceIndex(11);
 
     // Sync surviving & fallen heroes before Post-Battle Directing so newly recruited heroes append cleanly!
     this.party = this.syncPartyFromBattlefield();
@@ -3751,6 +3758,7 @@ class FlameDragonWebApp {
 
     if (postOutcome.kind === 'ending') {
       this.modals.openEndingModal(postOutcome.route, this.party, () => {
+        this.sound.playBgmBySourceIndex(18); // `Obj1 + 115189: fn_88439(18, 0)` (Title Screen BGM)
         this.titleScreenEl.classList.remove('hidden');
         this.uiState = 'idle';
       });
@@ -3801,6 +3809,8 @@ class FlameDragonWebApp {
   private handleChapterDefeat(): void {
     this.uiState = 'busy';
     this.crossMenu.close();
+    // Authentic `FD2.EXE` `Obj1 + 135157` (`fn_88439(17, 1)`): One-shot 7.34s Game Over Fanfare (`FDMUS[17]`)!
+    this.sound.playBgmBySourceIndex(17, false);
     this.playUiSfx('cancel');
     this.logMessage(
       tr(
@@ -3838,6 +3848,7 @@ class FlameDragonWebApp {
     });
     this.subPopupEl.querySelector('#btn-defeat-title')?.addEventListener('click', () => {
       this.hideSubPopupAndForecast();
+      this.sound.playBgmBySourceIndex(18); // `Obj1 + 115189: fn_88439(18, 0)` (Title Screen BGM)
       this.titleScreenEl.classList.remove('hidden');
       this.uiState = 'idle';
     });
@@ -3969,9 +3980,10 @@ class FlameDragonWebApp {
     }
 
     // 2. Enemy Phase (`phase === 0` on current `this.turn`)
-    // Exact `FD2.EXE` `L42279..42307`: Show Enemy Phase banner, then `fn_13622()` clears `acted` (`M1[unit+5] &= 0x7F`)
-    // across ALL units on the map (restoring full color & idle motion to all Player and Ally units!) before `fn_43027(0)`.
+    // Exact `FD2.EXE` `L42279..42370`: Show Enemy Phase banner, clear `acted` (`fn_13622`),
+    // and switch BGM to `ENEMY_PHASE_BGM_BY_CHAPTER[chapterId]` (`Obj1 + 42370: fn_88439(M1[chapterId + 7809], 0)`).
     this.phase = 'enemy';
+    this.sound.playBgmBySourceIndex(getChapterPhaseBgmSourceIndex(this.currentChapterId, 'enemy'));
     this.updateTopHud();
     await this.showPhaseBanner(tr('敵軍行動 · ENEMY PHASE', '敌军行动 · ENEMY PHASE', 'ENEMY PHASE'));
     this.resetFactionActedFlags('player');
@@ -3984,10 +3996,11 @@ class FlameDragonWebApp {
     if (this.checkBattleEndConditions()) return;
 
     // 3. Advance Turn & Player Phase (`phase === 2` on `this.turn + 1`)
-    // Exact `FD2.EXE` `L42449..42490`: `fn_13622()` clears `acted` (`M1[unit+5] &= 0x7F`) across ALL units on the map
-    // (restoring full color & idle motion to all Enemy units!).
+    // Exact `FD2.EXE` `L42449..42520`: Clear `acted` (`fn_13622`) across ALL units on the map,
+    // and restore Player Phase BGM `PLAYER_PHASE_BGM_BY_CHAPTER[chapterId]` (`Obj1 + 42520: fn_88439(M1[chapterId + 7779], 0)`).
     this.turn += 1;
     this.phase = 'player';
+    this.sound.playBgmBySourceIndex(getChapterPhaseBgmSourceIndex(this.currentChapterId, 'player'));
     this.resetFactionActedFlags('player');
     this.resetFactionActedFlags('ally');
     this.resetFactionActedFlags('enemy');

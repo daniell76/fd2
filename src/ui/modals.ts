@@ -452,6 +452,20 @@ export class ModalController {
     );
     const hasShopStock = !isCampOnlyChapter && (shopDef?.weaponShop.length > 0 || shopDef?.itemShop.length > 0);
 
+    const syncTownTabBgm = () => {
+      // Authentic `FD2.EXE` Town / Camp BGM (`Obj1 + 118068, 119449..119545`):
+      //  - `party` (Base Camp / Quarters): `FDMUS[10]`
+      //  - `weapon` / `item` (Armory / Item Shop): `FDMUS[13]`
+      //  - `church` (Sanctuary): `FDMUS[14]`
+      if (activeTab === 'party') {
+        this.sound.playBgmBySourceIndex(10);
+      } else if (activeTab === 'weapon' || activeTab === 'item') {
+        this.sound.playBgmBySourceIndex(13);
+      } else if (activeTab === 'church') {
+        this.sound.playBgmBySourceIndex(14);
+      }
+    };
+
     const renderTabs = () => {
       this.tabsEl.innerHTML = `
         <button class="btn ${activeTab === 'party' ? 'btn-gold' : ''}" id="camp-tab-party" type="button">${tr('隊伍與裝備', '队伍与装备', 'Party & Gear')} (${getLocalizedUnitName(75)})</button>
@@ -467,24 +481,29 @@ export class ModalController {
       this.tabsEl.querySelector('#camp-tab-party')?.addEventListener('click', () => {
         activeTab = 'party';
         this.sound.playSfx('cursor');
+        syncTownTabBgm();
         renderAll();
       });
       this.tabsEl.querySelector('#camp-tab-weapon')?.addEventListener('click', () => {
         activeTab = 'weapon';
         this.sound.playSfx('cursor');
+        syncTownTabBgm();
         renderAll();
       });
       this.tabsEl.querySelector('#camp-tab-item')?.addEventListener('click', () => {
         activeTab = 'item';
         this.sound.playSfx('cursor');
+        syncTownTabBgm();
         renderAll();
       });
       this.tabsEl.querySelector('#camp-tab-church')?.addEventListener('click', () => {
         activeTab = 'church';
         this.sound.playSfx('cursor');
+        syncTownTabBgm();
         renderAll();
       });
       this.tabsEl.querySelector('#camp-save-btn')?.addEventListener('click', () => {
+        this.sound.playBgmBySourceIndex(11); // `Obj1 + 119478: fn_88439(11, 0)` (Tavern Record Save BGM)
         onSaveRequest();
       });
       this.tabsEl.querySelector('#camp-deploy-btn')?.addEventListener('click', () => {
@@ -887,6 +906,7 @@ export class ModalController {
           }
           member.level = 1;
           member.exp = 0;
+          this.sound.playBgmBySourceIndex(15); // `Obj1 + 119522: fn_88439(15, 0)` (Church Hero Promotion Ceremony BGM)
           this.sound.playSfx('levelup');
           renderAll();
         });
@@ -904,6 +924,7 @@ export class ModalController {
       renderBody();
     };
 
+    syncTownTabBgm();
     this.activeRenderFn = renderAll;
     renderAll();
     this.backdropEl.classList.remove('hidden');
