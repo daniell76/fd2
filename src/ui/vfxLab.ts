@@ -40,7 +40,10 @@ interface VfxLeaf {
   depth: number;
 }
 
+export type AnimSourceMode = 'omni_video' | 'nb2_6frame' | 'nb2_3pose';
+
 export interface ModernVfxConfig {
+  animSource: AnimSourceMode;
   enableParallaxAndGodRays: boolean;
   enableAfterimagesAndSpring: boolean;
   enableVolumetricSlash: boolean;
@@ -58,6 +61,10 @@ interface VfxLabAssets {
   loaded: boolean;
   thorPoses: HTMLImageElement[];
   banditPoses: HTMLImageElement[];
+  thorNb6Poses: HTMLImageElement[];
+  banditNb6Poses: HTMLImageElement[];
+  thorOmniPoses: HTMLImageElement[];
+  banditOmniPoses: HTMLImageElement[];
   thorSheetRaw: HTMLImageElement;
   banditSheetRaw: HTMLImageElement;
   clashKeyArt: HTMLImageElement;
@@ -72,6 +79,10 @@ const vfxAssetsCache: VfxLabAssets = {
   loaded: false,
   thorPoses: [],
   banditPoses: [],
+  thorNb6Poses: [],
+  banditNb6Poses: [],
+  thorOmniPoses: [],
+  banditOmniPoses: [],
   thorSheetRaw: new Image(),
   banditSheetRaw: new Image(),
   clashKeyArt: new Image(),
@@ -95,7 +106,7 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
   if (vfxAssetsCache.loaded) {
     return vfxAssetsCache;
   }
-  const cacheBust = '?v=2';
+  const cacheBust = '?v=3';
   const [
     t0,
     t1,
@@ -103,6 +114,10 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
     b0,
     b1,
     b2,
+    thorNb6,
+    banditNb6,
+    thorOmni,
+    banditOmni,
     tRaw,
     bRaw,
     clashImg,
@@ -118,6 +133,10 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
     loadImg(`assets/vfx_lab/bandit_pose_0.png${cacheBust}`),
     loadImg(`assets/vfx_lab/bandit_pose_1.png${cacheBust}`),
     loadImg(`assets/vfx_lab/bandit_pose_2.png${cacheBust}`),
+    Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`assets/vfx_lab/thor_nb6_${i}.png${cacheBust}`))),
+    Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`assets/vfx_lab/bandit_nb6_${i}.png${cacheBust}`))),
+    Promise.all([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => loadImg(`assets/vfx_lab/thor_omni_${i}.png${cacheBust}`))),
+    Promise.all([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => loadImg(`assets/vfx_lab/bandit_omni_${i}.png${cacheBust}`))),
     loadImg(`assets/vfx_lab/thor_sheet_raw.png${cacheBust}`),
     loadImg(`assets/vfx_lab/bandit_sheet_raw.png${cacheBust}`),
     loadImg(`assets/vfx_lab/clash_keyart.jpg${cacheBust}`),
@@ -130,6 +149,10 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
 
   vfxAssetsCache.thorPoses = [t0, t1, t2];
   vfxAssetsCache.banditPoses = [b0, b1, b2];
+  vfxAssetsCache.thorNb6Poses = thorNb6;
+  vfxAssetsCache.banditNb6Poses = banditNb6;
+  vfxAssetsCache.thorOmniPoses = thorOmni;
+  vfxAssetsCache.banditOmniPoses = banditOmni;
   vfxAssetsCache.thorSheetRaw = tRaw;
   vfxAssetsCache.banditSheetRaw = bRaw;
   vfxAssetsCache.clashKeyArt = clashImg;
@@ -194,6 +217,7 @@ export class Modern25DCombatRenderer {
     private vfxAssets: VfxLabAssets,
     private sound: SoundEngine,
     public config: ModernVfxConfig = {
+      animSource: 'omni_video',
       enableParallaxAndGodRays: true,
       enableAfterimagesAndSpring: true,
       enableVolumetricSlash: true,
@@ -203,6 +227,31 @@ export class Modern25DCombatRenderer {
     }
   ) {
     this.initAmbientLeaves();
+  }
+
+  private getActivePoseList(unit: 'thor' | 'bandit'): HTMLImageElement[] {
+    if (this.config.animSource === 'omni_video') {
+      return unit === 'thor' ? this.vfxAssets.thorOmniPoses : this.vfxAssets.banditOmniPoses;
+    }
+    if (this.config.animSource === 'nb2_6frame') {
+      return unit === 'thor' ? this.vfxAssets.thorNb6Poses : this.vfxAssets.banditNb6Poses;
+    }
+    return unit === 'thor' ? this.vfxAssets.thorPoses : this.vfxAssets.banditPoses;
+  }
+
+  private setContinuousFrame(spec: PoseRenderSpec, floatIdx: number, maxIdx: number): void {
+    const clamped = Math.max(0, Math.min(maxIdx, floatIdx));
+    const idx0 = Math.floor(clamped);
+    const idx1 = Math.min(maxIdx, idx0 + 1);
+    const frac = clamped - idx0;
+    spec.primaryIdx = idx0;
+    if (idx1 !== idx0 && frac > 0.02 && this.config.enableAfterimagesAndSpring) {
+      spec.secondaryIdx = idx1;
+      spec.blend = frac;
+    } else {
+      spec.secondaryIdx = undefined;
+      spec.blend = 0;
+    }
   }
 
   private initAmbientLeaves(): void {
@@ -574,13 +623,18 @@ export class Modern25DCombatRenderer {
     // -------------------------------------------------------------------------
     // Thor Diagonal Up-Left (↖) Strike Sequence
     // -------------------------------------------------------------------------
+    const srcMode = this.config.animSource;
     if (thorStart >= 0 && t >= thorStart && t < thorStart + 1830) {
       const localT = t - thorStart;
       if (localT < 460) {
-        // 1. Coiled Wind-Up at Bottom-Right (Pose 0 -> Pose 1 smooth blend)
+        // 1. Coiled Wind-Up at Bottom-Right
         const p = localT / 460;
         const ease = 1 - Math.pow(1 - p, 3);
-        if (p < 0.28) {
+        if (srcMode === 'omni_video') {
+          this.setContinuousFrame(thorSpec, p * 4.5, 9);
+        } else if (srcMode === 'nb2_6frame') {
+          this.setContinuousFrame(thorSpec, p * 2.0, 5);
+        } else if (p < 0.28) {
           thorSpec.primaryIdx = 0;
           thorSpec.secondaryIdx = 1;
           thorSpec.blend = p / 0.28;
@@ -601,7 +655,6 @@ export class Modern25DCombatRenderer {
       } else if (localT < 820) {
         // 2. Diagonal Up-Left (↖) High-Speed Lunge + Optional Anime Eye Cut-In
         const p = (localT - 460) / 360;
-        thorSpec.primaryIdx = 1;
         if (this.config.enableAnimeCutIn) {
           cutInProgress = p;
         }
@@ -611,12 +664,22 @@ export class Modern25DCombatRenderer {
         thorSpec.y = thorHomeY + 10 - dashEase * (H * 0.19);
         thorSpec.afterimages = this.config.enableAfterimagesAndSpring && dashP > 0.05 ? 4 : 0;
 
-        // During the final 30% of the dash, begin the rotational whip into Pose 2!
-        if (dashP > 0.7) {
-          const whipP = (dashP - 0.7) / 0.3;
-          thorSpec.secondaryIdx = 2;
-          thorSpec.blend = whipP * 0.55;
-          thorSpec.rot = -whipP * 0.06;
+        if (srcMode === 'omni_video') {
+          this.setContinuousFrame(thorSpec, 4.5 + dashP * 1.7, 9);
+        } else if (srcMode === 'nb2_6frame') {
+          if (dashP > 0.65) {
+            this.setContinuousFrame(thorSpec, 2.0 + ((dashP - 0.65) / 0.35) * 1.0, 5);
+          } else {
+            thorSpec.primaryIdx = 2;
+          }
+        } else {
+          thorSpec.primaryIdx = 1;
+          if (dashP > 0.7) {
+            const whipP = (dashP - 0.7) / 0.3;
+            thorSpec.secondaryIdx = 2;
+            thorSpec.blend = whipP * 0.55;
+            thorSpec.rot = -whipP * 0.06;
+          }
         }
 
         camZoom = 1.13 + dashEase * 0.09;
@@ -628,9 +691,23 @@ export class Modern25DCombatRenderer {
           this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.5, 14);
         });
       } else if (localT < 1400) {
-        // 3. Diagonal Up-Left Cleave Impact & Follow-Through (Pose 1 -> Pose 2)
+        // 3. Diagonal Up-Left Cleave Impact & Follow-Through
         const p = (localT - 820) / 580;
-        if (p < 0.12) {
+        if (srcMode === 'omni_video') {
+          if (p < 0.45) {
+            this.setContinuousFrame(thorSpec, 6.2 + (p / 0.45) * 2.8, 9);
+          } else {
+            thorSpec.primaryIdx = 9;
+          }
+        } else if (srcMode === 'nb2_6frame') {
+          if (p < 0.28) {
+            this.setContinuousFrame(thorSpec, 3.0 + (p / 0.28) * 1.0, 5);
+          } else if (p < 0.55) {
+            this.setContinuousFrame(thorSpec, 4.0 + ((p - 0.28) / 0.27) * 1.0, 5);
+          } else {
+            thorSpec.primaryIdx = 5;
+          }
+        } else if (p < 0.12) {
           thorSpec.primaryIdx = 1;
           thorSpec.secondaryIdx = 2;
           thorSpec.blend = 0.55 + (p / 0.12) * 0.45;
@@ -682,8 +759,9 @@ export class Modern25DCombatRenderer {
         // 4. Diagonal Down-Right (↘) Backstep Return to Bottom-Right TAI Platform
         const p = (localT - 1400) / 430;
         const ease = 1 - Math.pow(1 - p, 2);
+        const endIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
         if (p < 0.4) {
-          thorSpec.primaryIdx = 2;
+          thorSpec.primaryIdx = endIdx;
           thorSpec.secondaryIdx = 0;
           thorSpec.blend = p / 0.4;
         } else {
@@ -708,10 +786,14 @@ export class Modern25DCombatRenderer {
     if (banditStart >= 0 && t >= banditStart && t < banditStart + 1850) {
       const localB = t - banditStart;
       if (localB < 520) {
-        // 1. Bandit Overhead Wind-Up at Top-Left (Pose 0 -> Pose 1 blend)
+        // 1. Bandit Overhead Wind-Up at Top-Left
         const p = localB / 520;
         const ease = 1 - Math.pow(1 - p, 3);
-        if (p < 0.28) {
+        if (srcMode === 'omni_video') {
+          this.setContinuousFrame(banditSpec, p * 5.0, 9);
+        } else if (srcMode === 'nb2_6frame') {
+          this.setContinuousFrame(banditSpec, p * 2.0, 5);
+        } else if (p < 0.28) {
           banditSpec.primaryIdx = 0;
           banditSpec.secondaryIdx = 1;
           banditSpec.blend = p / 0.28;
@@ -732,18 +814,28 @@ export class Modern25DCombatRenderer {
         // 2. Bandit Diagonal Down-Right (↘) Lunge toward Bottom-Right Thor
         const p = (localB - 520) / 300;
         const ease = 1 - Math.pow(1 - p, 3);
-        banditSpec.primaryIdx = 1;
         banditSpec.x = banditHomeX - 18 + ease * (W * 0.3);
         banditSpec.y = banditHomeY - 10 + ease * (H * 0.18);
         banditSpec.afterimages = this.config.enableAfterimagesAndSpring ? 3 : 0;
         banditSpec.dashDirX = -1;
         banditSpec.dashDirY = -0.48;
 
-        if (p > 0.7) {
-          const whipP = (p - 0.7) / 0.3;
-          banditSpec.secondaryIdx = 2;
-          banditSpec.blend = whipP * 0.55;
-          banditSpec.rot = whipP * 0.06;
+        if (srcMode === 'omni_video') {
+          this.setContinuousFrame(banditSpec, 5.0 + p * 2.2, 9);
+        } else if (srcMode === 'nb2_6frame') {
+          if (p > 0.65) {
+            this.setContinuousFrame(banditSpec, 2.0 + ((p - 0.65) / 0.35) * 1.0, 5);
+          } else {
+            banditSpec.primaryIdx = 2;
+          }
+        } else {
+          banditSpec.primaryIdx = 1;
+          if (p > 0.7) {
+            const whipP = (p - 0.7) / 0.3;
+            banditSpec.secondaryIdx = 2;
+            banditSpec.blend = whipP * 0.55;
+            banditSpec.rot = whipP * 0.06;
+          }
         }
 
         camZoom = 1.12 + ease * 0.07;
@@ -754,9 +846,23 @@ export class Modern25DCombatRenderer {
           this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.4, 12);
         });
       } else if (localB < 1400) {
-        // 3. Bandit Down-Right Cleave Impact (Pose 1 -> Pose 2)
+        // 3. Bandit Down-Right Cleave Impact
         const p = (localB - 820) / 580;
-        if (p < 0.12) {
+        if (srcMode === 'omni_video') {
+          if (p < 0.48) {
+            this.setContinuousFrame(banditSpec, 7.2 + (p / 0.48) * 1.8, 9);
+          } else {
+            banditSpec.primaryIdx = 9;
+          }
+        } else if (srcMode === 'nb2_6frame') {
+          if (p < 0.28) {
+            this.setContinuousFrame(banditSpec, 3.0 + (p / 0.28) * 1.0, 5);
+          } else if (p < 0.55) {
+            this.setContinuousFrame(banditSpec, 4.0 + ((p - 0.28) / 0.27) * 1.0, 5);
+          } else {
+            banditSpec.primaryIdx = 5;
+          }
+        } else if (p < 0.12) {
           banditSpec.primaryIdx = 1;
           banditSpec.secondaryIdx = 2;
           banditSpec.blend = 0.55 + (p / 0.12) * 0.45;
@@ -805,8 +911,9 @@ export class Modern25DCombatRenderer {
         // 4. Bandit leaps diagonally Up-Left (↖) back to Top-Left
         const p = (localB - 1400) / 450;
         const ease = 1 - Math.pow(1 - p, 2);
+        const endIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
         if (p < 0.4) {
-          banditSpec.primaryIdx = 2;
+          banditSpec.primaryIdx = endIdx;
           banditSpec.secondaryIdx = 0;
           banditSpec.blend = p / 0.4;
         } else {
@@ -853,14 +960,16 @@ export class Modern25DCombatRenderer {
     }
 
     // Render Bandit (Top-Left, lower Y -> drawn first in painter's algorithm)
-    this.renderCombatantWithBlend(ctx, this.vfxAssets.banditPoses, banditSpec, '#ef4444', 475);
-    if (banditSpec.primaryIdx === 1) {
+    const activeBanditPoses = this.getActivePoseList('bandit');
+    const activeThorPoses = this.getActivePoseList('thor');
+    this.renderCombatantWithBlend(ctx, activeBanditPoses, banditSpec, '#ef4444', 495);
+    if (banditSpec.primaryIdx >= 1 && banditSpec.primaryIdx <= 6) {
       this.drawBanditVisorGlint(ctx, banditSpec.x + 24, banditSpec.y - 340, t);
     }
 
     // Render Thor (Bottom-Right Foreground, higher Y -> drawn on top in painter's algorithm!)
     if (thorDrawsInFront) {
-      this.renderCombatantWithBlend(ctx, this.vfxAssets.thorPoses, thorSpec, '#38bdf8', 515);
+      this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, '#38bdf8', 535);
     }
 
     if (
@@ -1535,6 +1644,39 @@ export class Modern25DCombatRenderer {
       this.thorMaxMp,
       '#38bdf8'
     );
+
+    // Top-Left: Active Animation Pipeline Indicator Badge
+    ctx.save();
+    ctx.fillStyle = 'rgba(10, 14, 24, 0.86)';
+    ctx.strokeStyle =
+      this.config.animSource === 'omni_video'
+        ? '#fde047'
+        : this.config.animSource === 'nb2_6frame'
+          ? '#38bdf8'
+          : '#a855f7';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(38, 24, 490, 38, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'left';
+    const modeLabel =
+      this.config.animSource === 'omni_video'
+        ? isEn
+          ? '🎬 Pipeline: Gemini Omni 1.2 Video + ffmpeg (10 Frames)'
+          : '🎬 當前管線：Gemini Omni 1.2 影片生成 + ffmpeg 抽幀 (10 幀序列)'
+        : this.config.animSource === 'nb2_6frame'
+          ? isEn
+            ? '🖼️ Pipeline: Nano Banana 2 + Original Strip (6 Frames)'
+            : '🖼️ 當前管線：Nano Banana 2 餵入原版連續圖 (6 幀序列)'
+          : isEn
+            ? '🎨 Pipeline: Nano Banana 2 Baseline (3 Poses + Blend)'
+            : '🎨 當前管線：Nano Banana 2 基礎三關鍵幀 + 補間';
+    ctx.fillText(modeLabel, 54, 48);
+    ctx.restore();
   }
 }
 
@@ -1574,34 +1716,63 @@ export async function mountVfxLabInGallery(
             )}
           </span>
           <span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35);">
-            ${tr('原版對角站位 (左上敵↘ vs 右下我↖) + 綠→黃→紅 HP/MP 條', '原版对角站位 (左上敌↘ vs 右下我↖) + 绿→黄→红 HP/MP 条', 'Authentic Diagonal Orientation + Green→Yellow→Red HP/MP Drain')}
+            ${tr('Nano Banana 2 6幀原圖條件生成 vs Gemini Omni 1.2 影片 ffmpeg 抽幀對照', 'Nano Banana 2 6帧原图条件生成 vs Gemini Omni 1.2 视频 ffmpeg 抽帧对照', 'Compare Nano Banana 2 (6-Frame Strip) vs. Gemini Omni 1.2 Video (ffmpeg 10-Frame)')}
           </span>
         </div>
 
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <button class="gal-btn active" id="vfx-tab-stage" type="button">🎬 ${tr('2.5D 現代演武舞台', '2.5D 现代演武舞台', 'Live 2.5D Combat Stage')}</button>
           <button class="gal-btn" id="vfx-tab-split" type="button">🔀 ${tr('1995 原版 vs 2026 分割畫面對照', '1995 原版 vs 2026 分割画面对照', '1995 DOS vs 2026 Split-Screen')}</button>
-          <button class="gal-btn" id="vfx-tab-art" type="button">🎨 ${tr('高解析關鍵幀與插畫原稿', '高解析关键帧与插画原稿', 'Keyframe Sheets & Key Art')}</button>
+          <button class="gal-btn" id="vfx-tab-art" type="button">🎨 ${tr('Omni 原始影片與高解析關鍵幀原稿', 'Omni 原始视频与高解析关键帧原稿', 'Omni Raw Videos & Keyframe Sheets')}</button>
         </div>
       </div>
 
-      <div id="vfx-stage-container" style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 72vh; background: #05080f; border: 1px solid var(--border-subtle, #334155); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 18px 48px rgba(0,0,0,0.6);">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 18px; background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 10px;">
+        <span style="font-size: 13.5px; font-weight: 700; color: #fde047;">
+          🔬 ${tr('切換動畫生成管線 (即時對比)：', '切换动画生成管线 (即时对比)：', 'Animation Generation Pipeline (Live Compare):')}
+        </span>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <button class="gal-btn active" id="vfx-src-omni" type="button">
+            🎬 ${tr('方案 B：Gemini Omni 1.2 影片 + ffmpeg 抽幀 (10 幀)', '方案 B：Gemini Omni 1.2 视频 + ffmpeg 抽帧 (10 帧)', 'Option B: Gemini Omni 1.2 Video + ffmpeg (10 Frames)')}
+          </button>
+          <button class="gal-btn" id="vfx-src-nb6" type="button">
+            🖼️ ${tr('方案 A：Nano Banana 2 餵入原版連續圖 (6 幀)', '方案 A：Nano Banana 2 喂入原版连续图 (6 帧)', 'Option A: Nano Banana 2 + Original Strip (6 Frames)')}
+          </button>
+          <button class="gal-btn" id="vfx-src-nb3" type="button">
+            🎨 ${tr('基準組：Nano Banana 2 三關鍵幀 + 補間 (3 幀)', '基准组：Nano Banana 2 三关键帧 + 补间 (3 帧)', 'Baseline: Nano Banana 2 (3 Poses + Blend)')}
+          </button>
+        </div>
+      </div>
+
+      <div id="vfx-stage-container" style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh; background: #05080f; border: 1px solid var(--border-subtle, #334155); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 18px 48px rgba(0,0,0,0.6);">
         <canvas id="vfx-lab-canvas" width="1600" height="900" style="width: 100%; height: 100%; object-fit: contain;"></canvas>
       </div>
 
       <div id="vfx-art-container" style="display: none; padding: 20px; background: var(--bg-panel, #090d16); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(410px, 1fr)); gap: 18px;">
-          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
-            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">1. Thor (#0 索爾) 3/4 Rear-Isometric (↖) 3-Pose Sheet</h4>
-            <img src="assets/vfx_lab/thor_sheet_raw.png?v=2" style="width: 100%; border-radius: 8px; background: #fff;" />
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px;">
+          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
+            <h4 style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B1: Thor (#0 索爾) Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
+            <video src="assets/vfx_lab/thor_omni_1p2.mp4" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
+          </div>
+          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
+            <h4 style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B2: Bandit (#96 盜賊) Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
+            <video src="assets/vfx_lab/bandit_omni_1p2.mp4" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
+          </div>
+          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #38bdf8;">
+            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">🖼️ Option A1: Thor (#0 索爾) Nano Banana 2 6-Frame Sheet (Conditioned on 1995 Strip)</h4>
+            <img src="assets/vfx_lab/thor_nb6_sheet.jpg?v=3" style="width: 100%; border-radius: 8px; background: #fff;" />
+          </div>
+          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #f87171;">
+            <h4 style="margin: 0 0 8px 0; color: #f87171;">🖼️ Option A2: Bandit (#96 盜賊) Nano Banana 2 6-Frame Sheet (Conditioned on 1995 Strip)</h4>
+            <img src="assets/vfx_lab/bandit_nb6_sheet.jpg?v=3" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
-            <h4 style="margin: 0 0 8px 0; color: #f87171;">2. Bandit (#96 盜賊) 3/4 Front-Isometric (↘) 3-Pose Sheet</h4>
-            <img src="assets/vfx_lab/bandit_sheet_raw.png?v=2" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <h4 style="margin: 0 0 8px 0; color: #94a3b8;">🎨 Baseline: Thor (#0) 3-Pose Sheet</h4>
+            <img src="assets/vfx_lab/thor_sheet_raw.png?v=3" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
-            <h4 style="margin: 0 0 8px 0; color: #fde047;">3. Widescreen 16:9 Chapter 1 Clash Key Art</h4>
-            <img src="assets/vfx_lab/clash_keyart.jpg?v=2" style="width: 100%; border-radius: 8px; border: 1px solid #475569;" />
+            <h4 style="margin: 0 0 8px 0; color: #94a3b8;">🎨 Baseline: Bandit (#96) 3-Pose Sheet</h4>
+            <img src="assets/vfx_lab/bandit_sheet_raw.png?v=3" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
         </div>
       </div>
@@ -1651,6 +1822,10 @@ export async function mountVfxLabInGallery(
   const tabSplit = container.querySelector('#vfx-tab-split') as HTMLButtonElement;
   const tabArt = container.querySelector('#vfx-tab-art') as HTMLButtonElement;
 
+  const srcOmniBtn = container.querySelector('#vfx-src-omni') as HTMLButtonElement;
+  const srcNb6Btn = container.querySelector('#vfx-src-nb6') as HTMLButtonElement;
+  const srcNb3Btn = container.querySelector('#vfx-src-nb3') as HTMLButtonElement;
+
   const btnThorFirst = container.querySelector('#vfx-play-thor-first') as HTMLButtonElement;
   const btnBanditFirst = container.querySelector('#vfx-play-bandit-first') as HTMLButtonElement;
   const btnCrit = container.querySelector('#vfx-play-crit') as HTMLButtonElement;
@@ -1658,6 +1833,18 @@ export async function mountVfxLabInGallery(
   let splitCompare = false;
   let activeScenario: DuelScenario = 'thor_first_duel';
   renderer.startScenario(activeScenario);
+
+  const updateAnimSource = (src: AnimSourceMode) => {
+    renderer.config.animSource = src;
+    srcOmniBtn.classList.toggle('active', src === 'omni_video');
+    srcNb6Btn.classList.toggle('active', src === 'nb2_6frame');
+    srcNb3Btn.classList.toggle('active', src === 'nb2_3pose');
+    renderer.startScenario(activeScenario);
+  };
+
+  srcOmniBtn.addEventListener('click', () => updateAnimSource('omni_video'));
+  srcNb6Btn.addEventListener('click', () => updateAnimSource('nb2_6frame'));
+  srcNb3Btn.addEventListener('click', () => updateAnimSource('nb2_3pose'));
 
   const updateViewMode = (mode: 'stage' | 'split' | 'art') => {
     tabStage.classList.toggle('active', mode === 'stage');
@@ -1684,7 +1871,7 @@ export async function mountVfxLabInGallery(
   btnBanditFirst.addEventListener('click', () => updateScenarioBtns('bandit_first_duel'));
   btnCrit.addEventListener('click', () => updateScenarioBtns('thor_crit'));
 
-  const bindToggle = (selector: string, key: keyof ModernVfxConfig) => {
+  const bindToggle = (selector: string, key: Exclude<keyof ModernVfxConfig, 'animSource'>) => {
     const el = container.querySelector(selector) as HTMLInputElement;
     el.addEventListener('change', () => {
       renderer.config[key] = el.checked;
