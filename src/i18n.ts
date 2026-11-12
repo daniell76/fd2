@@ -702,7 +702,7 @@ export function getLocalizedSpeakerName(speakerId: number | null, fallbackZh = '
 export function getLocalizedUnitUsageNote(u: { id: number; role?: string; usageNoteZh?: string }): string {
   const id = u.id;
   if (id === 39) return tr('劇情 NPC（瑪琳村長老，第1～2章）', '剧情 NPC（玛琳村长老，第1～2章）', 'Story NPC (Marin Village Elder, Ch. 1–2)');
-  if (id === 48) return tr('劇情 NPC（羅特帝亞國王 雷特，第3～4章）', '剧情 NPC（罗特帝亚国王 雷特，第3～4章）', 'Story NPC (King Leite of Lotedia, Ch. 3–4)');
+  if (id === 48) return tr('劇情 NPC（羅特帝亞國王 雷特，第3～4章）', '剧情 NPC（罗特帝亚国王 雷特，第3～4章）', 'Story NPC (King Leit of Lotedia, Ch. 3–4)');
   if (id === 66) return tr('劇情 NPC（羅特帝亞王后 米蘭，第3～4章）', '剧情 NPC（罗特帝亚王后 米兰，第3～4章）', 'Story NPC (Queen Milan of Lotedia, Ch. 3–4)');
   if (id === 57 || id === 67) return tr('未使用之預留轉職槽位', '未使用之预留转职槽位', 'Unused Reserved Promotion Slot');
   if (id >= 0 && id <= 31) return tr('我方登場角色（32名夥伴槽位 0..31）', '我方登场角色（32名伙伴槽位 0..31）', 'Playable Hero (32 Party Slots 0..31)');

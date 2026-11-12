@@ -501,7 +501,7 @@ export function createBattleUnitFromChapterDef(
     x: ux,
     y: uy,
     // Exact `FD2.EXE` `fn_3152` `L3813: M1[slot + 3] = 0`: ALL map-spawned units start facing South (`dir = 0`)!
-    // (Critically required for 3-frame NPC rows like `#48 渥特王`, `#66 王后`, and `#75 米蘭`, whose `FDICON` art exists ONLY in `dir = 0`!)
+    // (Critically required for 3-frame NPC rows like `#48 雷特王`, `#66 王后`, and `#75 米蘭`, whose `FDICON` art exists ONLY in `dir = 0`!)
     dir: 0,
     hp: cu.maxHp,
     maxHp: cu.maxHp,

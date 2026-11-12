@@ -694,7 +694,7 @@ export class ScenarioDirector {
    *         - Starts at `camTopLeft = (3, 34)` (`x: 3..15, y: 34..41` — pure Palace; Woods `y = 43..50` completely clipped!).
    *         - `Choreo 99`: `#0 索爾` (`slot 2`) enters `(8, 42) -> (8, 36)`.
    *         - `15 × fn_12677(2)`: Sol walks `(8, 36) -> (8, 21)` while the camera scrolls smoothly UP `34 -> 20`!
-   *         - `dlg[0]`: Speaker auto-scroll (`fn_26028 -> fn_11498`) scrolls UP to `#48 渥特王` `(7, 5)` & `#66 王后` `(10, 5)` (`camTileY = 3`) and back to Sol `(8, 21)`!
+   *         - `dlg[0]`: Speaker auto-scroll (`fn_26028 -> fn_11498`) scrolls UP to `#48 雷特王` `(7, 5)` & `#66 王后` `(10, 5)` (`camTileY = 3`) and back to Sol `(8, 21)`!
    *         - `13 × fn_12677(2)`: Sol walks `(8, 21) -> (8, 8)` right up to the thrones!
    *         - `dlg[1]`: Camera frames `(3, 3)` (`x: 3..15, y: 3..10`), showing King Walt `(7, 5)`, the Queen `(10, 5)`, AND Sol `(8, 8)` together!
    *         - `Choreo 100` (`fadeOutDuringWalk`): Sol walks south `(8, 8) -> (8, 18)` while fading to black (`GLOBAL_2_15099 = 1`)!

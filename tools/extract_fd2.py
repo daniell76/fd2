@@ -44,7 +44,7 @@ HERO_CLASS_NAMES_ZH = {
 # Summon spells #32..#35 are rendered from FDOTHER.DAT[65..68] via fn_98249, NEVER DATO[128..132]!
 UNIT_68_135_NAMES_ZH = {
     68: "士兵", 69: "騎兵", 70: "傭兵", 71: "豹人", 72: "精靈", 73: "龍人",
-    74: "惡魔", 75: "米蘭",
+    74: "惡魔", 75: "系統侍女",
     76: "士兵", 77: "精英戰士", 78: "鎧甲武士", 79: "傭兵", 80: "黑暗戰士", 81: "狂戰士", 82: "騎兵", 83: "突擊騎兵",
     84: "地獄騎士", 85: "黑暗騎士", 86: "龍騎士", 87: "弓箭手", 88: "黑暗射手", 89: "狙擊手", 90: "魔法師", 91: "黑暗法師",
     92: "巫師", 93: "僧侶", 94: "黑暗僧侶", 95: "大祭師", 96: "盜賊", 97: "盜賊頭目", 98: "影之忍者", 99: "黑暗殺手",
@@ -58,11 +58,11 @@ UNIT_68_135_NAMES_ZH = {
 
 # Story / Cutscene / Unused NPC overrides inside promoted range (32..67)
 STORY_NPC_SLOTS = {
-    39: ("賢者長老", "長老"),
-    48: ("渥特王", "國王"),
-    57: ("保留空位#57", "未使用"),
-    66: ("王后", "王族"),
-    67: ("保留空位#67", "未使用"),
+    39: ("賢者長老", "長老", [1000, 134, 141, 602]),
+    48: ("雷特王", "國王", [44, 42, 307]),
+    57: ("保留空位#57", "未使用", []),
+    66: ("米蘭王后", "王族", [69, 50, 307, 1098]),
+    67: ("保留空位#67", "未使用", []),
 }
 
 # Secret promotion item required per hero (0..17) for Tier 3 promotion (verified from FD2.EXE GLOBAL_2_9895 at file 337,063!)
@@ -1419,7 +1419,7 @@ def main():
                     "baseHeroId": bh_id,
                 }
             if uid in STORY_NPC_SLOTS:
-                npc_zh, npc_cls = STORY_NPC_SLOTS[uid]
+                npc_zh, npc_cls, npc_glyphs = STORY_NPC_SLOTS[uid]
                 has_art = portrait_has_art.get(uid, False) and uid not in (57, 67)
                 note = (
                     "第13章劇情對話長老 (不上戰場)"
@@ -1430,7 +1430,7 @@ def main():
                 )
                 return {
                     "nameZh": npc_zh,
-                    "nameGlyphs": [],
+                    "nameGlyphs": list(npc_glyphs),
                     "classNameZh": npc_cls,
                     "classGlyphs": [],
                     "raceId": 1,
@@ -1480,7 +1480,7 @@ def main():
                 appears_on_bf = False
                 can_atk = False
                 note = (
-                    "營地存讀檔/城鎮出發確認與序幕/終章劇情NPC (絕不上戰場)"
+                    "營地存讀檔/系統確認提示侍女頭像 (DATO[75])；地圖走圖槽 (FDICON[75]) 為序幕森林倒地的悠妮 (絕不上戰場)"
                     if uid == 75
                     else "劇情對話專用惡魔頭像 (絕不上戰場)"
                 )
@@ -1780,6 +1780,22 @@ def main():
         title_zh = cutscene_titles_zh.get(m, CHAPTER_TITLES_ZH[m] if m < len(CHAPTER_TITLES_ZH) else f"第{m+1}章")
         eff_max_deploy = max(1, max_deploy) if m < 30 else max_deploy
 
+        ch_file = OUT_DIR / "chapters" / f"ch_{m:02d}.json"
+        if ch_file.exists():
+            try:
+                prev_ch = json.loads(ch_file.read_text(encoding="utf-8"))
+                prev_dlgs = prev_ch.get("dialogues", [])
+                for d_idx, segs in enumerate(dialogues):
+                    if d_idx < len(prev_dlgs):
+                        p_segs = prev_dlgs[d_idx]
+                        for s_idx, seg in enumerate(segs):
+                            if s_idx < len(p_segs):
+                                for loc_k in ("linesZhTw", "linesZhCn", "linesEn"):
+                                    if loc_k in p_segs[s_idx]:
+                                        seg[loc_k] = p_segs[s_idx][loc_k]
+            except Exception:
+                pass
+
         ch_obj = {
             "id": m,
             "chapterNumber": m + 1,
@@ -1800,7 +1816,7 @@ def main():
             "units": units,
             "dialogues": dialogues,
         }
-        (OUT_DIR / "chapters" / f"ch_{m:02d}.json").write_text(
+        ch_file.write_text(
             json.dumps(ch_obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
         )
         chapters_index.append({

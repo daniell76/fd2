@@ -961,7 +961,7 @@ class FlameDragonWebApp {
    *  - For `-19 / -20` (`seg.speakerSlot !== undefined`), looks up `this.slots[seg.speakerSlot]`.
    *  - For `-17 / -18` (`seg.speaker !== null`), looks up the first active unit on `this.slots` with `uid === seg.speaker` (`fn_11360`).
    *  - Smoothly scrolls the camera so `(unit.x, unit.y)` sits comfortably inside the inner `[+2..+10, +2..+5]`
-   *    zone of the `13 × 8` viewport (`fn_11498`), revealing off-screen speakers such as `#48 渥特王` `(7, 5)`
+   *    zone of the `13 × 8` viewport (`fn_11498`), revealing off-screen speakers such as `#48 雷特王` `(7, 5)`
    *    and `#66 王后` `(10, 5)` on their twin thrones in `Map 32`!
    */
   private async ensureSpeakerInView(seg: { speaker: number | null; speakerSlot?: number }): Promise<void> {
