@@ -653,9 +653,9 @@ export class Modern25DCombatRenderer {
           this.spawnDustPlume(thorSpec.x, thorSpec.y, 1, 0.4, 8);
         });
       } else if (localT < 820) {
-        // 2. Diagonal Up-Left (↖) High-Speed Lunge + Optional Anime Eye Cut-In
+        // 2. Diagonal Up-Left (↖) High-Speed Lunge + Critical-Only Avatar Cut-In Strip
         const p = (localT - 460) / 360;
-        if (this.config.enableAnimeCutIn) {
+        if (this.config.enableAnimeCutIn && this.scenario === 'thor_crit') {
           cutInProgress = p;
         }
         const dashP = Math.max(0, (p - 0.2) / 0.8);
@@ -1482,15 +1482,8 @@ export class Modern25DCombatRenderer {
     const faceImg = this.vfxAssets.clashKeyArt;
     if (faceImg && faceImg.complete && faceImg.naturalWidth > 0) {
       const slideX = (0.5 - progress) * 70;
-      ctx.drawImage(faceImg, 800, 175, 330, 165, -40 + slideX, -bannerH * 0.52, 460, bannerH * 1.06);
+      ctx.drawImage(faceImg, 800, 175, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
     }
-
-    const isEn = getLocale() === 'en';
-    ctx.font = 'italic 900 42px "Cinzel", "Noto Serif TC", serif';
-    ctx.fillStyle = '#fde047';
-    ctx.shadowColor = '#0284c7';
-    ctx.shadowBlur = 16;
-    ctx.fillText(isEn ? 'THOR — FLAME SLASH!' : '索爾 — 烈焰斬！', -W * 0.42, 14);
 
     ctx.shadowBlur = 0;
     ctx.strokeStyle = '#fde047';
@@ -1787,7 +1780,7 @@ export async function mountVfxLabInGallery(
             🛡️ ${tr('敵方先攻 + 我方反擊 (盜賊↘ → 索爾↖)', '敌方先攻 + 我方反击 (盗贼↘ → 索尔↖)', 'Enemy Initiates (↘) + Hero Retaliates (↖)')}
           </button>
           <button class="gal-btn" id="vfx-play-crit" type="button">
-            🔥 ${tr('索爾烈焰斬單擊必殺', '索尔烈焰斩单击必杀', 'Thor Critical Flame Slash KO')}
+            🔥 ${tr('索爾會心一擊必殺', '索尔会心一击必杀', 'Thor Critical Hit KO')}
           </button>
           <label style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 13px; color: #fde047; cursor: pointer;">
             <input type="checkbox" id="vfx-chk-slowmo" /> 🐢 ${tr('0.32x 慢動作檢視', '0.32x 慢动作检视', '0.32x Slow-Mo')}
@@ -1799,7 +1792,7 @@ export async function mountVfxLabInGallery(
             <input type="checkbox" id="vfx-chk-parallax" checked /> ${tr('林間光束與景深落葉', '林间光束与景深落叶', 'Sunbeams & Parallax')}
           </label>
           <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
-            <input type="checkbox" id="vfx-chk-cutin" checked /> ${tr('必殺眼神特寫切入', '必杀眼神特写切入', 'Anime Eye Cut-In')}
+            <input type="checkbox" id="vfx-chk-cutin" checked /> ${tr('會心一擊頭像特寫切入', '会心一击头像特写切入', 'Crit Avatar Cut-In')}
           </label>
           <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
             <input type="checkbox" id="vfx-chk-slash" checked /> ${tr('體積烈焰刀光特效', '体积烈焰刀光特效', 'Volumetric Crescent Shader')}
