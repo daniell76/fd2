@@ -1,0 +1,37 @@
+{
+  "uid": 6,
+  "nameZh": "萊汀",
+  "nameEn": "Raiden",
+  "classNameZh": "騎士",
+  "classEn": "Knight",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Raiden",
+    "class_en": "Knight",
+    "visual_desc": "Muscular warrior in spiked charcoal plate armor. Features a horned helmet, red waist wrap, and a long blue tabard. View is from a rear-isometric angle.",
+    "face_cutin_desc": "Rugged male with determined eyes and a sharp jawline. Messy brown hair is held by a blue headband. Intense side profile facing left.",
+    "weapon_desc": "Large steel poleaxe with a crescent blade, gripped firmly with both hands.",
+    "step1_ready": "Rear-isometric view. Stands with feet apart, holding the poleaxe horizontally across the lower back while facing up-left.",
+    "step2_windup": "Shifts weight and hoists the poleaxe high overhead. The weapon reaches its peak height directly above the horned helmet.",
+    "step3_impact": "Forceful downward diagonal swing. A massive, broad golden energy arc erupts, curving from the upper right toward the top-left target area.",
+    "step4_finish": "The weapon rests near the ground. The character holds a low crouch as the golden light trail dissipates and the frame resets.",
+    "kp7_slash_vfx_rule": "The golden arc follows a wide downward curve, perfectly aligning with the poleaxe's overhead-to-low swing trajectory in Frame 4.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence accurately reflects reference windup and downward slash. Grip remains stable and VFX alignment matches the poleaxe's arc throughout."
+  }
+}

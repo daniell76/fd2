@@ -1,0 +1,37 @@
+{
+  "uid": 2,
+  "nameZh": "鐵諾",
+  "nameEn": "Tino",
+  "classNameZh": "劍士",
+  "classEn": "Swordsman",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Tino",
+    "class_en": "Swordsman",
+    "visual_desc": "Muscular human in a deep navy hooded cloak and grey tunic. Distinctive long silver hair falls down the center of the back. Viewed from a rear-isometric angle.",
+    "face_cutin_desc": "Stoic man with dark hair and a brown headband. Features a dark eyepatch over the right eye and a determined expression, framed by a blue hood.",
+    "weapon_desc": "Steel longsword with a red-accented hilt, held in the right hand.",
+    "step1_ready": "Rear-isometric view facing UP-LEFT. Character stands firmly with the sword held vertically in the right hand.",
+    "step2_windup": "Leans forward and spreads arms wide, coiling for a dash. The sword is held horizontally behind the back.",
+    "step3_impact": "Drops into a low lunge. A sharp, horizontal golden energy beam erupts across the screen, following the blade's trajectory.",
+    "step4_finish": "Stays in a low follow-through as the energy trail thins and vanishes, then begins returning to a standing pose.",
+    "kp7_slash_vfx_rule": "The straight, horizontal golden energy beam in Frame 4 correctly aligns with the low-angled swing of the sword.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The sequence follows the reference windup and release. VFX alignment is accurate. Biomechanics and camera perspective remain consistent."
+  }
+}

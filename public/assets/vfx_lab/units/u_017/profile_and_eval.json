@@ -1,0 +1,37 @@
+{
+  "uid": 17,
+  "nameZh": "米亞斯多德",
+  "nameEn": "Miastod",
+  "classNameZh": "劍士",
+  "classEn": "Swordsman",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Miastod",
+    "class_en": "Swordsman",
+    "visual_desc": "Red-scaled dragonman with large bat-like wings and a thick tail. Wears grey plate armor on the lower body and shoulders over red cloth wraps.",
+    "face_cutin_desc": "Intense reptilian features with red scales and piercing red slitted eyes. Features prominent horns and fin-like ears with a stern expression.",
+    "weapon_desc": "Large silver straight sword held in the right hand.",
+    "step1_ready": "Rear-isometric view facing up-left. Low crouch with wings partially folded and sword held upright over the shoulder.",
+    "step2_windup": "Wings flare wide as the body rotates. The sword is pulled back and then swung in a sharp horizontal arc.",
+    "step3_impact": "Rapid thrust forward. A long, straight golden energy beam extends from the blade tip toward the upper-left corner.",
+    "step4_finish": "Sword completes the swing as the energy trail dissipates. Wings begin folding back to the original ready position.",
+    "kp7_slash_vfx_rule": "The golden energy beam in Frame 4 must extend directly from the sword tip, following the straight diagonal line toward the top-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Perspective and grip consistent. Windup/swing match reference. VFX timing and alignment accurate."
+  }
+}

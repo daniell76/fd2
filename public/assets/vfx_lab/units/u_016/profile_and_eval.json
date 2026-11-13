@@ -1,0 +1,37 @@
+{
+  "uid": 16,
+  "nameZh": "凱拉斯",
+  "nameEn": "Karas",
+  "classNameZh": "龍劍士",
+  "classEn": "Dragon Swordsman",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Karas",
+    "class_en": "Dragon Swordsman",
+    "visual_desc": "Draconian warrior with brown scales, large leathery wings, and a thick tan tail. Clad in heavy blue plate armor with grey trim, shown from a rear-isometric angle.",
+    "face_cutin_desc": "Reptilian profile featuring brown textured scales, a sharp snout, and a focused green eye with a vertical slit pupil.",
+    "weapon_desc": "Manifested energy blade held in the right hand.",
+    "step1_ready": "Standing rear-isometric view facing up-left. Wings are wide, tail is curled, and blue armored legs are braced for action.",
+    "step2_windup": "Crouches low, shifting weight forward as wings flare and tuck to build centrifugal force.",
+    "step3_impact": "Swings arm outward, releasing a massive, horizontal golden energy beam toward the top-left with three distinct light trails.",
+    "step4_finish": "Holds the strike position while the bright yellow light streaks fade, then resets to the initial winged stance.",
+    "kp7_slash_vfx_rule": "The bright yellow energy discharge in Frame 4 aligns perfectly with the horizontal outward swing trajectory toward the top-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": false,
+    "overall_pass": true,
+    "diagnosis": "Animation adheres to DOS mechanics and camera view. Biomechanics are stable. VFX timing is slightly delayed, appearing in Frame 5 rather than Frame 4."
+  }
+}

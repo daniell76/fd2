@@ -1,0 +1,37 @@
+{
+  "uid": 11,
+  "nameZh": "索菲亞",
+  "nameEn": "Sophia",
+  "classNameZh": "僧侶",
+  "classEn": "Cleric",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Sophia",
+    "class_en": "Cleric",
+    "visual_desc": "Human female with a long blonde ponytail. Wears a red-brown tunic, teal sash, purple baggy pants, and gold-trimmed greaves.",
+    "face_cutin_desc": "Serene expression with large dark eyes and red lips. Long blonde hair frames the face with a center-parted fringe.",
+    "weapon_desc": "Gem-tipped wooden staff held in the right hand.",
+    "step1_ready": "Rear-isometric view facing ↖. Stands with staff resting against the shoulder and arms slightly bent.",
+    "step2_windup": "Raises staff and left hand high. Body tenses as ponytail lifts, preparing a focused energy strike.",
+    "step3_impact": "Lunges ↖, thrusting both hands forward. A concentrated blue energy spark emits from the staff tip at the extension's peak.",
+    "step4_finish": "Holds the forward lunge as the light dissipates. Ponytail remains horizontal before the character recovers to a neutral stance.",
+    "kp7_slash_vfx_rule": "The energy burst in Frame 4 aligns perfectly with the forward thrusting motion of the staff head and palms.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Verified 10-frame sequence"
+  }
+}

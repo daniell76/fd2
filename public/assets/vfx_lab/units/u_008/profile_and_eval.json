@@ -1,0 +1,37 @@
+{
+  "uid": 8,
+  "nameZh": "希莉亞",
+  "nameEn": "Celia",
+  "classNameZh": "弓兵",
+  "classEn": "Archer",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Celia",
+    "class_en": "Archer",
+    "visual_desc": "Human female with wavy brown hair, wearing a blue tunic, red-brown leather armor, and cross-laced brown boots. Equipped with a hip quiver.",
+    "face_cutin_desc": "Focused brown eyes and wavy hair framed by a jeweled headband. Features a calm, determined expression and red lips.",
+    "weapon_desc": "Large wooden crossbow held in both hands, aimed diagonally toward the upper-left.",
+    "step1_ready": "Standing rear-view facing up-left, holding the crossbow relaxed at waist height.",
+    "step2_windup": "Drops into a low kneeling position while raising and leveling the crossbow to aim.",
+    "step3_impact": "Releases a red bolt that streaks toward the top-left, accompanied by a small white-yellow muzzle spark.",
+    "step4_finish": "Stays in a kneeling follow-through pose as the bolt exits the frame and the mechanism resets.",
+    "kp7_slash_vfx_rule": "The linear bolt trajectory in Frame 4 aligns with the barrel of the crossbow held in the kneeling stance.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The 10-frame sequence successfully expands the original reference while maintaining biomechanical and visual fidelity. The windup correctly transitions into a kneeling stance, and the firing VFX (bolt and muzzle flash) in frames F5-F7 correctly mimics the horizontal trajectory established in the DOS source. Camera view and weapon grip remain consistent throughout."
+  }
+}

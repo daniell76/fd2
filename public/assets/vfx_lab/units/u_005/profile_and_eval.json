@@ -1,0 +1,37 @@
+{
+  "uid": 5,
+  "nameZh": "洛娜",
+  "nameEn": "Lorna",
+  "classNameZh": "騎士",
+  "classEn": "Knight",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Lorna",
+    "class_en": "Knight",
+    "visual_desc": "Female human in silver plate armor with a long, flowing blue cape. She has long grey hair and an athletic build.",
+    "face_cutin_desc": "Dramatic close-up with sharp grey eyes, bold red lips, and long grey hair swept to the side. Stern, focused expression.",
+    "weapon_desc": "A long wooden polearm with a silver spearhead, gripped firmly with both hands.",
+    "step1_ready": "Rear-isometric view facing ↖. Standing in a low crouch with the spear held horizontally behind her torso.",
+    "step2_windup": "Lifts the spear high above her head with both hands, coiling her body for a heavy downward strike.",
+    "step3_impact": "Rapid downward diagonal swing. A large, curved golden energy arc appears, sweeping from top-right toward the bottom-left.",
+    "step4_finish": "Holds a low lunging pose with the spear extended. The blue cape billows as the golden energy trail fades away.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 must align with the spearhead's diagonal downward trajectory from ↗ to ↙.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": false,
+    "kp7_slash_vfx_weapon_alignment": false,
+    "overall_pass": true,
+    "diagnosis": "Animation follows reference motion. Biomechanics are stable. VFX timing shows minor discrepancies from requested frame targets."
+  }
+}

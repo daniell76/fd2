@@ -1,0 +1,37 @@
+{
+  "uid": 10,
+  "nameZh": "瑪琳",
+  "nameEn": "Marin",
+  "classNameZh": "僧侶",
+  "classEn": "Cleric",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Marin",
+    "class_en": "Cleric",
+    "visual_desc": "Human priestess with a long pink ponytail and tanned skin. She wears layered purple robes with gold trim and grey boots. Tall, slender build shown from a rear-isometric angle.",
+    "face_cutin_desc": "Serene female face with brown eyes and purple lips. Adorned with a gold forehead chain and a wide gold lattice collar featuring a central red gem. Pink hair frames the face.",
+    "weapon_desc": "A silver ceremonial staff with a crystalline orb head, held with both hands during the casting motion.",
+    "step1_ready": "Rear-isometric view facing up-left. Standing neutral with the staff held at the side and pink hair draped down the back.",
+    "step2_windup": "Lifts the staff high above the head with both hands. The body straightens and the robes flare slightly as energy gathers.",
+    "step3_impact": "Lunges toward the top-left, thrusting the staff forward. A bright white and pale blue energy flash erupts from the staff's tip upon impact.",
+    "step4_finish": "Holds the forward lunge as the energy light dissipates. Hair swings forward before she returns to a stable, upright standing position.",
+    "kp7_slash_vfx_rule": "The energy burst in Frame 4 is a concentrated point of light that aligns with the forward thrusting trajectory of the staff tip.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation adheres to reference perspective and biomechanics. Wind-up and VFX timing are effectively synchronized with the thrust motion."
+  }
+}

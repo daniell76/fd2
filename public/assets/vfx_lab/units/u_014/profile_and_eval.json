@@ -1,0 +1,37 @@
+{
+  "uid": 14,
+  "nameZh": "珊",
+  "nameEn": "Shan",
+  "classNameZh": "法師",
+  "classEn": "Mage",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Shan",
+    "class_en": "Mage",
+    "visual_desc": "Slender elf with floor-length blue hair tied in a low ponytail. Wears brown and olive-green robes with dark boots. Rear-isometric view.",
+    "face_cutin_desc": "Elegant female face with large brown eyes and blue eyebrows. Wears a gold filigree headband with a red gem. Calm expression.",
+    "weapon_desc": "Wooden magic staff topped with a purple crystal orb, held in the right hand.",
+    "step1_ready": "Standing rear-view facing ↖. Staff held diagonally across the back; hair flows down to the heels.",
+    "step2_windup": "Rotates torso right and raises the staff high over the head, preparing a casting motion.",
+    "step3_impact": "Lunges forward toward ↖. The staff is thrust downward, releasing a purple magical energy burst from the crystal orb.",
+    "step4_finish": "Holds the forward lunging stance as the magic energy dissipates, then gradually pulls back to a neutral position.",
+    "kp7_slash_vfx_rule": "The magical energy flare in Frame 4 aligns perfectly with the downward thrusting trajectory of the staff's crystal tip.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Verified 10-frame sequence"
+  }
+}

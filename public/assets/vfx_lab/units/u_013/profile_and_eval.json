@@ -1,0 +1,37 @@
+{
+  "uid": 13,
+  "nameZh": "貝克威",
+  "nameEn": "Beckway",
+  "classNameZh": "弓兵",
+  "classEn": "Archer",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Beckway",
+    "class_en": "Archer",
+    "visual_desc": "Tanned elf with long blonde hair and a dark blue headband. Wears olive-drab tactical armor, brown trousers, and a bulky grey backpack with black power cables connected to a large blue shoulder cannon.",
+    "face_cutin_desc": "Focused expression with sharp dark eyes and straight blonde hair framing the face. Features a prominent dark blue headband and a neutral, determined mouth.",
+    "weapon_desc": "Massive blue and black energy launcher braced on the right shoulder, held with both hands.",
+    "step1_ready": "Rear-isometric view facing ↖. The unit stands in a wide, braced stance, steadying the heavy launcher on the right shoulder with cables trailing to the backpack.",
+    "step2_windup": "The unit tenses and leans into the weapon as a bright yellow energy charge begins to glow at the tip of the muzzle.",
+    "step3_impact": "A straight, horizontal golden energy beam erupts from the barrel toward the top-left. Frame 4 shows a small yellow projectile spark traveling further along the same trajectory.",
+    "step4_finish": "The unit maintains a braced posture during the recoil as the beam fades, eventually lowering the weapon slightly to a neutral recovery state.",
+    "kp7_slash_vfx_rule": "The golden energy beam and projectile spark align strictly with the horizontal axis of the launcher's barrel, projecting directly toward the top-left target.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": false,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Consistent mechanics and alignment; F8 VFX deviates from the required fade-out."
+  }
+}

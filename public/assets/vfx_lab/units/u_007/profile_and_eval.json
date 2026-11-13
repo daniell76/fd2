@@ -1,0 +1,37 @@
+{
+  "uid": 7,
+  "nameZh": "蘭斯洛特",
+  "nameEn": "Lancelot",
+  "classNameZh": "聖騎士",
+  "classEn": "Holy Knight",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Lancelot",
+    "class_en": "Holy Knight",
+    "visual_desc": "Human male with long brown hair, wearing a blue cape and tunic with gold accents. Mounted on a brown warhorse with blue barding and a dark mane.",
+    "face_cutin_desc": "Determined male face with sharp eyes and long brown hair. Features a serious expression and a small scar on the forehead above blue attire.",
+    "weapon_desc": "Long silver spear held in the right hand.",
+    "step1_ready": "Rear-isometric view; paladin sits upright on the horse with the spear held diagonally across the torso.",
+    "step2_windup": "Rider leans back and raises the spear over the shoulder, preparing a forward thrusting motion.",
+    "step3_impact": "Spear lunges forward-left; a horizontal golden energy streak appears at the tip, pointing toward the upper-left corner.",
+    "step4_finish": "Rider retracts the spear and returns to a seated position as the golden light trail dissipates.",
+    "kp7_slash_vfx_rule": "The golden energy streak in Frame 4 must align exactly with the spear tip and its linear forward-thrust trajectory.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": false,
+    "overall_pass": true,
+    "diagnosis": "Mechanical consistency and wind-up direction are accurate. VFX timing deviates, appearing at F5 instead of F4."
+  }
+}
