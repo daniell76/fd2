@@ -106,7 +106,7 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
   if (vfxAssetsCache.loaded) {
     return vfxAssetsCache;
   }
-  const cacheBust = '?v=5';
+  const cacheBust = '?v=6';
   const [
     t0,
     t1,
@@ -1752,28 +1752,28 @@ export async function mountVfxLabInGallery(
       <div id="vfx-art-container" style="display: none; padding: 20px; background: var(--bg-panel, #090d16); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px;">
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
-            <h4 style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B1: Thor (#0 索爾) Gemini Omni 1.2 Raw Video (Sleek Baseline Style + 1H Horizontal Swing)</h4>
-            <video src="assets/vfx_lab/thor_omni_1p2.mp4?v=5" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
+            <h4 style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B1: Thor (#0 索爾) Gemini Omni 1.2 Raw Video (Stretch Left → Swing Left-to-Right)</h4>
+            <video src="assets/vfx_lab/thor_omni_1p2.mp4?v=6" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
             <h4 style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B2: Bandit (#96 盜賊) Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
-            <video src="assets/vfx_lab/bandit_omni_1p2.mp4?v=5" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
+            <video src="assets/vfx_lab/bandit_omni_1p2.mp4?v=6" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #38bdf8;">
-            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">🖼️ Option A1: Thor (#0 索爾) Nano Banana 2 6-Frame Sheet (Sleek Baseline Style + 1H Horizontal Swing)</h4>
-            <img src="assets/vfx_lab/thor_nb6_sheet.jpg?v=5" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">🖼️ Option A1: Thor (#0 索爾) Nano Banana 2 6-Frame Sheet (Stretch Left → Swing Left-to-Right)</h4>
+            <img src="assets/vfx_lab/thor_nb6_sheet.jpg?v=6" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #f87171;">
             <h4 style="margin: 0 0 8px 0; color: #f87171;">🖼️ Option A2: Bandit (#96 盜賊) Nano Banana 2 6-Frame Sheet (Conditioned on 1995 Strip)</h4>
-            <img src="assets/vfx_lab/bandit_nb6_sheet.jpg?v=5" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <img src="assets/vfx_lab/bandit_nb6_sheet.jpg?v=6" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
             <h4 style="margin: 0 0 8px 0; color: #94a3b8;">🎨 Baseline: Thor (#0) Transparent Sheet</h4>
-            <img src="assets/vfx_lab/thor_sheet_raw.png?v=5" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <img src="assets/vfx_lab/thor_sheet_raw.png?v=6" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
             <h4 style="margin: 0 0 8px 0; color: #94a3b8;">🎨 Baseline: Bandit (#96) Transparent Sheet</h4>
-            <img src="assets/vfx_lab/bandit_sheet_raw.png?v=5" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <img src="assets/vfx_lab/bandit_sheet_raw.png?v=6" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
         </div>
       </div>
