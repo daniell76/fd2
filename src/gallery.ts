@@ -55,6 +55,7 @@ class MappingGalleryApp {
   private selectedHeroId = 0; // Default: 索爾 (#0)
   private selectedRightUid = 0; // Active promoted or right-side unit ID
   private heroRosterScrollTop = 0;
+  private vfxFocusUid = 0;
 
   // Duel Stage Controls
   private initiator: 'hero' | 'enemy' = 'hero';
@@ -472,7 +473,7 @@ class MappingGalleryApp {
               ⚔ ${tr('戰鬥演武與全單位圖鑑 (0..135)', '战斗演武与全单位图鉴 (0..135)', 'Battle Stage & All Units (0..135)')}
             </button>
             <button class="gal-btn ${this.activeTab === 'vfx_lab' ? 'active' : ''}" data-gtab="vfx_lab" type="button" style="border-color:#38bdf8;">
-              ⚡ ${tr('2026 現代 2.5D 戰鬥實驗室 (索爾 vs 盜賊)', '2026 现代 2.5D 战斗实验室 (索尔 vs 盗贼)', '2026 Modern 2.5D VFX Lab (Thor vs. Bandit)')}
+              ⚡ ${tr('2026 現代 2.5D 全 121 角色逐一檢視 (VFX Lab)', '2026 现代 2.5D 全 121 角色逐一检视 (VFX Lab)', '2026 Modern 2.5D All-121 Inspector (VFX Lab)')}
             </button>
             <button class="gal-btn ${this.activeTab === 'catalog' ? 'active' : ''}" data-gtab="catalog" type="button">
               ${tr('道具 · 法術 · 職業', '道具 · 法术 · 职业', 'Items · Spells · Classes')} (${audit.totalItems}/${audit.totalSpells})
@@ -556,7 +557,16 @@ class MappingGalleryApp {
     if (this.activeTab === 'duel') {
       this.renderUnifiedDuelTab(container);
     } else if (this.activeTab === 'vfx_lab') {
-      void mountVfxLabInGallery(container, this.assets, this.sound);
+      void mountVfxLabInGallery(container, this.assets, this.sound, {
+        initialRightUid: this.selectedRightUid,
+        initialLeftUid: this.selectedEnemyUid,
+        initialInspectUid: this.vfxFocusUid,
+        onMatchupChange: (r, l, f) => {
+          this.selectedRightUid = r;
+          this.selectedEnemyUid = l;
+          this.vfxFocusUid = f;
+        },
+      });
     } else if (this.activeTab === 'catalog') {
       this.renderCatalogTab(container);
     } else {
@@ -837,7 +847,7 @@ class MappingGalleryApp {
               </div>
               <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <button class="gal-btn sm" id="btn-jump-vfx-lab" type="button" style="border-color:#38bdf8; color:#7dd3fc;">
-                  ⚡ ${tr('開啟 2026 現代 2.5D 實驗室 (索爾 vs 盜賊)', '开启 2026 现代 2.5D 实验室 (索尔 vs 盗贼)', 'Open 2026 Modern 2.5D VFX Lab')}
+                  ⚡ ${tr(`開啟 2026 現代 2.5D 舞台檢視 (#${rightEntry.id} vs #${leftEntry.id})`, `开启 2026 现代 2.5D 舞台检视 (#${rightEntry.id} vs #${leftEntry.id})`, `Open 2026 Modern 2.5D Stage (#${rightEntry.id} vs #${leftEntry.id})`)}
                 </button>
                 <select class="gal-select" id="duel-bg-select" style="width:auto; padding:5px 9px; font-size:12px;">
                   ${bgOptions}
@@ -962,7 +972,11 @@ class MappingGalleryApp {
           <div class="duel-column-header">
             <div class="duel-side-title enemy">
               <span>${tr('← 左側戰場敵陣 (Standing on BG)', '← 左侧战场敌阵 (Standing on BG)', '← Left Enemy Side (Standing on BG)')}</span>
-              <span class="mono-tag">#${leftEntry.id}</span>
+              <span style="display:inline-flex; align-items:center; gap:4px;">
+                <button class="gal-btn sm" id="btn-duel-enemy-prev" type="button" style="padding:2px 6px;" title="Previous Enemy">◀</button>
+                <span class="mono-tag">#${leftEntry.id}</span>
+                <button class="gal-btn sm" id="btn-duel-enemy-next" type="button" style="padding:2px 6px;" title="Next Enemy">▶</button>
+              </span>
             </div>
             <div class="duel-filter-pills">
               <button class="gal-btn sm ${this.enemyFilter === 'enemy_boss' ? 'active' : ''}" data-efilt="enemy_boss" type="button">${tr('敵軍/Boss (52)', '敌军/Boss (52)', 'Enemies / Bosses (52)')}</button>
@@ -997,7 +1011,11 @@ class MappingGalleryApp {
           <div class="duel-column-header">
             <div class="duel-side-title hero">
               <span>${tr('右側我方 / NPC 檢視 →', '右侧我方 / NPC 检视 →', 'Right Hero / NPC Side →')}</span>
-              <span class="mono-tag">#${rightEntry.id}</span>
+              <span style="display:inline-flex; align-items:center; gap:4px;">
+                <button class="gal-btn sm" id="btn-duel-hero-prev" type="button" style="padding:2px 6px;" title="Previous Hero/Unit">◀</button>
+                <span class="mono-tag">#${rightEntry.id}</span>
+                <button class="gal-btn sm" id="btn-duel-hero-next" type="button" style="padding:2px 6px;" title="Next Hero/Unit">▶</button>
+              </span>
             </div>
             <div class="duel-filter-pills">
               <button class="gal-btn sm ${this.heroFilter === 'heroes_32' ? 'active' : ''}" data-hfilt="heroes_32" type="button">${tr('32名英雄', '32名英雄', '32 Heroes')}</button>
@@ -1149,6 +1167,49 @@ class MappingGalleryApp {
         <div class="mono-tag">
           ${tr(`戰場出場：${entry.chapterAppearances.length} 章`, `战场出场：${entry.chapterAppearances.length} 章`, `Battle Maps: ${entry.chapterAppearances.length}`)}${entry.cutsceneAppearances && entry.cutsceneAppearances.length > 0 ? ` · ${tr(`過場劇情：${entry.cutsceneAppearances.length} 幕`, `过场剧情：${entry.cutsceneAppearances.length} 幕`, `Cutscenes: ${entry.cutsceneAppearances.length}`)}` : ''} · ${tr(`對話台詞：${entry.dialogueSegments} 段`, `对话台词：${entry.dialogueSegments} 段`, `Dialogues: ${entry.dialogueSegments}`)}
         </div>
+
+        ${
+          entry.figani?.attack
+            ? `
+              <div style="margin-top:8px; padding:10px; border-radius:8px; background:rgba(15, 23, 42, 0.92); border:1px solid rgba(56, 189, 248, 0.4); display:flex; flex-direction:column; gap:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <span style="font-size:12px; font-weight:700; color:#38bdf8;">
+                    ⚡ ${tr(`2026 HD 戰鬥動畫與會心特寫 (#${String(entry.id).padStart(3, '0')})`, `2026 HD 战斗动画与会心特写 (#${String(entry.id).padStart(3, '0')})`, `2026 HD Combat VFX & Crit Cut-In (#${String(entry.id).padStart(3, '0')})`)}
+                  </span>
+                  <button class="gal-btn sm gold" data-vfx-inspect="${entry.id}" type="button" style="padding:3px 8px; font-size:11.5px;">
+                    🔍 ${tr('在 2.5D 舞台放大逐幀檢視 →', '在 2.5D 舞台放大逐帧检视 →', 'Inspect 10F/6F in 2.5D Stage →')}
+                  </button>
+                </div>
+                <img
+                  src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/cutin.jpg?v=9"
+                  alt="${entry.nameZh} Cut-In"
+                  style="width:100%; aspect-ratio:2/1; object-fit:cover; border-radius:6px; border:1px solid #334155; background:#05080f;"
+                />
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                  <div>
+                    <div class="mono-tag" style="font-size:10px; color:#fde047; margin-bottom:2px;">🎬 Option B (Omni 1.2 MP4)</div>
+                    <video
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/omni_1p2.mp4?v=9"
+                      autoplay
+                      loop
+                      muted
+                      playsinline
+                      style="width:100%; aspect-ratio:16/9; object-fit:contain; border-radius:5px; background:#ffffff; border:1px solid #334155;"
+                    ></video>
+                  </div>
+                  <div>
+                    <div class="mono-tag" style="font-size:10px; color:#7dd3fc; margin-bottom:2px;">🖼️ Option A (NB2 6-Frame)</div>
+                    <img
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/nb6_sheet.jpg?v=9"
+                      alt="${entry.nameZh} 6-Frame Sheet"
+                      style="width:100%; aspect-ratio:16/9; object-fit:contain; border-radius:5px; background:#ffffff; border:1px solid #334155;"
+                    />
+                  </div>
+                </div>
+              </div>
+            `
+            : ''
+        }
       </div>
     `;
   }
@@ -1331,9 +1392,54 @@ class MappingGalleryApp {
 
     const jumpVfxBtn = document.getElementById('btn-jump-vfx-lab') as HTMLButtonElement | null;
     jumpVfxBtn?.addEventListener('click', () => {
+      this.vfxFocusUid = this.initiator === 'enemy' ? this.selectedEnemyUid : this.selectedRightUid;
       this.activeTab = 'vfx_lab';
       this.renderShell();
     });
+
+    container.querySelectorAll<HTMLButtonElement>('[data-vfx-inspect]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const uid = Number(btn.dataset.vfxInspect);
+        this.vfxFocusUid = uid;
+        this.activeTab = 'vfx_lab';
+        this.renderShell();
+      });
+    });
+
+    const stepLeftEnemy = async (delta: number) => {
+      const list = Array.from(container.querySelectorAll<HTMLButtonElement>('[data-euid]')).map((b) => Number(b.dataset.euid));
+      if (list.length === 0) return;
+      const curIdx = list.indexOf(this.selectedEnemyUid);
+      const nextUid = list[(curIdx + delta + list.length) % list.length];
+      this.captureRosterScrollPositions();
+      this.selectedEnemyUid = nextUid;
+      this.duelPlaying = true;
+      await this.rebuildDuelTimeline();
+      this.renderActiveTabBody();
+    };
+    document.getElementById('btn-duel-enemy-prev')?.addEventListener('click', () => void stepLeftEnemy(-1));
+    document.getElementById('btn-duel-enemy-next')?.addEventListener('click', () => void stepLeftEnemy(1));
+
+    const stepRightHero = async (delta: number) => {
+      const heroBtns = Array.from(container.querySelectorAll<HTMLButtonElement>('[data-rhid],[data-ruid]'));
+      if (heroBtns.length === 0) return;
+      const ids = heroBtns.map((b) => Number(b.dataset.rhid ?? b.dataset.ruid));
+      const curId = this.heroFilter === 'heroes_32' ? this.selectedHeroId : this.selectedRightUid;
+      const curIdx = ids.indexOf(curId);
+      const nextId = ids[(curIdx + delta + ids.length) % ids.length];
+      this.captureRosterScrollPositions();
+      if (this.heroFilter === 'heroes_32') {
+        this.selectedHeroId = nextId;
+        this.selectedRightUid = nextId;
+      } else {
+        this.selectedRightUid = nextId;
+      }
+      this.duelPlaying = true;
+      await this.rebuildDuelTimeline();
+      this.renderActiveTabBody();
+    };
+    document.getElementById('btn-duel-hero-prev')?.addEventListener('click', () => void stepRightHero(-1));
+    document.getElementById('btn-duel-hero-next')?.addEventListener('click', () => void stepRightHero(1));
 
     // Replay, Play/Pause, Loop Toggle, SFX Toggle & Scrubber (millisecond-exact pause/resume with zero DOM thrash)
     document.getElementById('duel-btn-replay')?.addEventListener('click', () => {

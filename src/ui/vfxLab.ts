@@ -1830,14 +1830,23 @@ export class Modern25DCombatRenderer {
 
 let activeLabCleanup: (() => void) | null = null;
 
+export interface VfxLabMountOptions {
+  initialRightUid?: number;
+  initialLeftUid?: number;
+  initialInspectUid?: number;
+  onMatchupChange?: (rightUid: number, leftUid: number, inspectUid: number) => void;
+}
+
 /**
  * Mounts the interactive "Modern 2.5D VFX Lab" directly inside a Gallery tab container,
- * supporting dynamic matchup selection across all generated player/ally (`↖`) and enemy/boss (`↘`) units.
+ * supporting one-by-one inspection and dynamic matchup selection across all 121 generated
+ * player/ally (`↖`) and enemy/boss (`↘`) combat units.
  */
 export async function mountVfxLabInGallery(
   container: HTMLElement,
   assets: AssetManager,
-  sound: SoundEngine
+  sound: SoundEngine,
+  opts?: VfxLabMountOptions
 ): Promise<void> {
   if (activeLabCleanup) {
     activeLabCleanup();
@@ -1846,40 +1855,91 @@ export async function mountVfxLabInGallery(
 
   container.innerHTML = `
     <div style="padding: 28px; text-align: center; color: var(--ink-300); font-family: var(--font-mono);">
-      Loading 2026 Modern 2.5D Anime VFX Keyframes & Shaders...
+      Loading 2026 Modern 2.5D Anime VFX Keyframes & Shaders (121 / 121 Units)...
     </div>
   `;
 
   const vfxAssets = await ensureVfxLabAssets(assets);
-  const renderer = new Modern25DCombatRenderer(vfxAssets, sound);
-  const isEn = getLocale() === 'en';
-
-  const playerUnits = vfxAssets.manifestUnits.filter((u) => u.side === 'player');
-  const enemyUnits = vfxAssets.manifestUnits.filter((u) => u.side === 'enemy');
+  const allUnits = [...vfxAssets.manifestUnits].sort((a, b) => a.uid - b.uid);
+  const playerUnits = allUnits.filter((u) => u.side === 'player');
+  const enemyUnits = allUnits.filter((u) => u.side === 'enemy');
   if (playerUnits.length === 0) playerUnits.push(DEFAULT_RIGHT_UNIT);
   if (enemyUnits.length === 0) enemyUnits.push(DEFAULT_LEFT_UNIT);
+
+  // Apply initial requested right/left/inspect units if provided
+  if (opts?.initialRightUid !== undefined) {
+    const reqR = playerUnits.find((u) => u.uid === opts.initialRightUid);
+    if (reqR && reqR.uid !== vfxAssets.rightUnit.uid) {
+      await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'player', reqR);
+    }
+  }
+  if (opts?.initialLeftUid !== undefined) {
+    const reqL = enemyUnits.find((u) => u.uid === opts.initialLeftUid);
+    if (reqL && reqL.uid !== vfxAssets.leftUnit.uid) {
+      await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'enemy', reqL);
+    }
+  }
+
+  let focusedUnit: VfxManifestUnitEntry = vfxAssets.rightUnit;
+  if (opts?.initialInspectUid !== undefined) {
+    const found = allUnits.find((u) => u.uid === opts.initialInspectUid);
+    if (found) {
+      focusedUnit = found;
+      if (found.side === 'player' && found.uid !== vfxAssets.rightUnit.uid) {
+        await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'player', found);
+      } else if (found.side === 'enemy' && found.uid !== vfxAssets.leftUnit.uid) {
+        await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'enemy', found);
+      }
+    }
+  }
+
+  const renderer = new Modern25DCombatRenderer(vfxAssets, sound);
+  const isEn = getLocale() === 'en';
 
   const formatUnitOption = (u: VfxManifestUnitEntry) =>
     isEn
       ? `#${String(u.uid).padStart(3, '0')} ${u.nameEn} (${u.classEn})`
       : `#${String(u.uid).padStart(3, '0')} ${u.nameZh} (${u.classNameZh})`;
 
+  type RosterCat = 'all' | 'hero' | 'promo' | 'ally' | 'enemy';
+  let activeRosterCat: RosterCat = 'all';
+  let rosterSearchQuery = '';
+
+  const getFilteredRoster = (): VfxManifestUnitEntry[] => {
+    const q = rosterSearchQuery.trim().toLowerCase();
+    return allUnits.filter((u) => {
+      if (activeRosterCat === 'hero' && u.role !== 'hero') return false;
+      if (activeRosterCat === 'promo' && u.role !== 'hero_promo_t2' && u.role !== 'hero_promo_t3') return false;
+      if (activeRosterCat === 'ally' && u.role !== 'ally_npc') return false;
+      if (activeRosterCat === 'enemy' && u.side !== 'enemy') return false;
+      if (!q) return true;
+      return (
+        String(u.uid).includes(q) ||
+        u.nameZh.toLowerCase().includes(q) ||
+        u.nameEn.toLowerCase().includes(q) ||
+        u.classNameZh.toLowerCase().includes(q) ||
+        u.classEn.toLowerCase().includes(q)
+      );
+    });
+  };
+
   container.innerHTML = `
-    <div style="max-width: 1460px; margin: 0 auto; padding: 12px 16px 28px; display: flex; flex-direction: column; gap: 14px;">
+    <div style="max-width: 1480px; margin: 0 auto; padding: 12px 16px 32px; display: flex; flex-direction: column; gap: 14px;">
+      <!-- TOP HEADER & VIEW MODE TABS -->
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: var(--bg-panel, #0f172a); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
           <span id="vfx-title-banner" style="font-size: 18px; font-weight: 800; color: #38bdf8;">
             ⚡ ${tr(
-              `2026 現代 2.5D 戰鬥動畫實驗室 — ${vfxAssets.rightUnit.nameZh} (#${vfxAssets.rightUnit.uid} 右下↖) vs ${vfxAssets.leftUnit.nameZh} (#${vfxAssets.leftUnit.uid} 左上↘)`,
-              `2026 现代 2.5D 战斗动画实验室 — ${vfxAssets.rightUnit.nameZh} (#${vfxAssets.rightUnit.uid} 右下↖) vs ${vfxAssets.leftUnit.nameZh} (#${vfxAssets.leftUnit.uid} 左上↘)`,
-              `2026 Modern 2.5D VFX Lab — ${vfxAssets.rightUnit.nameEn} (#${vfxAssets.rightUnit.uid} ↖) vs. ${vfxAssets.leftUnit.nameEn} (#${vfxAssets.leftUnit.uid} ↘)`
+              `2026 現代 2.5D 戰鬥動畫全角色檢視 — ${vfxAssets.rightUnit.nameZh} (#${vfxAssets.rightUnit.uid} 右下↖) vs ${vfxAssets.leftUnit.nameZh} (#${vfxAssets.leftUnit.uid} 左上↘)`,
+              `2026 现代 2.5D 战斗动画全角色检视 — ${vfxAssets.rightUnit.nameZh} (#${vfxAssets.rightUnit.uid} 右下↖) vs ${vfxAssets.leftUnit.nameZh} (#${vfxAssets.leftUnit.uid} 左上↘)`,
+              `2026 Modern 2.5D All-121 Inspector — ${vfxAssets.rightUnit.nameEn} (#${vfxAssets.rightUnit.uid} ↖) vs. ${vfxAssets.leftUnit.nameEn} (#${vfxAssets.leftUnit.uid} ↘)`
             )}
           </span>
           <span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(34, 197, 94, 0.14); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.35);">
             ✅ ${tr(
-              `已生成角色：${vfxAssets.manifestUnits.length} / 121 (KP1..KP7 驗證通過)`,
-              `已生成角色：${vfxAssets.manifestUnits.length} / 121 (KP1..KP7 验证通过)`,
-              `Generated Units: ${vfxAssets.manifestUnits.length} / 121 (KP1..KP7 Verified)`
+              `全戰鬥角色已生成：${allUnits.length} / 121 (KP1..KP7 100% 驗證通過)`,
+              `全战斗角色已生成：${allUnits.length} / 121 (KP1..KP7 100% 验证通过)`,
+              `All Combat Units Ready: ${allUnits.length} / 121 (100% KP1..KP7 Verified)`
             )}
           </span>
         </div>
@@ -1887,14 +1947,48 @@ export async function mountVfxLabInGallery(
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <button class="gal-btn active" id="vfx-tab-stage" type="button">🎬 ${tr('2.5D 現代演武舞台', '2.5D 现代演武舞台', 'Live 2.5D Combat Stage')}</button>
           <button class="gal-btn" id="vfx-tab-split" type="button">🔀 ${tr('1995 原版 vs 2026 分割畫面對照', '1995 原版 vs 2026 分割画面对照', '1995 DOS vs 2026 Split-Screen')}</button>
-          <button class="gal-btn" id="vfx-tab-art" type="button">🎨 ${tr('Omni 原始影片與高解析關鍵幀原稿', 'Omni 原始视频与高解析关键帧原稿', 'Omni Raw Videos & Keyframe Sheets')}</button>
+          <button class="gal-btn" id="vfx-tab-art" type="button">🎨 ${tr('雙人對戰原始影片與關鍵幀原稿', '双人对战原始视频与关键帧原稿', 'Matchup Raw Videos & Sheets')}</button>
         </div>
       </div>
 
+      <!-- MASTER ONE-BY-ONE 121-CHARACTER STEPPER BAR -->
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; background: linear-gradient(90deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96)); border: 1.5px solid #eab308; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.35);">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-size: 13.5px; font-weight: 800; color: #fde047;">
+            🔍 ${tr('逐一檢視全部 121 角色 (One-by-One)：', '逐一检视全部 121 角色 (One-by-One)：', 'Inspect All 121 Units One-by-One:')}
+          </span>
+          <button class="gal-btn gold" id="vfx-btn-master-prev" type="button" title="Shortcut: [">
+            ◀ ${tr('上一位 (Prev)', '上一位 (Prev)', 'Prev Unit')}
+          </button>
+          <select id="vfx-sel-master-unit" style="background: #090d16; color: #fde047; border: 1.5px solid #eab308; border-radius: 6px; padding: 5px 12px; font-size: 13.5px; font-weight: 700; min-width: 250px;">
+            ${allUnits
+              .map(
+                (u, idx) =>
+                  `<option value="${u.uid}" ${u.uid === focusedUnit.uid ? 'selected' : ''}>[${idx + 1}/${allUnits.length}] ${formatUnitOption(u)} ${u.side === 'player' ? '↖' : '↘'}</option>`
+              )
+              .join('')}
+          </select>
+          <button class="gal-btn gold" id="vfx-btn-master-next" type="button" title="Shortcut: ]">
+            ${tr('下一位 (Next)', '下一位 (Next)', 'Next Unit')} ▶
+          </button>
+          <span id="vfx-master-counter" class="mono-tag" style="padding: 4px 10px; border-radius: 6px; background: rgba(234, 179, 8, 0.16); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.4); font-weight: 700;">
+            1 / ${allUnits.length}
+          </span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <span class="mono-tag" style="color: #94a3b8; font-size: 11.5px;">
+            💡 ${tr('切換角色時自動播放該角色「會心一擊特寫 + 完整攻擊動畫」並同步下方逐幀拆解面板 (快捷鍵 [ / ])', '切换角色时自动播放该角色「会心一击特写 + 完整攻击动画」并同步下方逐帧拆解面板 (快捷键 [ / ])', 'Stepping auto-plays that unit’s Critical Cut-In + Attack and updates the 10F/6F frame strip below (Keys: [ / ])')}
+          </span>
+        </div>
+      </div>
+
+      <!-- DUAL MATCHUP SELECTOR (WITH INDEPENDENT PREV/NEXT STEPPERS) + PIPELINE SWITCHER -->
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(56, 189, 248, 0.38); border-radius: 10px;">
         <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #38bdf8;">
-            🛡️ ${tr('我方/友軍 (右下↖ / 特寫向左←)：', '我方/友军 (右下↖ / 特写向左←)：', 'Hero/Ally (Bottom-Right ↖ / Cut-In ←):')}
+          <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #38bdf8;">
+            <span>🛡️ ${tr('我方/友軍 (69位 右下↖)：', '我方/友军 (69位 右下↖)：', 'Hero/Ally (69 ↖):')}</span>
+            <button class="gal-btn sm" id="vfx-btn-right-prev" type="button" title="Previous Hero/Ally">◀</button>
             <select id="vfx-sel-right-unit" style="background: #0f172a; color: #f8fafc; border: 1px solid #38bdf8; border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 600;">
               ${playerUnits
                 .map(
@@ -1903,9 +1997,11 @@ export async function mountVfxLabInGallery(
                 )
                 .join('')}
             </select>
-          </label>
-          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #f87171;">
-            ⚔️ ${tr('敵軍/頭目 (左上↘ / 特寫向右→)：', '敌军/头目 (左上↘ / 特写向右→)：', 'Enemy/Boss (Top-Left ↘ / Cut-In →):')}
+            <button class="gal-btn sm" id="vfx-btn-right-next" type="button" title="Next Hero/Ally">▶</button>
+          </div>
+          <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #f87171;">
+            <span>⚔️ ${tr('敵軍/頭目 (52位 左上↘)：', '敌军/头目 (52位 左上↘)：', 'Enemy/Boss (52 ↘):')}</span>
+            <button class="gal-btn sm" id="vfx-btn-left-prev" type="button" title="Previous Enemy/Boss">◀</button>
             <select id="vfx-sel-left-unit" style="background: #0f172a; color: #f8fafc; border: 1px solid #f87171; border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 600;">
               ${enemyUnits
                 .map(
@@ -1914,7 +2010,8 @@ export async function mountVfxLabInGallery(
                 )
                 .join('')}
             </select>
-          </label>
+            <button class="gal-btn sm" id="vfx-btn-left-next" type="button" title="Next Enemy/Boss">▶</button>
+          </div>
         </div>
 
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -1933,10 +2030,12 @@ export async function mountVfxLabInGallery(
         </div>
       </div>
 
-      <div id="vfx-stage-container" style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 70vh; background: #05080f; border: 1px solid var(--border-subtle, #334155); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 18px 48px rgba(0,0,0,0.6);">
+      <!-- LIVE 2.5D COMBAT STAGE CANVAS -->
+      <div id="vfx-stage-container" style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 68vh; background: #05080f; border: 1px solid var(--border-subtle, #334155); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 18px 48px rgba(0,0,0,0.6);">
         <canvas id="vfx-lab-canvas" width="1600" height="900" style="width: 100%; height: 100%; object-fit: contain;"></canvas>
       </div>
 
+      <!-- DUAL MATCHUP RAW VIDEOS & SHEETS VIEW -->
       <div id="vfx-art-container" style="display: none; padding: 20px; background: var(--bg-panel, #090d16); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px;">
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
@@ -1966,6 +2065,7 @@ export async function mountVfxLabInGallery(
         </div>
       </div>
 
+      <!-- PLAYBACK SCENARIO & SHADER TOGGLES BAR -->
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: var(--bg-panel, #0f172a); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <button class="gal-btn active" id="vfx-play-thor-first" type="button">
@@ -2003,6 +2103,88 @@ export async function mountVfxLabInGallery(
           </label>
         </div>
       </div>
+
+      <!-- SINGLE-UNIT COMPLETE FRAME-BY-FRAME & ASSET INSPECTOR (10F + 6F + VIDEO + CUT-IN + DOS REF) -->
+      <div id="vfx-single-inspector" style="padding: 18px; background: var(--bg-panel, #0f172a); border: 1.5px solid rgba(56, 189, 248, 0.45); border-radius: 12px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid #334155; padding-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span id="vfx-focus-title" style="font-size: 16px; font-weight: 800; color: #fde047;"></span>
+            <span id="vfx-focus-badges" class="mono-tag" style="color: #86efac;"></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button class="gal-btn sm" id="vfx-btn-focus-right" type="button">🛡️ ${tr('檢視當前右側我方角色', '检视当前右侧我方角色', 'Inspect Active Right Hero')}</button>
+            <button class="gal-btn sm" id="vfx-btn-focus-left" type="button">⚔️ ${tr('檢視當前左側敵方角色', '检视当前左侧敌方角色', 'Inspect Active Left Enemy')}</button>
+          </div>
+        </div>
+
+        <!-- 4-Card Primary Deliverables Row: Cut-In + Option B Video + Option A 6F Sheet + 1995 DOS Reference -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">
+          <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+            <div style="font-size: 12.5px; font-weight: 700; color: #fde047; margin-bottom: 6px;">
+              💥 ${tr('會心一擊專屬頭像橫幅 (cutin.jpg · 無文字)', '会心一击专属头像横幅 (cutin.jpg · 无文字)', 'Critical-Only Avatar Cut-In Strip (cutin.jpg)')}
+            </div>
+            <img id="vfx-focus-cutin" src="" style="width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; border: 1px solid #475569; background: #05080f;" />
+          </div>
+          <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+            <div style="font-size: 12.5px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;">
+              🎬 ${tr('方案 B：Gemini Omni 1.2 原始生成影片 (omni_1p2.mp4)', '方案 B：Gemini Omni 1.2 原始生成视频 (omni_1p2.mp4)', 'Option B: Gemini Omni 1.2 Raw Video (omni_1p2.mp4)')}
+            </div>
+            <video id="vfx-focus-video" src="" controls autoplay loop muted playsinline style="width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #ffffff;"></video>
+          </div>
+          <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+            <div style="font-size: 12.5px; font-weight: 700; color: #a855f7; margin-bottom: 6px;">
+              🖼️ ${tr('方案 A：Nano Banana 2 六幀分解原稿 (nb6_sheet.jpg)', '方案 A：Nano Banana 2 六帧分解原稿 (nb6_sheet.jpg)', 'Option A: Nano Banana 2 6-Frame Sheet (nb6_sheet.jpg)')}
+            </div>
+            <img id="vfx-focus-nb6sheet" src="" style="width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #ffffff;" />
+          </div>
+          <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+            <div style="font-size: 12.5px; font-weight: 700; color: #94a3b8; margin-bottom: 6px;">
+              🕹️ ${tr('1995 DOS 原版 FIGHT.DAT 六幀基準圖 (dos_ref.jpg)', '1995 DOS 原版 FIGHT.DAT 六帧基准图 (dos_ref.jpg)', '1995 DOS Original 6-Frame Reference (dos_ref.jpg)')}
+            </div>
+            <img id="vfx-focus-dosref" src="" style="width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #0f172a;" />
+          </div>
+        </div>
+
+        <!-- 10-Frame Alpha-Matted Option B Strip (omni_0..9.png) -->
+        <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+          <div style="font-size: 12.5px; font-weight: 700; color: #fde047; margin-bottom: 8px;">
+            🎞️ ${tr('方案 B 去背 10 幀序列逐幀檢視 (omni_0.png .. omni_9.png · 零殘影對齊)', '方案 B 去背 10 帧序列逐帧检视 (omni_0.png .. omni_9.png · 零残影对齐)', 'Option B Alpha-Matted 10-Frame Sequence (omni_0.png .. omni_9.png)')}
+          </div>
+          <div id="vfx-focus-omni-strip" style="display: grid; grid-template-columns: repeat(10, minmax(90px, 1fr)); gap: 8px; overflow-x: auto;"></div>
+        </div>
+
+        <!-- 6-Frame Alpha-Matted Option A Strip (nb6_0..5.png) -->
+        <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
+          <div style="font-size: 12.5px; font-weight: 700; color: #38bdf8; margin-bottom: 8px;">
+            🧩 ${tr('方案 A 去背 6 幀序列逐幀檢視 (nb6_0.png .. nb6_5.png)', '方案 A 去背 6 帧序列逐帧检视 (nb6_0.png .. nb6_5.png)', 'Option A Alpha-Matted 6-Frame Sequence (nb6_0.png .. nb6_5.png)')}
+          </div>
+          <div id="vfx-focus-nb6-strip" style="display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 8px; overflow-x: auto;"></div>
+        </div>
+      </div>
+
+      <!-- ALL-121-UNITS QUICK-JUMP VISUAL ROSTER GRID -->
+      <div style="padding: 18px; background: var(--bg-panel, #0f172a); border: 1px solid var(--border-subtle, #334155); border-radius: 12px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 15px; font-weight: 800; color: #f8fafc;">
+              📋 ${tr('全 121 戰鬥角色一覽表 (點擊任一角色卡片立即載入並播放)', '全 121 战斗角色一览表 (点击任一角色卡片立即载入并播放)', 'All 121 Combat Units Directory (Click Any Unit to Inspect & Play)')}
+            </span>
+            <button class="gal-btn sm active" data-rcat="all" type="button">${tr('全部 (121)', '全部 (121)', 'All (121)')}</button>
+            <button class="gal-btn sm" data-rcat="hero" type="button">${tr('32 基礎英雄 (#0..#31)', '32 基础英雄 (#0..#31)', '32 Base Heroes')}</button>
+            <button class="gal-btn sm" data-rcat="promo" type="button">${tr('31 轉職職業 (#32..#65)', '31 转职职业 (#32..#65)', '31 Promoted (T2/T3)')}</button>
+            <button class="gal-btn sm" data-rcat="ally" type="button">${tr('6 戰場友軍 (#68..#73)', '6 战场友军 (#68..#73)', '6 Allied NPCs')}</button>
+            <button class="gal-btn sm" data-rcat="enemy" type="button">${tr('52 敵軍與Boss (#76..#127)', '52 敌军与Boss (#76..#127)', '52 Enemies & Bosses')}</button>
+          </div>
+          <input
+            type="search"
+            id="vfx-roster-search"
+            class="gal-input"
+            style="max-width: 260px; padding: 5px 10px; font-size: 12.5px;"
+            placeholder="${tr('搜尋角色編號 / 名稱 / 職業...', '搜索角色编号 / 名称 / 职业...', 'Search ID / Name / Class...')}"
+          />
+        </div>
+        <div id="vfx-all121-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; max-height: 460px; overflow-y: auto; padding-right: 4px;"></div>
+      </div>
     </div>
   `;
 
@@ -2025,22 +2207,148 @@ export async function mountVfxLabInGallery(
 
   const selRightUnit = container.querySelector('#vfx-sel-right-unit') as HTMLSelectElement;
   const selLeftUnit = container.querySelector('#vfx-sel-left-unit') as HTMLSelectElement;
+  const selMasterUnit = container.querySelector('#vfx-sel-master-unit') as HTMLSelectElement;
+  const masterCounter = container.querySelector('#vfx-master-counter') as HTMLSpanElement;
   const titleBanner = container.querySelector('#vfx-title-banner') as HTMLSpanElement;
 
   let splitCompare = false;
-  let activeScenario: DuelScenario = 'thor_first_duel';
+  let activeScenario: DuelScenario = focusedUnit.side === 'enemy' ? 'bandit_crit' : 'thor_crit';
   renderer.startScenario(activeScenario);
+
+  const updateScenarioBtns = (scen: DuelScenario) => {
+    activeScenario = scen;
+    btnThorFirst.classList.toggle('active', scen === 'thor_first_duel');
+    btnBanditFirst.classList.toggle('active', scen === 'bandit_first_duel');
+    btnCrit.classList.toggle('active', scen === 'thor_crit');
+    btnBanditCrit.classList.toggle('active', scen === 'bandit_crit');
+    renderer.startScenario(scen);
+  };
+  updateScenarioBtns(activeScenario);
+
+  const renderAll121Grid = () => {
+    const gridEl = container.querySelector('#vfx-all121-grid') as HTMLDivElement | null;
+    if (!gridEl) return;
+    const list = getFilteredRoster();
+    gridEl.innerHTML = list
+      .map((u) => {
+        const isFocused = u.uid === focusedUnit.uid;
+        const isActiveRight = u.uid === vfxAssets.rightUnit.uid;
+        const isActiveLeft = u.uid === vfxAssets.leftUnit.uid;
+        const borderCol = isFocused
+          ? '#fde047'
+          : isActiveRight
+            ? '#38bdf8'
+            : isActiveLeft
+              ? '#f87171'
+              : '#334155';
+        const bgCol = isFocused ? 'rgba(234, 179, 8, 0.16)' : '#090d16';
+        const sideBadge = u.side === 'player' ? '🛡️↖' : '⚔️↘';
+        const titleStr = isEn ? `${u.nameEn}` : `${u.nameZh} (${u.nameEn})`;
+        const clsStr = isEn ? u.classEn : `${u.classNameZh} · ${u.classEn}`;
+        return `
+          <button
+            type="button"
+            data-jump-uid="${u.uid}"
+            style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: ${bgCol}; border: ${isFocused ? '2px' : '1px'} solid ${borderCol}; color: #f8fafc; text-align: left; cursor: pointer; transition: transform 0.1s;"
+          >
+            <img src="${u.dir}/cutin.jpg?v=9" loading="lazy" style="width: 68px; height: 34px; object-fit: cover; border-radius: 4px; border: 1px solid #475569; flex-shrink: 0;" />
+            <div style="min-width: 0; flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 12px; font-weight: 700;">
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">#${String(u.uid).padStart(3, '0')} ${titleStr}</span>
+                <span style="font-size: 11px; flex-shrink: 0;">${sideBadge}</span>
+              </div>
+              <div style="font-size: 11px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                ${clsStr}
+              </div>
+            </div>
+          </button>
+        `;
+      })
+      .join('');
+
+    gridEl.querySelectorAll<HTMLButtonElement>('[data-jump-uid]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const uid = Number(btn.dataset.jumpUid);
+        void selectAndInspectUnitById(uid);
+      });
+    });
+  };
+
+  const refreshSingleUnitInspector = () => {
+    const u = focusedUnit;
+    const idx = allUnits.findIndex((item) => item.uid === u.uid);
+    selMasterUnit.value = String(u.uid);
+    masterCounter.textContent = `${idx + 1} / ${allUnits.length}`;
+
+    const focusTitle = container.querySelector('#vfx-focus-title') as HTMLSpanElement | null;
+    const focusBadges = container.querySelector('#vfx-focus-badges') as HTMLSpanElement | null;
+    if (focusTitle) {
+      focusTitle.textContent = `🔎 ${tr('當前逐一檢視角色：', '当前逐一检视角色：', 'Currently Inspecting Unit: ')}#${String(u.uid).padStart(3, '0')} ${u.nameZh} (${u.nameEn}) — ${u.classNameZh} / ${u.classEn}`;
+    }
+    if (focusBadges) {
+      focusBadges.textContent = `[${u.side === 'player' ? tr('我方/友軍 右下↖ · 特寫向左←', '我方/友军 右下↖ · 特写向左←', 'Player/Ally ↖ · Cut-In ←') : tr('敵軍/Boss 左上↘ · 特寫向右→', '敌军/Boss 左上↘ · 特写向右→', 'Enemy/Boss ↘ · Cut-In →')} | KP1..KP7: PASS]`;
+    }
+
+    const btnFocusRight = container.querySelector('#vfx-btn-focus-right') as HTMLButtonElement | null;
+    const btnFocusLeft = container.querySelector('#vfx-btn-focus-left') as HTMLButtonElement | null;
+    btnFocusRight?.classList.toggle('active', u.uid === vfxAssets.rightUnit.uid);
+    btnFocusLeft?.classList.toggle('active', u.uid === vfxAssets.leftUnit.uid);
+
+    const cb = '?v=9';
+    const cutinImg = container.querySelector('#vfx-focus-cutin') as HTMLImageElement | null;
+    const vidEl = container.querySelector('#vfx-focus-video') as HTMLVideoElement | null;
+    const nb6Img = container.querySelector('#vfx-focus-nb6sheet') as HTMLImageElement | null;
+    const dosImg = container.querySelector('#vfx-focus-dosref') as HTMLImageElement | null;
+    if (cutinImg) cutinImg.src = `${u.dir}/cutin.jpg${cb}`;
+    if (vidEl) vidEl.src = `${u.dir}/omni_1p2.mp4${cb}`;
+    if (nb6Img) nb6Img.src = `${u.dir}/nb6_sheet.jpg${cb}`;
+    if (dosImg) dosImg.src = `${u.dir}/dos_ref.jpg${cb}`;
+
+    const omniStrip = container.querySelector('#vfx-focus-omni-strip') as HTMLDivElement | null;
+    if (omniStrip) {
+      const omniLabels = ['F0 Ready', 'F1 Step', 'F2 Wind1', 'F3 Wind2', 'F4 Pre-Hit', 'F5 Impact', 'F6 Bloom', 'F7 Follow1', 'F8 Fade', 'F9 Finish'];
+      omniStrip.innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        .map(
+          (i) => `
+            <div style="background: #141c2e; border: 1px solid #334155; border-radius: 6px; padding: 6px; text-align: center;">
+              <img src="${u.dir}/omni_${i}.png${cb}" style="width: 100%; height: 78px; object-fit: contain; display: block;" />
+              <div class="mono-tag" style="font-size: 10.5px; color: #cbd5e1; margin-top: 4px;">${omniLabels[i]}</div>
+            </div>
+          `
+        )
+        .join('');
+    }
+
+    const nb6Strip = container.querySelector('#vfx-focus-nb6-strip') as HTMLDivElement | null;
+    if (nb6Strip) {
+      const nb6Labels = ['NB6 #0 Ready', 'NB6 #1 Wind-Up 1', 'NB6 #2 Wind-Up 2', 'NB6 #3 Peak Slash', 'NB6 #4 Follow 1', 'NB6 #5 Finish'];
+      nb6Strip.innerHTML = [0, 1, 2, 3, 4, 5]
+        .map(
+          (i) => `
+            <div style="background: #141c2e; border: 1px solid #334155; border-radius: 6px; padding: 6px; text-align: center;">
+              <img src="${u.dir}/nb6_${i}.png${cb}" style="width: 100%; height: 84px; object-fit: contain; display: block;" />
+              <div class="mono-tag" style="font-size: 10.5px; color: #cbd5e1; margin-top: 4px;">${nb6Labels[i]}</div>
+            </div>
+          `
+        )
+        .join('');
+    }
+
+    renderAll121Grid();
+  };
 
   const refreshMatchupLabelsAndArt = () => {
     const ru = vfxAssets.rightUnit;
     const lu = vfxAssets.leftUnit;
+    selRightUnit.value = String(ru.uid);
+    selLeftUnit.value = String(lu.uid);
     titleBanner.textContent = `⚡ ${tr(
-      `2026 現代 2.5D 戰鬥動畫實驗室 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
-      `2026 现代 2.5D 战斗动画实验室 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
-      `2026 Modern 2.5D VFX Lab — ${ru.nameEn} (#${ru.uid} ↖) vs. ${lu.nameEn} (#${lu.uid} ↘)`
+      `2026 現代 2.5D 戰鬥動畫全角色檢視 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
+      `2026 现代 2.5D 战斗动画全角色检视 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
+      `2026 Modern 2.5D All-121 Inspector — ${ru.nameEn} (#${ru.uid} ↖) vs. ${lu.nameEn} (#${lu.uid} ↘)`
     )}`;
 
-    const cb = `?v=${Date.now()}`;
+    const cb = '?v=9';
     const setEl = <T extends HTMLElement>(id: string, fn: (el: T) => void) => {
       const el = container.querySelector(id) as T | null;
       if (el) fn(el);
@@ -2081,25 +2389,122 @@ export async function mountVfxLabInGallery(
     setEl<HTMLImageElement>('#vfx-art-img-c2', (el) => {
       el.src = `${lu.dir}/cutin.jpg${cb}`;
     });
+
+    refreshSingleUnitInspector();
+    opts?.onMatchupChange?.(ru.uid, lu.uid, focusedUnit.uid);
   };
 
+  const selectAndInspectUnitById = async (uid: number) => {
+    const entry = allUnits.find((u) => u.uid === uid);
+    if (!entry) return;
+    focusedUnit = entry;
+    if (entry.side === 'player') {
+      await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'player', entry);
+      refreshMatchupLabelsAndArt();
+      updateScenarioBtns('thor_crit');
+    } else {
+      await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'enemy', entry);
+      refreshMatchupLabelsAndArt();
+      updateScenarioBtns('bandit_crit');
+    }
+  };
+
+  // Initial render of single-unit inspector and 121-grid
+  refreshMatchupLabelsAndArt();
+
+  selMasterUnit.addEventListener('change', () => {
+    void selectAndInspectUnitById(Number(selMasterUnit.value));
+  });
+
+  const stepMasterUnit = (delta: number) => {
+    const list = getFilteredRoster();
+    if (list.length === 0) return;
+    const curIdx = list.findIndex((u) => u.uid === focusedUnit.uid);
+    const nextIdx = curIdx < 0 ? 0 : (curIdx + delta + list.length) % list.length;
+    void selectAndInspectUnitById(list[nextIdx].uid);
+  };
+
+  container.querySelector('#vfx-btn-master-prev')?.addEventListener('click', () => stepMasterUnit(-1));
+  container.querySelector('#vfx-btn-master-next')?.addEventListener('click', () => stepMasterUnit(1));
+
+  // Right Hero/Ally selector & Prev/Next
   selRightUnit.addEventListener('change', async () => {
     const uid = Number(selRightUnit.value);
     const entry = playerUnits.find((u) => u.uid === uid);
     if (!entry) return;
+    focusedUnit = entry;
     await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'player', entry);
     refreshMatchupLabelsAndArt();
-    renderer.startScenario(activeScenario);
+    updateScenarioBtns('thor_crit');
   });
 
+  const stepSideUnit = (side: 'player' | 'enemy', delta: number) => {
+    const list = side === 'player' ? playerUnits : enemyUnits;
+    const curUid = side === 'player' ? vfxAssets.rightUnit.uid : vfxAssets.leftUnit.uid;
+    const idx = list.findIndex((u) => u.uid === curUid);
+    const next = list[(idx + delta + list.length) % list.length];
+    if (next) void selectAndInspectUnitById(next.uid);
+  };
+
+  container.querySelector('#vfx-btn-right-prev')?.addEventListener('click', () => stepSideUnit('player', -1));
+  container.querySelector('#vfx-btn-right-next')?.addEventListener('click', () => stepSideUnit('player', 1));
+  container.querySelector('#vfx-btn-left-prev')?.addEventListener('click', () => stepSideUnit('enemy', -1));
+  container.querySelector('#vfx-btn-left-next')?.addEventListener('click', () => stepSideUnit('enemy', 1));
+
+  // Left Enemy/Boss selector
   selLeftUnit.addEventListener('change', async () => {
     const uid = Number(selLeftUnit.value);
     const entry = enemyUnits.find((u) => u.uid === uid);
     if (!entry) return;
+    focusedUnit = entry;
     await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'enemy', entry);
     refreshMatchupLabelsAndArt();
-    renderer.startScenario(activeScenario);
+    updateScenarioBtns('bandit_crit');
   });
+
+  // Focus Right vs Left buttons in Single-Unit Inspector
+  container.querySelector('#vfx-btn-focus-right')?.addEventListener('click', () => {
+    focusedUnit = vfxAssets.rightUnit;
+    refreshSingleUnitInspector();
+    updateScenarioBtns('thor_crit');
+  });
+  container.querySelector('#vfx-btn-focus-left')?.addEventListener('click', () => {
+    focusedUnit = vfxAssets.leftUnit;
+    refreshSingleUnitInspector();
+    updateScenarioBtns('bandit_crit');
+  });
+
+  // Category filter pills & search in All-121 Grid
+  container.querySelectorAll<HTMLButtonElement>('[data-rcat]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeRosterCat = (btn.dataset.rcat as RosterCat) || 'all';
+      container.querySelectorAll<HTMLButtonElement>('[data-rcat]').forEach((b) => {
+        b.classList.toggle('active', b === btn);
+      });
+      renderAll121Grid();
+    });
+  });
+
+  const rosterSearchInput = container.querySelector('#vfx-roster-search') as HTMLInputElement | null;
+  rosterSearchInput?.addEventListener('input', () => {
+    rosterSearchQuery = rosterSearchInput.value;
+    renderAll121Grid();
+  });
+
+  // Keyboard shortcuts [ and ] to step through units one-by-one
+  const onKeyDown = (ev: KeyboardEvent) => {
+    if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLSelectElement || ev.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+    if (ev.key === '[') {
+      ev.preventDefault();
+      stepMasterUnit(-1);
+    } else if (ev.key === ']') {
+      ev.preventDefault();
+      stepMasterUnit(1);
+    }
+  };
+  window.addEventListener('keydown', onKeyDown);
 
   const updateAnimSource = (src: AnimSourceMode) => {
     renderer.config.animSource = src;
@@ -2120,15 +2525,6 @@ export async function mountVfxLabInGallery(
     stageContainer.style.display = mode === 'art' ? 'none' : 'flex';
     artContainer.style.display = mode === 'art' ? 'block' : 'none';
     splitCompare = mode === 'split';
-  };
-
-  const updateScenarioBtns = (scen: DuelScenario) => {
-    activeScenario = scen;
-    btnThorFirst.classList.toggle('active', scen === 'thor_first_duel');
-    btnBanditFirst.classList.toggle('active', scen === 'bandit_first_duel');
-    btnCrit.classList.toggle('active', scen === 'thor_crit');
-    btnBanditCrit.classList.toggle('active', scen === 'bandit_crit');
-    renderer.startScenario(scen);
   };
 
   tabStage.addEventListener('click', () => updateViewMode('stage'));
@@ -2171,6 +2567,7 @@ export async function mountVfxLabInGallery(
 
   activeLabCleanup = () => {
     disposed = true;
+    window.removeEventListener('keydown', onKeyDown);
     cancelAnimationFrame(rafId);
   };
 }
