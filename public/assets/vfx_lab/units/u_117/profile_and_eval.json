@@ -1,0 +1,37 @@
+{
+  "uid": 117,
+  "nameZh": "卡特那",
+  "nameEn": "Katana",
+  "classNameZh": "卡特那",
+  "classEn": "Katana",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Katana",
+    "class_en": "Katana",
+    "visual_desc": "Female warrior with wavy blue hair and a dark teal bandana. Wears dark metal plate armor, a crimson loincloth, and a massive, heavy teal cloak that billows behind her.",
+    "face_cutin_desc": "Dramatic close-up showing a determined expression, a blue eyepatch over the right eye, a sharp brown left eye, and long blue tresses framed by a dark headband.",
+    "weapon_desc": "Long, slender silver rapier held in the right hand.",
+    "step1_ready": "Standing tall facing down-right, wrapped in a large teal cloak. The sword is held vertically in front of the torso.",
+    "step2_windup": "Crouches into a low lunge while drawing the sword back behind the shoulder. The cloak flares out dramatically to the left.",
+    "step3_impact": "Swift horizontal swing creating a massive, crescent-shaped golden energy arc that sweeps across the front of the unit.",
+    "step4_finish": "Holds the low follow-through stance as the golden slash effect shrinks into a faint orange trail and disappears.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 correctly follows the horizontal trajectory of the blade from top-right to bottom-center.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation scales reference frames smoothly while maintaining ↘ orientation and correct VFX trajectory."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "uid": 121,
+  "nameZh": "沼澤怪物",
+  "nameEn": "Swamp Monster",
+  "classNameZh": "沼澤怪物",
+  "classEn": "Swamp Monster",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Swamp Monster",
+    "class_en": "Swamp Monster",
+    "visual_desc": "Amorphous shadowy figure with a dark, murky silhouette. Features piercing, horizontally-aligned glowing white eyes. No visible armor or gear, appearing as a fluid, spectral entity.",
+    "face_cutin_desc": "Dramatic close-up of narrow, intense glowing white eyes against a deep blue void. Expression is cold and enigmatic.",
+    "weapon_desc": "Tri-pronged energy claws manifested from the entity's form.",
+    "step1_ready": "Stance at top-left facing down-right. Faint golden energy begins to coalesce where limbs would be.",
+    "step2_windup": "Energy arcs pull back toward the upper-left, intensifying in brightness and forming three distinct streaks.",
+    "step3_impact": "Full extension of three parallel golden energy slashes striking diagonally down-right. High-contrast yellow and white light.",
+    "step4_finish": "Golden energy trails shorten and dissolve into small sparks as the entity settles back into shadow.",
+    "kp7_slash_vfx_rule": "The golden energy arcs in Frame 4 strictly follow a 45-degree downward-right diagonal trajectory consistent with the strike direction.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains perspective and claw consistency. VFX timing and diagonal trajectory align with reference."
+  }
+}

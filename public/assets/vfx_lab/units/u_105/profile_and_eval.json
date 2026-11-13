@@ -1,0 +1,37 @@
+{
+  "uid": 105,
+  "nameZh": "雷龍",
+  "nameEn": "Thunder Dragon",
+  "classNameZh": "雷龍",
+  "classEn": "Thunder Dragon",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Thunder Dragon",
+    "class_en": "Thunder Dragon",
+    "visual_desc": "Massive blue dragon with jagged, spiky scales. Features a long, armored neck, sharp dorsal fins, and glowing turquoise eyes. Its hide is a deep sapphire with lighter blue highlights.",
+    "face_cutin_desc": "Ferocious dragon profile facing right. Features glowing pale eyes, sharp facial spikes, and a powerful jaw open in a roaring expression.",
+    "weapon_desc": "Elemental breath attack released directly from the maw.",
+    "step1_ready": "Frame 1 shows the head and neck in a neutral isometric pose, facing down-right with the mouth closed.",
+    "step2_windup": "Frames 2-3 show the neck pulling back and the jaw opening wide to coil energy.",
+    "step3_impact": "Frame 4 depicts the release of a swirling white and pale blue energy cloud expanding toward the bottom-right.",
+    "step4_finish": "Frames 5-6 show the energy dissipating into wisps as the dragon maintains an open-mouthed pose before recovering.",
+    "kp7_slash_vfx_rule": "The energy blast in Frame 4 must originate inside the jaw and expand along the downward-right axis of the dragon's snout.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": false,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": false,
+    "overall_pass": true,
+    "diagnosis": "Follows reference logic, but scaling shifts in F1/F3 and slight VFX misalignment create visual inconsistency."
+  }
+}

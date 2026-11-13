@@ -1,0 +1,37 @@
+{
+  "uid": 118,
+  "nameZh": "萊汀",
+  "nameEn": "Raiden (Boss)",
+  "classNameZh": "萊汀",
+  "classEn": "Raiden",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Raiden (Boss)",
+    "class_en": "Raiden",
+    "visual_desc": "Bulky gray plate armor with rounded pauldrons. Features a yellow-orange leopard-print loincloth and a matching helmet plume. Large, heavy build.",
+    "face_cutin_desc": "Rugged male face with a sharp jawline and tanned skin. Spiky brown hair held by a thick blue headband. Determined, serious expression.",
+    "weapon_desc": "Massive conical gray jousting lance held in the right hand.",
+    "step1_ready": "Standing upright in front-isometric view. Lance held vertically at the right side.",
+    "step2_windup": "Body shifts into a slight crouch. Lance lowers and pulls back to build momentum.",
+    "step3_impact": "Deep forward lunge toward the bottom-right. Sharp yellow-orange radial energy burst erupts at the lance tip.",
+    "step4_finish": "Maintains extended lunge pose. Lance remains pointed downward as the energy flash dissipates and the plume settles.",
+    "kp7_slash_vfx_rule": "The radial energy burst in Frame 4 must align precisely with the point of the lance during its downward-right thrust.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Verified 10-frame sequence"
+  }
+}

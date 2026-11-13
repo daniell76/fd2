@@ -1,0 +1,37 @@
+{
+  "uid": 122,
+  "nameZh": "地魔神",
+  "nameEn": "Earth Demon God",
+  "classNameZh": "地魔神",
+  "classEn": "Earth Demon God",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Earth Demon God",
+    "class_en": "Earth Demon God",
+    "visual_desc": "Colossal humanoid made of craggy brown rock. Muscular build with a teal loincloth and single shoulder strap. Glowing red eyes set in a stony face.",
+    "face_cutin_desc": "Stoic, rocky face with glowing red slit eyes. Blocky jawline and flat, stone-textured features. Menacing and expressionless.",
+    "weapon_desc": "Massive stone fists used for heavy bludgeoning.",
+    "step1_ready": "Kneeling stance facing down-right. Right arm pulled back, left hand braced on knee. Body coiled low.",
+    "step2_windup": "Shifts weight back, tensing rocky shoulders. The giant right fist cocks further back for a powerful lunge.",
+    "step3_impact": "Thrusts a massive fist forward toward the lower-right. The arm extends fully, delivering a heavy, direct blow.",
+    "step4_finish": "Holds the extended punch briefly before retracting the arm. Returns to the initial low kneeling position.",
+    "kp7_slash_vfx_rule": "The impact frame shows the massive fist lunging forward-right, following the character's direct shoulder-to-arm trajectory.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The 10-frame sequence successfully adapts the source material. It maintains the correct wind-up direction, follows a direct punch trajectory without spinning, and applies the rock-shatter VFX during the impact frames (F5-F7) as required."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "uid": 116,
+  "nameZh": "機甲隊長",
+  "nameEn": "Mech Captain",
+  "classNameZh": "機甲隊長",
+  "classEn": "Mech Captain",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Mech Captain",
+    "class_en": "Mech Captain",
+    "visual_desc": "Bulky robotic humanoid in blue and grey plating. Features large rounded pauldrons, back-mounted exhaust tubes, and a green waist cloth.",
+    "face_cutin_desc": "Stoic metallic grey faceplate with a single, horizontal blue glowing visor slit and blue trim.",
+    "weapon_desc": "Dual silver retractable forearm blades mounted to each wrist.",
+    "step1_ready": "Standing front-facing with arms crossed over the chest in a disciplined idle pose.",
+    "step2_windup": "Unfolds arms and deploys wrist blades outward, preparing to lunge forward.",
+    "step3_impact": "Lunges toward the bottom-right, unleashing a massive, wide yellow energy beam from the swinging forearm blade.",
+    "step4_finish": "Holds a deep lunging stance as the large energy trail flickers and dissipates into small orange sparks.",
+    "kp7_slash_vfx_rule": "The wide yellow energy beam in Frame 4 correctly follows the horizontal-diagonal trajectory of the right wrist blade's swing.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The animation sequence shows moderate alignment with the DOS windup and VFX phases. Pose consistency and perspective remain stable across the frames."
+  }
+}

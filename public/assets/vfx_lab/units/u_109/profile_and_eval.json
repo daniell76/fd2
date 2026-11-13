@@ -1,0 +1,37 @@
+{
+  "uid": 109,
+  "nameZh": "惡魔",
+  "nameEn": "Demon",
+  "classNameZh": "惡魔",
+  "classEn": "Demon",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Demon",
+    "class_en": "Demon",
+    "visual_desc": "Muscular blue-skinned demon with large bat-like wings. Wears a ragged brown loincloth and brown arm and leg wrappings. Features two-toed clawed feet.",
+    "face_cutin_desc": "Close-up of a craggy blue demon face facing right. Features glowing red eyes, sharp lower fangs, dark horns, and a scowling expression.",
+    "weapon_desc": "Bare fists (double punch)",
+    "step1_ready": "Faces down-right. Stands ready with clenched fists near the waist, wings folded downward.",
+    "step2_windup": "Raises both arms high and spreads wings wide, flexing torso to build momentum.",
+    "step3_impact": "Lunges down-right, thrusting both fists forward in a heavy double punch. No energy or light VFX is present.",
+    "step4_finish": "Holds the extended punch pose with wings flared, then pulls arms back into a recovery stance.",
+    "kp7_slash_vfx_rule": "No slash VFX is present; the attack is a purely physical double-fisted strike.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence replicates the reference flex and strike. Biomechanics are stable and motion trails align with the physical punch."
+  }
+}

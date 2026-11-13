@@ -1,0 +1,37 @@
+{
+  "uid": 119,
+  "nameZh": "薩卡",
+  "nameEn": "Saka",
+  "classNameZh": "薩卡",
+  "classEn": "Saka",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Saka",
+    "class_en": "Saka",
+    "visual_desc": "Muscular human in bulky navy blue plate armor with large rounded spaulders and a matching cape. Features a long crimson tabard and spiky dark red hair secured by a gray headband.",
+    "face_cutin_desc": "Stern masculine face with intense, narrow eyes and sharp features. Framed by thick dark red spiky hair and a wide gray headband.",
+    "weapon_desc": "Massive silver crescent-bladed poleaxe held in the right hand.",
+    "step1_ready": "Front-isometric stance facing down-right. Arms at sides, navy armor and red tabard prominently displayed.",
+    "step2_windup": "Right hand glows with golden energy before reaching back to pull a large poleaxe over the shoulder into a high overhead position.",
+    "step3_impact": "Deep forward lunge slamming the axe down. A large, vertical cone of bright yellow energy erupts upward from the point of impact.",
+    "step4_finish": "Stays in a low follow-through crouch with the axe head near the ground as the golden light trail dissipates.",
+    "kp7_slash_vfx_rule": "The vertical yellow energy flare in Frame 4 perfectly aligns with the downward overhead trajectory of the poleaxe strike.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence maintains directional consistency and proper wind-up. VFX alignment and frame transitions effectively mirror reference mechanics."
+  }
+}

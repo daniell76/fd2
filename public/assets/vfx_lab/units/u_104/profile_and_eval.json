@@ -1,0 +1,37 @@
+{
+  "uid": 104,
+  "nameZh": "火龍",
+  "nameEn": "Fire Dragon",
+  "classNameZh": "火龍",
+  "classEn": "Fire Dragon",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Fire Dragon",
+    "class_en": "Fire Dragon",
+    "visual_desc": "Large dragon with dark red scales and numerous sharp horns along its head and neck. Features glowing red eyes and a jagged, armored snout.",
+    "face_cutin_desc": "Intense, narrow glowing red eyes set beneath a heavy, spiked brow. Rugged crimson scales with a fierce, predatory expression.",
+    "weapon_desc": "Elemental fire breath emitted directly from the maw.",
+    "step1_ready": "Head lowered in a three-quarter front view facing down-right. Neck is extended with eyes fixed on the target.",
+    "step2_windup": "Head pulls back and tilts upward. Mouth opens wide to reveal sharp teeth as internal energy gathers.",
+    "step3_impact": "Head lunges forward, releasing a massive plume of swirling orange and yellow flames toward the bottom-right.",
+    "step4_finish": "Fire dissipates into lingering embers. The dragon maintains an aggressive, open-mouthed pose before recoiling to a neutral stance.",
+    "kp7_slash_vfx_rule": "The fire breath in Frame 4 originates from the open mouth and projects forward, following the dragon's lunging trajectory.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains structural consistency with reference. VFX timing and neck articulation align well with the source wind-up and release phases."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "uid": 127,
+  "nameZh": "暗黑龍",
+  "nameEn": "Dark Dragon",
+  "classNameZh": "暗黑龍",
+  "classEn": "Dark Dragon",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dark Dragon",
+    "class_en": "Dark Dragon",
+    "visual_desc": "Massive dark-scaled dragon head. Features charcoal-grey plating, numerous jagged black horns, and glowing sapphire eyes. Thick, serpentine neck with visible dorsal spikes.",
+    "face_cutin_desc": "Profile of a menacing dragon with textured black scales. Glowing blue eyes and a row of sharp ivory teeth visible within a heavy jaw.",
+    "weapon_desc": "Swirling blue and white energy breath emitted from the mouth.",
+    "step1_ready": "Isometric view facing ↘. Head is lowered with the neck arched, mouth closed, and eyes focused forward.",
+    "step2_windup": "Head pulls back to coil power, then lunges forward as the jaw unhinges to prepare the energy release.",
+    "step3_impact": "Discharges a large, swirling blast of blue and white energy waves from the mouth directed toward the bottom-right.",
+    "step4_finish": "The energy trail dissipates into thin wisps as the dragon snaps its jaw shut and returns to a neutral posture.",
+    "kp7_slash_vfx_rule": "The blue energy effect must originate from within the open mouth and expand in a ↘ trajectory, matching the head's alignment in Frame 4.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains structural integrity and timing. Breath VFX aligns correctly with mouth positioning across all frames."
+  }
+}

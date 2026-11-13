@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
-  "generatedCount": 107,
-  "updatedAt": "2026-11-13T16:20:15Z",
+  "generatedCount": 121,
+  "updatedAt": "2026-11-13T16:59:30Z",
   "units": [
     {
       "uid": 0,
@@ -1265,6 +1265,32 @@
       "overallPass": true
     },
     {
+      "uid": 104,
+      "nameZh": "火龍",
+      "nameEn": "Fire Dragon",
+      "classNameZh": "火龍",
+      "classEn": "Fire Dragon",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_104",
+      "overallPass": true
+    },
+    {
+      "uid": 105,
+      "nameZh": "雷龍",
+      "nameEn": "Thunder Dragon",
+      "classNameZh": "雷龍",
+      "classEn": "Thunder Dragon",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_105",
+      "overallPass": true
+    },
+    {
       "uid": 106,
       "nameZh": "龍人戰士",
       "nameEn": "Dragonkin Warrior",
@@ -1314,7 +1340,7 @@
       "cameraOrientation": "down_right",
       "cutinFacing": "right",
       "dir": "assets/vfx_lab/units/u_109",
-      "overallPass": false
+      "overallPass": true
     },
     {
       "uid": 110,
@@ -1392,6 +1418,162 @@
       "cameraOrientation": "down_right",
       "cutinFacing": "right",
       "dir": "assets/vfx_lab/units/u_115",
+      "overallPass": true
+    },
+    {
+      "uid": 116,
+      "nameZh": "機甲隊長",
+      "nameEn": "Mech Captain",
+      "classNameZh": "機甲隊長",
+      "classEn": "Mech Captain",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_116",
+      "overallPass": true
+    },
+    {
+      "uid": 117,
+      "nameZh": "卡特那",
+      "nameEn": "Katana",
+      "classNameZh": "卡特那",
+      "classEn": "Katana",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_117",
+      "overallPass": true
+    },
+    {
+      "uid": 118,
+      "nameZh": "萊汀",
+      "nameEn": "Raiden (Boss)",
+      "classNameZh": "萊汀",
+      "classEn": "Raiden",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_118",
+      "overallPass": true
+    },
+    {
+      "uid": 119,
+      "nameZh": "薩卡",
+      "nameEn": "Saka",
+      "classNameZh": "薩卡",
+      "classEn": "Saka",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_119",
+      "overallPass": true
+    },
+    {
+      "uid": 120,
+      "nameZh": "瑪爾",
+      "nameEn": "Mal",
+      "classNameZh": "瑪爾",
+      "classEn": "Mal",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_120",
+      "overallPass": true
+    },
+    {
+      "uid": 121,
+      "nameZh": "沼澤怪物",
+      "nameEn": "Swamp Monster",
+      "classNameZh": "沼澤怪物",
+      "classEn": "Swamp Monster",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_121",
+      "overallPass": true
+    },
+    {
+      "uid": 122,
+      "nameZh": "地魔神",
+      "nameEn": "Earth Demon God",
+      "classNameZh": "地魔神",
+      "classEn": "Earth Demon God",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_122",
+      "overallPass": true
+    },
+    {
+      "uid": 123,
+      "nameZh": "水魔神",
+      "nameEn": "Water Demon God",
+      "classNameZh": "水魔神",
+      "classEn": "Water Demon God",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_123",
+      "overallPass": true
+    },
+    {
+      "uid": 124,
+      "nameZh": "風魔神",
+      "nameEn": "Wind Demon God",
+      "classNameZh": "風魔神",
+      "classEn": "Wind Demon God",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_124",
+      "overallPass": true
+    },
+    {
+      "uid": 125,
+      "nameZh": "火魔神",
+      "nameEn": "Fire Demon God",
+      "classNameZh": "火魔神",
+      "classEn": "Fire Demon God",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_125",
+      "overallPass": true
+    },
+    {
+      "uid": 126,
+      "nameZh": "空魔神",
+      "nameEn": "Void Demon God",
+      "classNameZh": "空魔神",
+      "classEn": "Void Demon God",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_126",
+      "overallPass": true
+    },
+    {
+      "uid": 127,
+      "nameZh": "暗黑龍",
+      "nameEn": "Dark Dragon",
+      "classNameZh": "暗黑龍",
+      "classEn": "Dark Dragon",
+      "role": "boss",
+      "side": "enemy",
+      "cameraOrientation": "down_right",
+      "cutinFacing": "right",
+      "dir": "assets/vfx_lab/units/u_127",
       "overallPass": true
     }
   ]

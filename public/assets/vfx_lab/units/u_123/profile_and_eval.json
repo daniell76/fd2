@@ -1,0 +1,37 @@
+{
+  "uid": 123,
+  "nameZh": "水魔神",
+  "nameEn": "Water Demon God",
+  "classNameZh": "水魔神",
+  "classEn": "Water Demon God",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Water Demon God",
+    "class_en": "Water Demon God",
+    "visual_desc": "Slender feminine elemental with pale cyan skin and massive, flowing deep blue wavy hair acting as a living cloak.",
+    "face_cutin_desc": "Stoic profile with sharp features, blue lips, and dark piercing eyes framed by flowing blue hair strands.",
+    "weapon_desc": "Dual spiraling water lances conjured and fired from both hands.",
+    "step1_ready": "Stands facing ↘ with arms slightly out; hair flows voluminously around the base.",
+    "step2_windup": "Body coils as hair rises into large circular loops and forms two distinct peaks above the head.",
+    "step3_impact": "Leans forward, launching two dark blue conical water drills toward the bottom-right from the chest area.",
+    "step4_finish": "Holds the forward lunge pose as the water projectiles dissipate and the hair settles back down.",
+    "kp7_slash_vfx_rule": "The two blue spiraling water drills in Frame 4 must align with the forward thrusting motion toward the bottom-right.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation accurately replicates the reference sequence, including the wind-up poses, proper alignment of the twin water drill VFX, and a clean follow-through."
+  }
+}
