@@ -106,7 +106,7 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
   if (vfxAssetsCache.loaded) {
     return vfxAssetsCache;
   }
-  const cacheBust = '?v=6';
+  const cacheBust = '?v=7';
   const [
     t0,
     t1,
