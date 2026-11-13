@@ -165,7 +165,7 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
   return vfxAssetsCache;
 }
 
-export type DuelScenario = 'thor_first_duel' | 'bandit_first_duel' | 'thor_crit';
+export type DuelScenario = 'thor_first_duel' | 'bandit_first_duel' | 'thor_crit' | 'bandit_crit';
 
 interface PoseRenderSpec {
   primaryIdx: number;
@@ -292,11 +292,11 @@ export class Modern25DCombatRenderer {
     this.banditMp = 0;
 
     this.thorStrikeDmg = scenario === 'thor_crit' ? 35 : 22;
-    this.banditStrikeDmg = 7;
+    this.banditStrikeDmg = scenario === 'bandit_crit' ? 28 : 7;
   }
 
   public getTotalDurationMs(): number {
-    if (this.scenario === 'thor_crit') return 2600;
+    if (this.scenario === 'thor_crit' || this.scenario === 'bandit_crit') return 2600;
     return 4400;
   }
 
@@ -469,6 +469,9 @@ export class Modern25DCombatRenderer {
     if (this.scenario === 'bandit_first_duel') {
       return { banditStart: 280, thorStart: 2200 };
     }
+    if (this.scenario === 'bandit_crit') {
+      return { banditStart: 280, thorStart: -1 };
+    }
     if (this.scenario === 'thor_crit') {
       return { thorStart: 320, banditStart: -1 };
     }
@@ -614,6 +617,7 @@ export class Modern25DCombatRenderer {
     let slashArcProgress = -1;
     let banditSlashProgress = -1;
     let cutInProgress = -1;
+    let cutInUnit: 'thor' | 'bandit' = 'thor';
     let impactFlashAlpha = 0;
     let shockwaveProgress = -1;
     let shockwaveCenter = { x: banditHomeX + 40, y: banditHomeY - 180 };
@@ -657,6 +661,7 @@ export class Modern25DCombatRenderer {
         const p = (localT - 460) / 360;
         if (this.config.enableAnimeCutIn && this.scenario === 'thor_crit') {
           cutInProgress = p;
+          cutInUnit = 'thor';
         }
         const dashP = Math.max(0, (p - 0.2) / 0.8);
         const dashEase = 1 - Math.pow(1 - dashP, 3);
@@ -811,8 +816,12 @@ export class Modern25DCombatRenderer {
           this.spawnDustPlume(banditSpec.x, banditSpec.y, -1, -0.4, 8);
         });
       } else if (localB < 820) {
-        // 2. Bandit Diagonal Down-Right (↘) Lunge toward Bottom-Right Thor
+        // 2. Bandit Diagonal Down-Right (↘) Lunge toward Bottom-Right Thor + Critical-Only Right-Facing Avatar Cut-In Strip
         const p = (localB - 520) / 300;
+        if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
+          cutInProgress = p;
+          cutInUnit = 'bandit';
+        }
         const ease = 1 - Math.pow(1 - p, 3);
         banditSpec.x = banditHomeX - 18 + ease * (W * 0.3);
         banditSpec.y = banditHomeY - 10 + ease * (H * 0.18);
@@ -878,15 +887,16 @@ export class Modern25DCombatRenderer {
         shockwaveGroundY = thorHomeY;
 
         this.fireOnce('bandit_impact', () => {
-          this.sound.playSfx('hit');
+          const isBanditCrit = this.scenario === 'bandit_crit';
+          this.sound.playSfx(isBanditCrit ? 'crit' : 'hit');
           if (this.config.enableHitStopAndSparks) {
-            this.hitStopRemainingMs = 75;
+            this.hitStopRemainingMs = isBanditCrit ? 95 : 75;
           }
           this.spawnImpactSparks(
             thorHomeX - 35,
             thorHomeY - 210,
             thorHomeY,
-            55,
+            isBanditCrit ? 85 : 55,
             ['#ffffff', '#fca5a5', '#ef4444', '#fb923c', '#fde047'],
             1,
             0.5
@@ -1032,7 +1042,7 @@ export class Modern25DCombatRenderer {
     }
 
     if (cutInProgress >= 0 && cutInProgress <= 1 && this.config.enableAnimeCutIn) {
-      this.drawAnimeCutInBanner(ctx, W, H, cutInProgress);
+      this.drawAnimeCutInBanner(ctx, W, H, cutInProgress, cutInUnit);
     }
 
     this.drawModernDualHud(ctx, W, H);
@@ -1446,32 +1456,47 @@ export class Modern25DCombatRenderer {
     }
   }
 
-  private drawAnimeCutInBanner(ctx: CanvasRenderingContext2D, W: number, H: number, progress: number): void {
+  private drawAnimeCutInBanner(
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    progress: number,
+    unit: 'thor' | 'bandit' = 'thor'
+  ): void {
     const open = progress < 0.18 ? progress / 0.18 : progress > 0.82 ? (1 - progress) / 0.18 : 1;
     if (open <= 0.01) return;
 
     const bannerH = 175 * open;
     const cy = H * 0.34;
+    const isBandit = unit === 'bandit';
 
     ctx.save();
     ctx.translate(W * 0.5, cy);
-    ctx.rotate(-0.06);
+    // Thor lunges Up-Left (↖, tilt -0.06, avatar facing left ←); Bandit lunges Down-Right (↘, tilt +0.06, avatar facing right →)
+    ctx.rotate(isBandit ? 0.06 : -0.06);
 
     ctx.beginPath();
     ctx.rect(-W * 0.65, -bannerH * 0.5, W * 1.3, bannerH);
     ctx.clip();
 
     const bgGrad = ctx.createLinearGradient(-W * 0.5, 0, W * 0.5, 0);
-    bgGrad.addColorStop(0, 'rgba(8, 15, 32, 0.94)');
-    bgGrad.addColorStop(0.5, 'rgba(15, 38, 72, 0.96)');
-    bgGrad.addColorStop(1, 'rgba(120, 28, 18, 0.94)');
+    if (isBandit) {
+      bgGrad.addColorStop(0, 'rgba(120, 28, 18, 0.94)');
+      bgGrad.addColorStop(0.5, 'rgba(68, 18, 24, 0.96)');
+      bgGrad.addColorStop(1, 'rgba(10, 28, 22, 0.94)');
+    } else {
+      bgGrad.addColorStop(0, 'rgba(8, 15, 32, 0.94)');
+      bgGrad.addColorStop(0.5, 'rgba(15, 38, 72, 0.96)');
+      bgGrad.addColorStop(1, 'rgba(120, 28, 18, 0.94)');
+    }
     ctx.fillStyle = bgGrad;
     ctx.fillRect(-W * 0.65, -bannerH * 0.5, W * 1.3, bannerH);
 
-    ctx.strokeStyle = 'rgba(125, 211, 252, 0.32)';
+    ctx.strokeStyle = isBandit ? 'rgba(253, 224, 71, 0.32)' : 'rgba(125, 211, 252, 0.32)';
     for (let i = 0; i < 18; i++) {
       const ly = -bannerH * 0.45 + (i / 17) * bannerH * 0.9;
-      const lx = -W * 0.6 + ((this.elapsedMs * 3.5 + i * 190) % (W * 0.8));
+      const offset = (this.elapsedMs * 3.5 + i * 190) % (W * 0.8);
+      const lx = isBandit ? -W * 0.6 + offset : W * 0.34 - offset;
       ctx.lineWidth = 1.5 + (i % 3);
       ctx.beginPath();
       ctx.moveTo(lx, ly);
@@ -1481,12 +1506,19 @@ export class Modern25DCombatRenderer {
 
     const faceImg = this.vfxAssets.clashKeyArt;
     if (faceImg && faceImg.complete && faceImg.naturalWidth > 0) {
-      const slideX = (0.5 - progress) * 70;
-      ctx.drawImage(faceImg, 800, 175, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
+      if (isBandit) {
+        // Bandit close-up crop from clash_keyart.jpg (265, 185, 330, 165) — facing RIGHT (→), sliding slightly right
+        const slideX = (progress - 0.5) * 70;
+        ctx.drawImage(faceImg, 265, 185, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
+      } else {
+        // Thor close-up crop from clash_keyart.jpg (800, 175, 330, 165) — facing LEFT (←), sliding slightly left
+        const slideX = (0.5 - progress) * 70;
+        ctx.drawImage(faceImg, 800, 175, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
+      }
     }
 
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = '#fde047';
+    ctx.strokeStyle = isBandit ? '#f87171' : '#fde047';
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.moveTo(-W * 0.65, -bannerH * 0.5 + 2);
@@ -1780,7 +1812,10 @@ export async function mountVfxLabInGallery(
             🛡️ ${tr('敵方先攻 + 我方反擊 (盜賊↘ → 索爾↖)', '敌方先攻 + 我方反击 (盗贼↘ → 索尔↖)', 'Enemy Initiates (↘) + Hero Retaliates (↖)')}
           </button>
           <button class="gal-btn" id="vfx-play-crit" type="button">
-            🔥 ${tr('索爾會心一擊必殺', '索尔会心一击必杀', 'Thor Critical Hit KO')}
+            🔥 ${tr('索爾會心一擊 (頭像向左←)', '索尔会心一击 (头像向左←)', 'Thor Crit (Cut-In ←)')}
+          </button>
+          <button class="gal-btn" id="vfx-play-bandit-crit" type="button">
+            💥 ${tr('盜賊會心一擊 (頭像向右→)', '盗贼会心一击 (头像向右→)', 'Bandit Crit (Cut-In →)')}
           </button>
           <label style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 13px; color: #fde047; cursor: pointer;">
             <input type="checkbox" id="vfx-chk-slowmo" /> 🐢 ${tr('0.32x 慢動作檢視', '0.32x 慢动作检视', '0.32x Slow-Mo')}
@@ -1823,6 +1858,7 @@ export async function mountVfxLabInGallery(
   const btnThorFirst = container.querySelector('#vfx-play-thor-first') as HTMLButtonElement;
   const btnBanditFirst = container.querySelector('#vfx-play-bandit-first') as HTMLButtonElement;
   const btnCrit = container.querySelector('#vfx-play-crit') as HTMLButtonElement;
+  const btnBanditCrit = container.querySelector('#vfx-play-bandit-crit') as HTMLButtonElement;
 
   let splitCompare = false;
   let activeScenario: DuelScenario = 'thor_first_duel';
@@ -1854,6 +1890,7 @@ export async function mountVfxLabInGallery(
     btnThorFirst.classList.toggle('active', scen === 'thor_first_duel');
     btnBanditFirst.classList.toggle('active', scen === 'bandit_first_duel');
     btnCrit.classList.toggle('active', scen === 'thor_crit');
+    btnBanditCrit.classList.toggle('active', scen === 'bandit_crit');
     renderer.startScenario(scen);
   };
 
@@ -1864,6 +1901,7 @@ export async function mountVfxLabInGallery(
   btnThorFirst.addEventListener('click', () => updateScenarioBtns('thor_first_duel'));
   btnBanditFirst.addEventListener('click', () => updateScenarioBtns('bandit_first_duel'));
   btnCrit.addEventListener('click', () => updateScenarioBtns('thor_crit'));
+  btnBanditCrit.addEventListener('click', () => updateScenarioBtns('bandit_crit'));
 
   const bindToggle = (selector: string, key: Exclude<keyof ModernVfxConfig, 'animSource'>) => {
     const el = container.querySelector(selector) as HTMLInputElement;
