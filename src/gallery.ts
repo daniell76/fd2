@@ -1181,7 +1181,7 @@ class MappingGalleryApp {
                   </button>
                 </div>
                 <img
-                  src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/cutin.jpg?v=9"
+                  src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/cutin.jpg?v=10"
                   alt="${entry.nameZh} Cut-In"
                   style="width:100%; aspect-ratio:2/1; object-fit:cover; border-radius:6px; border:1px solid #334155; background:#05080f;"
                 />
@@ -1189,7 +1189,7 @@ class MappingGalleryApp {
                   <div>
                     <div class="mono-tag" style="font-size:10px; color:#fde047; margin-bottom:2px;">🎬 Option B (Omni 1.2 MP4)</div>
                     <video
-                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/omni_1p2.mp4?v=9"
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/omni_1p2.mp4?v=10"
                       autoplay
                       loop
                       muted
@@ -1200,7 +1200,7 @@ class MappingGalleryApp {
                   <div>
                     <div class="mono-tag" style="font-size:10px; color:#7dd3fc; margin-bottom:2px;">🖼️ Option A (NB2 6-Frame)</div>
                     <img
-                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/nb6_sheet.jpg?v=9"
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/nb6_sheet.jpg?v=10"
                       alt="${entry.nameZh} 6-Frame Sheet"
                       style="width:100%; aspect-ratio:16/9; object-fit:contain; border-radius:5px; background:#ffffff; border:1px solid #334155;"
                     />
