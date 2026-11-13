@@ -1,0 +1,37 @@
+{
+  "uid": 24,
+  "nameZh": "希爾法",
+  "nameEn": "Sylpha",
+  "classNameZh": "祭師",
+  "classEn": "High Priest",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Sylpha",
+    "class_en": "High Priest",
+    "visual_desc": "Bald elf with pointed ears and a goatee. Wears voluminous red robes, a spiked yellow mantle, and blue hem trim.",
+    "face_cutin_desc": "Stern expression with sharp green eyes and a thin goatee. Features bald head and prominent elven ears.",
+    "weapon_desc": "Blue scepter with a circular orb head, held in the right hand.",
+    "step1_ready": "Standing rear-view facing ↖; staff held high over the right shoulder in a neutral casting stance.",
+    "step2_windup": "Shifts weight forward slightly, bracing the torso while maintaining staff position.",
+    "step3_impact": "Drops into a deep forward crouch facing ↖; staff thrusts downward to channel a magical pulse at the base.",
+    "step4_finish": "Maintains the low kneeling follow-through as energy dissipates, transitioning back to a standing pose.",
+    "kp7_slash_vfx_rule": "The magical release occurs at the lowest point of the downward staff thrust, following a vertical casting arc.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The sequence successfully adapts the source material. Biomechanics and VFX alignment are consistent with the original's upward-left perspective and casting motion."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "uid": 28,
+  "nameZh": "達克塞",
+  "nameEn": "Darksey",
+  "classNameZh": "魔戰士",
+  "classEn": "Magic Warrior",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Darksey",
+    "class_en": "Magic Warrior",
+    "visual_desc": "Hulking dark blue demon with a muscular build. Wears an olive-drab waist-wrap with red lining and dark bandages on wrists and ankles. Bare, powerful back is visible.",
+    "face_cutin_desc": "Stoic, rocky face with glowing blue eyes and heavy brows. Features a monolithic, dark blue complexion with an intense, steady expression.",
+    "weapon_desc": "Golden energy-infused fists; no physical weapon held.",
+    "step1_ready": "Rear-isometric view facing up-left. Crouched, low-center-of-gravity stance with back to camera and fists ready.",
+    "step2_windup": "Right fist pulls back and rises toward the shoulder, coiling the body for a heavy strike.",
+    "step3_impact": "Swings arm in a wide downward arc. A large, crescent-shaped golden energy slash appears, sweeping from top to bottom.",
+    "step4_finish": "Arm follows through toward the ground as the golden energy trail fades and the character recovers pose.",
+    "kp7_slash_vfx_rule": "The vertical golden energy arc in Frame 4 precisely tracks the downward swing path of the right fist.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence accurately reflects reference wind-up and swing mechanics. VFX timing and anatomical alignment are consistent across the expanded frame count."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "uid": 30,
+  "nameZh": "蓋亞",
+  "nameEn": "Gaia",
+  "classNameZh": "機兵",
+  "classEn": "Cyborg",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Gaia",
+    "class_en": "Cyborg",
+    "visual_desc": "Bulky bipedal robot with matte-grey plating and navy blue joint accents. Features a rounded, featureless head unit and thick, segmented armor plates on limbs and torso.",
+    "face_cutin_desc": "Mechanical profile view. Smooth, light-grey helm with a dark horizontal recess. Navy blue internal components visible at the neck. Stoic robotic aesthetic.",
+    "weapon_desc": "Integrated energy projector within the right forearm.",
+    "step1_ready": "Rear-isometric view facing ↖. Low crouch on thick mechanical legs with the right arm retracted near the core.",
+    "step2_windup": "Rotates torso clockwise to coil power. Right fist pulls back further as a small yellow light begins to manifest.",
+    "step3_impact": "Rapid forward lunge toward ↖. A massive, pale-yellow crescent energy wave sweeps across the screen following the arm's trajectory.",
+    "step4_finish": "Right arm extended fully toward ↖. The energy arc dissipates into a small spark before the unit pulls back into a recovery stance.",
+    "kp7_slash_vfx_rule": "The oversized yellow energy arc in Frame 4 correctly originates from the right arm and sweeps toward the top-left target area.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation adheres to source wind-up and VFX patterns. Mechanical consistency and perspective are maintained."
+  }
+}

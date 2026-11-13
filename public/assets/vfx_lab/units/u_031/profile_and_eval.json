@@ -1,0 +1,37 @@
+{
+  "uid": 31,
+  "nameZh": "渥德",
+  "nameEn": "Ward",
+  "classNameZh": "機兵",
+  "classEn": "Cyborg",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Ward",
+    "class_en": "Cyborg",
+    "visual_desc": "Muscular grey-skinned humanoid machine. Wears a dark blue sleeveless tunic, red waist sash, and baggy dark trousers. Rear-isometric view facing ↖.",
+    "face_cutin_desc": "Stoic profile with blue eyes and dark blue hair. Distinct black markings on the cheek. Determined expression, facing left.",
+    "weapon_desc": "Energy-enhanced fists; right hand serves as the primary strike point.",
+    "step1_ready": "Frame 1: Low crouched stance, back to camera, facing ↖. Arms held low at the sides.",
+    "step2_windup": "Frames 2-3: Stands upright and pulls the right fist back to head level, coiling for a powerful thrust.",
+    "step3_impact": "Frame 4: Lunges forward with a right-hand punch. A large, crescent-shaped golden energy wave sweeps from right to left.",
+    "step4_finish": "Frames 5-6: Right arm remains extended as the golden trail dissipates. Transitions back to a wide-legged neutral pose.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 must follow the horizontal right-to-left trajectory of the punching arm.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence maintains reference perspective and coiling. VFX arc aligns with arm trajectory and settles adequately."
+  }
+}

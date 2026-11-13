@@ -1,0 +1,37 @@
+{
+  "uid": 18,
+  "nameZh": "蜜蒂",
+  "nameEn": "Midi",
+  "classNameZh": "劍聖",
+  "classEn": "Sword Saint",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Midi",
+    "class_en": "Sword Saint",
+    "visual_desc": "Human female in silver plate armor with a large red cape. Long, voluminous curly blonde hair flows down her back. Rear-isometric view.",
+    "face_cutin_desc": "Serious expression, large dark eyes, and red lips. Framed by thick, wavy blonde hair. Facing left.",
+    "weapon_desc": "Long silver two-handed sword held with both hands.",
+    "step1_ready": "Stands facing up-left, sword held low at a diagonal. Red cape covers her back and left shoulder.",
+    "step2_windup": "Rotates torso, lifting the sword high above her head. Cape billows as she prepares a heavy downward strike.",
+    "step3_impact": "Swings downward into a deep lunge. A large, crescent-shaped energy arc in gold and light blue erupts forward.",
+    "step4_finish": "Holds a low follow-through pose. Sword is extended to her side as the red cape flutters and energy fades.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 follows a wide downward curve, matching the long sword's swing trajectory from top-right to bottom-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation adheres to reference motion, maintaining perspective and weapon trajectory with well-timed VFX."
+  }
+}

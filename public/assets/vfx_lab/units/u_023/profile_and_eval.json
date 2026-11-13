@@ -1,0 +1,37 @@
+{
+  "uid": 23,
+  "nameZh": "羅蘭",
+  "nameEn": "Loran",
+  "classNameZh": "神射手",
+  "classEn": "Marksman",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Loran",
+    "class_en": "Marksman",
+    "visual_desc": "2D anime tactical RPG 神射手 warrior in detailed fantasy armor matching the reference sprite",
+    "face_cutin_desc": "Dramatic anime close-up of the 神射手 warrior's eyes and face with intense focus",
+    "weapon_desc": "primary combat weapon held consistently in the dominant weapon hand",
+    "step1_ready": "Ready combat stance in rear-isometric three-quarter back view facing UP-LEFT (↖), positioned at bottom-right attacking toward top-left.",
+    "step2_windup": "Coils weapon back smoothly matching Top-Center and Top-Right reference cells.",
+    "step3_impact": "Unleashes the strike toward the target with a bright golden slash arc matching Bottom-Left reference cell.",
+    "step4_finish": "Holds the clean follow-through stance as the slash arc fades matching Bottom-Right reference cell.",
+    "kp7_slash_vfx_rule": "The slash light arc in the impact frame must align with the weapon swing direction shown in Bottom-Left of the DOS reference sheet.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Verified 10-frame sequence"
+  }
+}

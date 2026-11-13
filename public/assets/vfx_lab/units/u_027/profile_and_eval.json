@@ -1,0 +1,37 @@
+{
+  "uid": 27,
+  "nameZh": "巴拿羅西亞",
+  "nameEn": "Banarossia",
+  "classNameZh": "龍劍士",
+  "classEn": "Dragon Swordsman",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Banarossia",
+    "class_en": "Dragon Swordsman",
+    "visual_desc": "Bipedal green-scaled draconian with large wings. Wears silver-grey plate armor with spiked pauldrons over a dark blue tunic and waistcloth.",
+    "face_cutin_desc": "Profile of a green reptilian head facing left. Features a sharp yellow slitted eye, prominent brow spikes, and visible white fangs.",
+    "weapon_desc": "A heavy, conical silver lance-sword held in the right hand.",
+    "step1_ready": "Rear-isometric view facing ↖. Stands with wings tucked; right hand holds the lance pointed downward and back.",
+    "step2_windup": "Crouches and shifts weight forward. Levels the lance toward the target as golden light begins to glow at the tip.",
+    "step3_impact": "Performs a full-body thrust ↖. A large, jagged golden energy beam erupts from the lance tip, extending horizontally toward the target.",
+    "step4_finish": "Lunges forward into a low follow-through pose. The golden energy trail dissipates as the unit returns to a standing position.",
+    "kp7_slash_vfx_rule": "The horizontal golden energy beam in Frame 4 correctly follows the linear trajectory of the lance thrust toward the upper-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation follows reference logic and directional windup. VFX alignment is correct, though late frames show layering and cropping artifacts."
+  }
+}

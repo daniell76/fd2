@@ -1,0 +1,37 @@
+{
+  "uid": 29,
+  "nameZh": "亞齊梅吉",
+  "nameEn": "Archmage",
+  "classNameZh": "大法師",
+  "classEn": "Archmage",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Archmage",
+    "class_en": "Archmage",
+    "visual_desc": "Blue-skinned demonic sorcerer in a thick navy-blue hooded robe with grey trim. Rear-facing view showing a heavy, draped silhouette.",
+    "face_cutin_desc": "Pale blue skin, sharp chin, and cold features. Features a glowing blue reptilian slit eye and ribbed demonic ear structures.",
+    "weapon_desc": "A short wooden catalyst wand held in the right hand.",
+    "step1_ready": "Rear-isometric view facing up-left. Figure stands steady in heavy robes, wand held up and ready.",
+    "step2_windup": "Slight forward lean toward the target direction. The figure stabilizes the wand, focusing energy for release.",
+    "step3_impact": "Thrusts wand forward. A jagged, multi-pointed white and light-blue energy starburst erupts from the tip toward the top-left.",
+    "step4_finish": "The bright energy burst shatters into fading sparks as the figure returns to a neutral standing posture.",
+    "kp7_slash_vfx_rule": "The radial energy burst in Frame 4 originates precisely at the wand's tip, following the line of the forward thrust.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation adheres to source poses; VFX is correctly aligned and timed."
+  }
+}

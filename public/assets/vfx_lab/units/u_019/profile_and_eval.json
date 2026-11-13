@@ -1,0 +1,37 @@
+{
+  "uid": 19,
+  "nameZh": "羅德曼",
+  "nameEn": "Rodman",
+  "classNameZh": "劍聖",
+  "classEn": "Sword Saint",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Rodman",
+    "class_en": "Sword Saint",
+    "visual_desc": "Muscular human in silver plate armor with a blue tabard and red waist cloth. Heavy spaulders and greaves; viewed from a rear-isometric angle.",
+    "face_cutin_desc": "Middle-aged man with rugged features, thick brown hair, and a full beard. Intense, stern expression facing left.",
+    "weapon_desc": "Large silver two-handed greatsword held with both hands.",
+    "step1_ready": "Standing in a wide stance facing up-left. Holds the sword hilt at chest level with the blade angled upward.",
+    "step2_windup": "Brings the sword directly overhead with both hands, coiling weight onto the back leg for a powerful downward strike.",
+    "step3_impact": "Swings the blade in a rapid downward arc. A wide, crescent-shaped golden energy trail erupts, following the blade's path toward the ground.",
+    "step4_finish": "Sword rests low near the floor as the golden trail thins and disappears. Character holds a deep, balanced follow-through pose.",
+    "kp7_slash_vfx_rule": "The golden energy arc correctly traces the downward vertical-to-diagonal trajectory of the blade from the peak height to the floor.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation effectively expands the reference while maintaining correct perspective and VFX timing."
+  }
+}

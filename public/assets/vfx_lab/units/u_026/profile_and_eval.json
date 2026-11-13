@@ -1,0 +1,37 @@
+{
+  "uid": 26,
+  "nameZh": "聖寇拉斯",
+  "nameEn": "St. Koulas",
+  "classNameZh": "龍劍士",
+  "classEn": "Dragon Swordsman",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "St. Koulas",
+    "class_en": "Dragon Swordsman",
+    "visual_desc": "Muscular blue-scaled dragonoid with large bat-like wings and a thick tail. Wears grey plate armor with distinct orange tiger-stripe patterns.",
+    "face_cutin_desc": "Blue reptilian profile with sharp teeth and a glowing blue eye. Features jagged horns and dark navy scales.",
+    "weapon_desc": "Heavy curved silver falchion held in the right hand.",
+    "step1_ready": "Rear-isometric view facing up-left. Holds blade upright with wings partially folded and tail resting.",
+    "step2_windup": "Crouches and leaps upward, hoisting the sword high above the head while wings spread wide.",
+    "step3_impact": "Swings downward toward the upper-left, creating a large, bright yellow crescent energy arc following the blade's path.",
+    "step4_finish": "Lands in a braced stance as the golden energy trail fades and wings begin to retract.",
+    "kp7_slash_vfx_rule": "The yellow energy arc in Frame 4 must follow the diagonal downward trajectory of the sword swing toward the top-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation effectively interpolates reference frames. Biomechanics and VFX alignment remain consistent throughout the sequence."
+  }
+}
