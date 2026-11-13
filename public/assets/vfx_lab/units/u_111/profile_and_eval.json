@@ -1,0 +1,37 @@
+{
+  "uid": 111,
+  "nameZh": "機甲兵",
+  "nameEn": "Mech Soldier",
+  "classNameZh": "機甲兵",
+  "classEn": "Mech Soldier",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Mech Soldier",
+    "class_en": "Mech Soldier",
+    "visual_desc": "Pale green mechanical humanoid with bulky shoulders, digitigrade legs, and dark blue accents. Features a blue loincloth and a small head with a red sensor.",
+    "face_cutin_desc": "Close-up of a grey metallic helm. A black T-shaped visor contains a thin, horizontal red glowing eye line. Expressionless and robotic.",
+    "weapon_desc": "Integrated right-arm energy cannon with dark blue petal-shaped fins.",
+    "step1_ready": "Stance facing down-right with the right arm-cannon pointed forward and legs braced.",
+    "step2_windup": "Shifts weight back and rotates torso slightly, leveling the arm-mounted weapon for a discharge.",
+    "step3_impact": "Discharges a large, wide cone of bright yellow energy from the arm-cannon muzzle toward the bottom-right.",
+    "step4_finish": "Holds the forward leaning pose as the yellow energy fades into jagged sparks and dissipates.",
+    "kp7_slash_vfx_rule": "The conical yellow energy blast originates from the arm-cannon muzzle and projects in a straight diagonal line toward the target area.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": false,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": false,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Windup frames F1/F3 deviate from reference perspective. VFX alignment and firing sequence are consistent."
+  }
+}

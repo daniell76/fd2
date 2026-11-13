@@ -1,0 +1,37 @@
+{
+  "uid": 114,
+  "nameZh": "機甲射手",
+  "nameEn": "Mech Gunner",
+  "classNameZh": "機甲射手",
+  "classEn": "Mech Gunner",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Mech Gunner",
+    "class_en": "Mech Gunner",
+    "visual_desc": "Heavy olive-drab bipedal robot with thick armor plating. Features a blue fabric loincloth and exposed mechanical cabling at the joints.",
+    "face_cutin_desc": "Stoic mechanical profile with a large blue circular optical sensor and a secondary green lens set in weathered grey metal.",
+    "weapon_desc": "Heavy integrated energy cannon on the left arm.",
+    "step1_ready": "Standing isometric stance, facing down-right. The arm cannon is lowered and deactivated.",
+    "step2_windup": "The robot raises its left arm horizontally. The mechanical muzzle tip opens to reveal a glowing yellow core.",
+    "step3_impact": "A long, solid horizontal beam of orange energy fires from the cannon toward the right.",
+    "step4_finish": "The unit maintains its aim as the energy beam fades. The muzzle remains open in a cooling phase.",
+    "kp7_slash_vfx_rule": "The horizontal energy beam in Frame 4 aligns precisely with the forward-pointing axis of the arm cannon.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation aligns with reference. Posing and beam alignment are consistent across the sequence."
+  }
+}

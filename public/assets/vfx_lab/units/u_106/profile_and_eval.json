@@ -1,0 +1,37 @@
+{
+  "uid": 106,
+  "nameZh": "龍人戰士",
+  "nameEn": "Dragonkin Warrior",
+  "classNameZh": "龍人戰士",
+  "classEn": "Dragonkin Warrior",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dragonkin Warrior",
+    "class_en": "Dragonkin Warrior",
+    "visual_desc": "Winged humanoid in heavy blue plate armor with a red loincloth. Large dark bat-like wings extend from the back. Pointed blue helmet covers the head.",
+    "face_cutin_desc": "Sharp blue armored helmet with a bird-like visor. A narrow horizontal eye slit shows a cold, focused expression.",
+    "weapon_desc": "Large silver broadsword held with both hands during the initial windup.",
+    "step1_ready": "Isometric view facing down-right. Warrior stands with wings spread, holding the sword overhead with both hands.",
+    "step2_windup": "Crouches and pulls the sword further back behind the head. Wings expand to the sides to build momentum.",
+    "step3_impact": "Swings downward. A large, bright golden crescent energy arc flashes from the upper-right to the lower-left.",
+    "step4_finish": "Arm extends down at the end of the swing. The golden trail fades while the warrior resets to a standing pose.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 must align with the downward diagonal trajectory of the sword swing from top-right to bottom-left.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Verified 10-frame sequence"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "uid": 112,
+  "nameZh": "機甲突擊兵",
+  "nameEn": "Mech Trooper",
+  "classNameZh": "機甲突擊兵",
+  "classEn": "Mech Trooper",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Mech Trooper",
+    "class_en": "Mech Trooper",
+    "visual_desc": "Bulky mechanical humanoid with teal and dark blue plating. Features oversized rounded pauldrons, exposed wiring on limbs, and a small conical head with a blue sensor. Wears a long blue front tabard.",
+    "face_cutin_desc": "A cold, metallic grey mask in profile. A single glowing blue circular eye lens serves as the focal point against dark blue neck cabling.",
+    "weapon_desc": "Internal optic energy emitter housed within the head's central sensor lens.",
+    "step1_ready": "Stands in a front-isometric pose facing down-right. Arms held slightly out, feet braced, body centered and motionless.",
+    "step2_windup": "The head sensor activates, projecting a thin, straight yellow energy beam diagonally downward toward the ground target.",
+    "step3_impact": "The beam remains fixed while bright yellow and orange energy flares erupt in a line where the light meets the floor.",
+    "step4_finish": "The optic beam ceases. The unit maintains its stance as the small energy sparks on the ground flicker and fade away.",
+    "kp7_slash_vfx_rule": "The energy effect is a straight diagonal beam connecting the head lens to a cluster of yellow ground sparks.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Technical execution matches reference standards. Beam alignment and VFX positioning are largely acceptable."
+  }
+}

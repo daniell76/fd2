@@ -1,0 +1,37 @@
+{
+  "uid": 107,
+  "nameZh": "龍人法師",
+  "nameEn": "Dragonkin Mage",
+  "classNameZh": "龍人法師",
+  "classEn": "Dragonkin Mage",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dragonkin Mage",
+    "class_en": "Dragonkin Mage",
+    "visual_desc": "A winged reptilian humanoid in layered blue and red robes. Features large dark blue wings, grey pauldrons, and a wide flat hat. Scaly grey skin is visible beneath the garments.",
+    "face_cutin_desc": "Close-up of a reptilian profile with a piercing red eye and sharp teeth. A flat hat casts a heavy shadow over the scaly brow.",
+    "weapon_desc": "Concentrated solar energy orb channeled from the chest.",
+    "step1_ready": "Standing front-isometric facing down-right. A swirling golden energy ring manifests in front of the torso.",
+    "step2_windup": "The energy ring compresses into a small, dense spiral and then into a brilliant solid yellow orb.",
+    "step3_impact": "Discharges a thick, elongated golden energy beam projecting toward the bottom-right of the frame.",
+    "step4_finish": "The beam dissipates into a small fading spark as the mage returns to a neutral upright stance with wings spread.",
+    "kp7_slash_vfx_rule": "The golden energy beam in Frame 4 originates from the chest and extends exactly along the down-right diagonal trajectory.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation accurately mirrors the reference sequence. Biomechanics and VFX trajectory align with the original source."
+  }
+}

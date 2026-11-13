@@ -1,0 +1,37 @@
+{
+  "uid": 99,
+  "nameZh": "黑暗殺手",
+  "nameEn": "Dark Assassin",
+  "classNameZh": "黑暗殺手",
+  "classEn": "Dark Assassin",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dark Assassin",
+    "class_en": "Dark Assassin",
+    "visual_desc": "Muscular human male in a dark grey sleeveless tunic and green front sash. Equipped with dark arm guards, blue shin wrappings, and a blue headwrap.",
+    "face_cutin_desc": "Profile facing right. Face heavily obscured by deep shadows. A single glowing white eye sliver pierces the darkness. Features a brown headband and thick blue hair framing the face.",
+    "weapon_desc": "Thin katana-style longsword, wielded in a versatile single or double-handed grip.",
+    "step1_ready": "Upright stance facing down-right. Sword held vertically in front of the chest.",
+    "step2_windup": "Subtle backward weight shift, maintaining the vertical sword guard to coil energy.",
+    "step3_impact": "Explosive crouched lunge forward. A bright golden-yellow diagonal energy arc traces the sword's rapid downward swing from top-left to bottom-right.",
+    "step4_finish": "Stays in a deep crouch as the light trail fades, then extends the right arm to hold the blade horizontally.",
+    "kp7_slash_vfx_rule": "The golden VFX arc in Frame 4 MUST precisely overlay the diagonal top-left to bottom-right sword swing trajectory.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation frames correctly mirror reference poses with consistent VFX alignment."
+  }
+}

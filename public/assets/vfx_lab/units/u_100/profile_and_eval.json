@@ -1,0 +1,37 @@
+{
+  "uid": 100,
+  "nameZh": "武術家",
+  "nameEn": "Martial Artist",
+  "classNameZh": "武術家",
+  "classEn": "Martial Artist",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Martial Artist",
+    "class_en": "Martial Artist",
+    "visual_desc": "Muscular, shirtless human male with black hair in a high ponytail. Wears baggy blue pants, a long red sash, brown wrist bracers, and is barefoot.",
+    "face_cutin_desc": "Heavily shadowed, pitch-black face featuring narrow, glowing red eyes. Dark hair strands fall loosely next to a dark blue collar.",
+    "weapon_desc": "Bare fists, delivering a powerful right-handed energy punch.",
+    "step1_ready": "Stands in a wide, low stance facing down-right. Right fist is held high near the chest, left arm guarding low.",
+    "step2_windup": "Torso twists backward to coil power. Right arm pulls back tightly while the left arm extends for balance.",
+    "step3_impact": "Thrusts a massive right straight punch forward. The enlarged fist glows bright gold, surrounded by a yellow energy ring.",
+    "step4_finish": "Maintains the extended punch pose while the oversized fist shrinks and the golden energy ring dissipates.",
+    "kp7_slash_vfx_rule": "The yellow energy ring must perfectly encircle the forward-thrusting right fist, aligning with the punch's outward trajectory.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation adheres to the reference. Punch trajectory is stable, and the energy ring correctly centers on the striking fist during the impact phase."
+  }
+}

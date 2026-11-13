@@ -1,0 +1,37 @@
+{
+  "uid": 115,
+  "nameZh": "機甲守衛",
+  "nameEn": "Mech Guard",
+  "classNameZh": "機甲守衛",
+  "classEn": "Mech Guard",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Mech Guard",
+    "class_en": "Mech Guard",
+    "visual_desc": "Heavy bipedal robot with olive-drab plating and cobalt blue accents. Features red shoulder orbs and a large cylindrical top piece.",
+    "face_cutin_desc": "Emotionless metal faceplate featuring a single, glowing white horizontal optic slit and surrounding blue industrial piping.",
+    "weapon_desc": "Integrated optical energy projector housed within the central head unit.",
+    "step1_ready": "Neutral isometric stance facing down-right, legs planted firmly with arms at sides.",
+    "step2_windup": "The chassis locks into place as the central optic lens gathers yellow energy, brightening significantly.",
+    "step3_impact": "Discharges a wide, conical yellow energy beam from the eye downward toward the lower-right target area.",
+    "step4_finish": "The energy beam vanishes, leaving a brief jagged yellow flash on the ground before the unit resets.",
+    "kp7_slash_vfx_rule": "The yellow energy beam correctly projects from the central eye slit downward at a diagonal angle toward the bottom-right.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The sequence maintains consistent orientation and anatomical integrity. Beam VFX aligns with the eye slit and follows reference timing."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "uid": 101,
+  "nameZh": "黑暗鬥士",
+  "nameEn": "Dark Fighter",
+  "classNameZh": "黑暗鬥士",
+  "classEn": "Dark Fighter",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dark Fighter",
+    "class_en": "Dark Fighter",
+    "visual_desc": "Muscular blue-skinned humanoid with a black ponytail. Wears red wrist guards, a green waist sash, baggy navy trousers, and red leg wraps.",
+    "face_cutin_desc": "Shadow-obscured face featuring glowing yellow slit eyes. Stoic, intimidating expression with a dark muscular profile.",
+    "weapon_desc": "Unarmed strikes using both fists enhanced by spiritual energy.",
+    "step1_ready": "Front-isometric stance facing down-right. Body crouched low with fists held defensively near the torso.",
+    "step2_windup": "Shifts weight forward as light blue circular energy rings begin to manifest around the arms and shoulders.",
+    "step3_impact": "Rapid punching flurry toward the bottom-right. Large translucent blue energy rings and fist silhouettes expand along the strike path.",
+    "step4_finish": "Holds the final punch extension as energy rings fade. Returns to a rigid, wide-legged recovery pose.",
+    "kp7_slash_vfx_rule": "The circular blue energy arcs must radiate outward following the direct forward punch trajectory toward the bottom-right target.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains character perspective and logical punch progression. VFX rings align with the forward trajectory and match reference motifs."
+  }
+}

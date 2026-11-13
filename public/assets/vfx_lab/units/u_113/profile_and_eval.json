@@ -1,0 +1,37 @@
+{
+  "uid": 113,
+  "nameZh": "光束砲座",
+  "nameEn": "Beam Turret",
+  "classNameZh": "光束砲座",
+  "classEn": "Beam Turret",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Beam Turret",
+    "class_en": "Beam Turret",
+    "visual_desc": "Quadrupedal mechanical walker. Features a cylindrical green metal chassis with a large central lens, draped in dark blue fabric over four segmented legs.",
+    "face_cutin_desc": "Mechanical profile with a flat metal faceplate and a single glowing green optic sensor, wrapped in dark blue cloth.",
+    "weapon_desc": "Integrated high-output energy emitter located in the central head lens.",
+    "step1_ready": "Stationary stance facing down-right. The mechanical legs are braced with the central lens inactive.",
+    "step2_windup": "The ocular lens charges, glowing with increasing intensity from soft yellow to bright white.",
+    "step3_impact": "Discharges a wide, conical yellow energy beam from the lens toward the bottom-right target area.",
+    "step4_finish": "The energy trail thins and dissipates as the turret returns to its dormant cooling state.",
+    "kp7_slash_vfx_rule": "The energy beam must align perfectly with the lens aperture, projecting at a 45-degree downward angle to the right.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains mechanical consistency. Charging and firing frames align with reference. VFX trajectory is correct."
+  }
+}
