@@ -1,0 +1,37 @@
+{
+  "uid": 65,
+  "nameZh": "塞可邦勒",
+  "nameEn": "Secobang",
+  "classNameZh": "武聖",
+  "classEn": "Martial Saint",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Secobang",
+    "class_en": "Martial Saint",
+    "visual_desc": "Muscular blue-furred leopard-man. He wears baggy black martial arts trousers and a long, flowing red sash tied at the waist.",
+    "face_cutin_desc": "Sharp feline features with intense yellow slitted eyes and a green corded headband across a blue-furred brow.",
+    "weapon_desc": "Twin fists channeling golden spiritual energy.",
+    "step1_ready": "Rear-isometric stance facing up-left. Crouched fighter pose with back to camera and fists held high.",
+    "step2_windup": "Twists torso right while drawing fists back, gathering bright yellow energy spheres in both palms.",
+    "step3_impact": "Double-palm thrust forward, releasing a large, fan-shaped golden energy blast toward the top-left.",
+    "step4_finish": "Holds the striking pose as the yellow energy trail dissipates before returning to a ready stance.",
+    "kp7_slash_vfx_rule": "The golden energy cone in Frame 4 must align with the forward thrust of the palms toward the top-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation expands source frames correctly. VFX timing and thrust alignment remain consistent."
+  }
+}

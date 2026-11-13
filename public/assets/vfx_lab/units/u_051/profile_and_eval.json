@@ -1,0 +1,37 @@
+{
+  "uid": 51,
+  "nameZh": "哈諾",
+  "nameEn": "Hano",
+  "classNameZh": "魔戰士",
+  "classEn": "Magic Warrior",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Hano",
+    "class_en": "Magic Warrior",
+    "visual_desc": "Muscular human male. He wears a blue headband, blue tunic, steel shoulder pads with small spikes, grey gauntlets, a grey loincloth, and dark red loose trousers.",
+    "face_cutin_desc": "Profile facing left. Stern, determined expression. Brown eyes looking sharply forward. Auburn hair mostly covered by a thick blue headband. A prominent nose and strong jawline.",
+    "weapon_desc": "Dual axes, one in each hand.",
+    "step1_ready": "Rear-isometric view facing up-left. Kneeling, arms crossed behind his head, holding an axe in each hand, blades pointing out.",
+    "step2_windup": "Maintains the kneeling, arms-crossed pose, tensing for the strike.",
+    "step3_impact": "Rapidly uncrosses arms, swinging both axes outward and down. Two massive, glowing yellow energy trails arc down from the top right across the frame.",
+    "step4_finish": "Holds the downward swing pose as the yellow energy trails fragment into lines and dissipate.",
+    "kp7_slash_vfx_rule": "The yellow energy trails must form two distinct downward arcs crossing from top-right to bottom-left, matching the uncrossing swing of the dual axes.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains orientation and windup logic. VFX trails in F5-F7 align with the downward dual-axe arcs from the reference."
+  }
+}

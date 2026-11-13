@@ -1,0 +1,37 @@
+{
+  "uid": 71,
+  "nameZh": "豹人",
+  "nameEn": "Allied Leopardman",
+  "classNameZh": "豹人",
+  "classEn": "Leopardman",
+  "role": "ally_npc",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Allied Leopardman",
+    "class_en": "Leopardman",
+    "visual_desc": "Muscular humanoid with dark blue fur, wearing a brown loincloth and matching leg wraps. Shown from a rear-isometric perspective.",
+    "face_cutin_desc": "Blue feline face with piercing yellow eyes and prominent white fangs. Intense, predatory expression.",
+    "weapon_desc": "Natural claws and fists; uses no held weapons.",
+    "step1_ready": "Low, rear-isometric crouch facing up-left with fists held near the waist.",
+    "step2_windup": "Body coils backward as the right fist is drawn toward the shoulder.",
+    "step3_impact": "Sudden forward lunge; a large, bright yellow energy wedge bursts from the right fist toward the upper-left.",
+    "step4_finish": "Standing follow-through with arm extended as the golden energy effect dissipates.",
+    "kp7_slash_vfx_rule": "The yellow energy wedge in Frame 4 aligns with the forward punch trajectory originating from the right hand.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation accurately translates reference with correct perspective, consistent anatomy, and properly aligned punch VFX."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "uid": 49,
+  "nameZh": "米亞斯多德",
+  "nameEn": "Miastod",
+  "classNameZh": "龍劍士",
+  "classEn": "Dragon Swordsman",
+  "role": "hero_promo_t2",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Miastod",
+    "class_en": "Dragon Swordsman",
+    "visual_desc": "A muscular red-scaled dragonman in dark blue plate armor. Features large navy bat-wings, a thick red tail, and a spiked head crest. Rear-isometric view.",
+    "face_cutin_desc": "Dramatic close-up of a red draconic face with glowing red eyes, sharp horns, and fin-like ears. The expression is stern and formidable.",
+    "weapon_desc": "Dual curved silver sabers held in both hands.",
+    "step1_ready": "Frame 1: Rear view facing up-left. Character stands with wings flared, holding sabers ready at its sides.",
+    "step2_windup": "Frames 2-3: The warrior coils its torso and pulls the right-hand blade back to prepare a powerful diagonal swing.",
+    "step3_impact": "Frame 4: A swift upward strike creates a large, glowing golden crescent energy arc traveling toward the top-left.",
+    "step4_finish": "Frames 5-6: The energy trail dissipates as the character completes the swing and stabilizes its wings into a neutral stance.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 must precisely align with the upward-left diagonal path of the sword's swing trajectory.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation aligns with source. Wind-up and VFX timing are consistent. Biomechanics remain stable."
+  }
+}

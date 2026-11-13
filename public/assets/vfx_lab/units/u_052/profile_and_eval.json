@@ -1,0 +1,37 @@
+{
+  "uid": 52,
+  "nameZh": "悠妮",
+  "nameEn": "Uni",
+  "classNameZh": "召喚師",
+  "classEn": "Summoner",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Uni",
+    "class_en": "Summoner",
+    "visual_desc": "Human female in a large red hooded cape, red thigh-high boots, and dark shoulder pads with gold trim. She wields a long staff topped with a blue crescent and white orb.",
+    "face_cutin_desc": "Close-up of a woman facing left with auburn hair and a gentle smile. She wears a blue diadem with a central red jewel, framed by a red hood.",
+    "weapon_desc": "Magical staff topped with a crescent and orb, wielded in the left hand.",
+    "step1_ready": "Faces up-left. Holds the staff diagonally in the left hand, resting with the red cape draped down.",
+    "step2_windup": "Raises both arms, lifting the staff high overhead as the red cape billows outward.",
+    "step3_impact": "Thrusts the staff forward toward the top-left to cast. No visible energy slash or light VFX is present.",
+    "step4_finish": "Holds the extended cast pose as the cape settles, then retracts the staff to return to the initial stance.",
+    "kp7_slash_vfx_rule": "Verify that no energy slash or VFX is generated, as Frame 4 portrays only a clean forward thrust of the staff.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": false,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": false,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": false,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation follows core thrust logic but introduces frame timing and transitional pose variations from the source."
+  }
+}

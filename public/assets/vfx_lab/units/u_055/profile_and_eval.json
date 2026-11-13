@@ -1,0 +1,37 @@
+{
+  "uid": 55,
+  "nameZh": "洛娜",
+  "nameEn": "Lorna",
+  "classNameZh": "龍騎士",
+  "classEn": "Dragon Knight",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Lorna",
+    "class_en": "Dragon Knight",
+    "visual_desc": "Female rider with long silver-blue hair and a flowing blue cape. She mounts a large grey-green wyvern with broad wings and a thick tail.",
+    "face_cutin_desc": "Determined woman with flowing silver-blue hair, sharp dark eyes, and red lips. She maintains a stoic, focused expression facing left.",
+    "weapon_desc": "Long silver polearm held in the right hand.",
+    "step1_ready": "Rear-isometric view. Wyvern hovers with wings spread; rider faces up-left holding the spear vertically.",
+    "step2_windup": "Wyvern tilts forward while the rider pulls the spear back, coiling for a lunging strike.",
+    "step3_impact": "The wyvern lunges; a massive, bright golden crescent energy arc sweeps across the screen toward the top-left.",
+    "step4_finish": "The wyvern stabilizes its flight as the golden energy trail dissipates and the rider resets her stance.",
+    "kp7_slash_vfx_rule": "The large golden energy arc in Frame 4 perfectly aligns with the downward swooping trajectory of the wyvern and spear.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": false,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": false,
+    "overall_pass": true,
+    "diagnosis": "Sequence maintains perspective and timing. Windup and VFX align with reference, despite minor grip and tracking shifts."
+  }
+}

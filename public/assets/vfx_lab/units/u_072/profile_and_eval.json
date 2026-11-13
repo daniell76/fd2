@@ -1,0 +1,37 @@
+{
+  "uid": 72,
+  "nameZh": "精靈",
+  "nameEn": "Allied Elf",
+  "classNameZh": "精靈",
+  "classEn": "Elf",
+  "role": "ally_npc",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Allied Elf",
+    "class_en": "Elf",
+    "visual_desc": "Lean elf in dark blue tactical gear with a tan tabard. Equipped with a massive, corded shoulder cannon and tan headgear.",
+    "face_cutin_desc": "Stoic elf face with dark blue hair and a tan visor covering the eyes. Distinctive pointed ears are visible.",
+    "weapon_desc": "Large metallic energy cannon mounted on the right shoulder, braced by both hands.",
+    "step1_ready": "Frame 1: Stands in a rear-isometric view, holding the heavy cannon high on the shoulder.",
+    "step2_windup": "Frames 2-3: Lowers the weapon to a horizontal level, bracing the body for recoil.",
+    "step3_impact": "Frame 4: Discharges a continuous, horizontal golden energy beam projecting toward the top-left.",
+    "step4_finish": "Frames 5-6: Weapon remains leveled as the beam dissipates, then is hoisted back to a high shoulder carry.",
+    "kp7_slash_vfx_rule": "The straight golden energy beam must align perfectly with the cannon's muzzle, extending linearly toward the upper-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The animation sequence is an excellent expansion of the 6-frame original. It correctly replicates the wind-up from a high-shoulder carry to a leveled firing position (F0-F4). The beam VFX in F5-F7 is perfectly aligned with the muzzle, and the recoil/recovery frames (F8-F9) provide a smooth transition back to idle."
+  }
+}

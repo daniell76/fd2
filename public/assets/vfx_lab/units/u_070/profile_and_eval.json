@@ -1,0 +1,37 @@
+{
+  "uid": 70,
+  "nameZh": "傭兵",
+  "nameEn": "Allied Mercenary",
+  "classNameZh": "傭兵",
+  "classEn": "Mercenary",
+  "role": "ally_npc",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Allied Mercenary",
+    "class_en": "Mercenary",
+    "visual_desc": "Muscular human in a long brown cloak and blue trousers. Features spiky navy blue hair and a white forehead visor. Rear-isometric view emphasizes the heavy fabric of the cape.",
+    "face_cutin_desc": "Stoic left-facing profile. Features spiky dark blue hair and a thick white headband covering the brow. Expression is calm and determined.",
+    "weapon_desc": "One-handed straight sword held in the right hand.",
+    "step1_ready": "Frame 1: Low crouch from a rear-isometric view facing up-left. Sword held back at hip level, pointed toward the target.",
+    "step2_windup": "Frames 2-3: Transitions to a two-handed grip, raising the sword high above the head in a vertical overhead wind-up.",
+    "step3_impact": "Frame 4: Power lunge forward. A large, fan-shaped golden energy flash erupts from the blade, angled toward the top-left.",
+    "step4_finish": "Frames 5-6: Follow-through into a deep crouch. The sword is held low as the golden sparks and light trail dissipate.",
+    "kp7_slash_vfx_rule": "The triangular golden flash in Frame 4 aligns perfectly with the downward overhead trajectory of the sword swing.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation preserves perspective and biomechanics. Overhead swing and VFX timing match reference."
+  }
+}

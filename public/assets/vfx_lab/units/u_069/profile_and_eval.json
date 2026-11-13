@@ -1,0 +1,37 @@
+{
+  "uid": 69,
+  "nameZh": "騎兵",
+  "nameEn": "Allied Cavalry",
+  "classNameZh": "騎兵",
+  "classEn": "Cavalry",
+  "role": "ally_npc",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Allied Cavalry",
+    "class_en": "Cavalry",
+    "visual_desc": "Armored human in grey plate with a large teal cape. Helmet features a prominent blue plume. Burly build with visible muscular arms beneath pauldrons.",
+    "face_cutin_desc": "Close-up of a grey steel greathelm with a dark T-shaped visor. A vibrant blue crest sits atop. Face is fully concealed and stoic.",
+    "weapon_desc": "Long wooden lance with a silver spearhead, held across the torso with both hands.",
+    "step1_ready": "Rear-isometric view facing UP-LEFT. Character stands in a wide braced stance with the lance held horizontally and cape draped low.",
+    "step2_windup": "Small torso rotation and backward pull of the spear to build momentum for a forward strike.",
+    "step3_impact": "Rapid thrust UP-LEFT. A jagged, pale yellow energy wedge erupts from the spearhead, pointing toward the target area.",
+    "step4_finish": "Lance remains extended as the yellow flash fades. Character resets to a neutral defensive posture.",
+    "kp7_slash_vfx_rule": "The yellow energy VFX in Frame 4 must be a jagged triangular burst originating from the spear tip and extending toward the top-left corner.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains reference mechanics. Windup and thrust phases are consistent. VFX alignment and jagged shape match original specifications."
+  }
+}

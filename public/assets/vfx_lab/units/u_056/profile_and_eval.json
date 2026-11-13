@@ -1,0 +1,37 @@
+{
+  "uid": 56,
+  "nameZh": "萊汀",
+  "nameEn": "Raiden",
+  "classNameZh": "龍騎士",
+  "classEn": "Dragon Knight",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Raiden",
+    "class_en": "Dragon Knight",
+    "visual_desc": "Human rider in blue plate armor with gold trim and a flowing red cape. He mounts a brown dragon with large leathery wings and a thick tail. The rider has a muscular build and spiky brown hair.",
+    "face_cutin_desc": "Close-up of a determined man facing left. Features sharp eyes, a blue headband over spiky brown hair, and a stoic, focused expression.",
+    "weapon_desc": "A large silver-headed poleaxe held with both hands.",
+    "step1_ready": "Rear-isometric view. The rider sits upright on the dragon, holding the poleaxe vertically. The dragon's wings are partially spread.",
+    "step2_windup": "The rider leans back, hoisting the poleaxe over his shoulder. The dragon tenses its body, preparing to lung forward.",
+    "step3_impact": "A forceful downward swing toward the top-left. A wide, bright golden energy beam arcs diagonally across the frame.",
+    "step4_finish": "The rider completes the arc as the red cape billows forward. The dragon stabilizes while the golden slash trail fades away.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 follows the diagonal trajectory of the poleaxe swing from bottom-right toward the top-left target area.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains structural integrity and aligns with reference VFX timing and orientation."
+  }
+}

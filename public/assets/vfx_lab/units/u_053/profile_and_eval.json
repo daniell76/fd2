@@ -1,0 +1,37 @@
+{
+  "uid": 53,
+  "nameZh": "哈瓦特",
+  "nameEn": "Hawat",
+  "classNameZh": "魔戰士",
+  "classEn": "Magic Warrior",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Hawat",
+    "class_en": "Magic Warrior",
+    "visual_desc": "Muscular human in bulky, stone-textured grey armor with green accents. Wears a red waist wrap, a long blue tabard, and carries a large grey kite shield.",
+    "face_cutin_desc": "Stern man with a thick brown beard and bushy mustache. Features narrowed, determined eyes and a weathered complexion, looking left.",
+    "weapon_desc": "Large silver crescent-bladed battle axe held in the right hand.",
+    "step1_ready": "Rear-isometric view facing up-left. Warrior stands braced with the axe held high over the right shoulder and shield positioned left.",
+    "step2_windup": "Maintains the high-ready posture, tensing muscles to prepare for a heavy downward strike toward the upper-left direction.",
+    "step3_impact": "Swings the axe down forcefully. A massive, bright golden diagonal energy flash fills the upper-left area, marking the impact zone.",
+    "step4_finish": "The axe rests at the bottom of the arc while orange energy sparks linger in the air. The warrior begins shifting back to a defensive stance.",
+    "kp7_slash_vfx_rule": "The golden energy flash in Frame 4 perfectly aligns with the diagonal downward swing path of the axe head toward the top-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation follows reference; motion and effects are consistently aligned."
+  }
+}

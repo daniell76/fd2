@@ -1,0 +1,37 @@
+{
+  "uid": 50,
+  "nameZh": "索爾",
+  "nameEn": "Thor",
+  "classNameZh": "英雄",
+  "classEn": "Hero",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Thor",
+    "class_en": "Hero",
+    "visual_desc": "Muscular human in dark blue plate armor with gold trim. Features a long flowing red cape and spiky navy blue hair.",
+    "face_cutin_desc": "Stern masculine face with sharp eyes, framed by spiky blue hair and a thick red headband. Facing left.",
+    "weapon_desc": "A heavy silver longsword held in the right hand.",
+    "step1_ready": "Rear-isometric view. Standing with sword held high, red cape draped, facing up-left.",
+    "step2_windup": "Crouches slightly to build power, sword remains raised as the cape begins to shift.",
+    "step3_impact": "Deep lunge with a downward swing, creating a massive fan-shaped yellow and white energy burst radiating upward.",
+    "step4_finish": "Low recovery stance; the bright flash transitions into blue energy trails as the cape billows high.",
+    "kp7_slash_vfx_rule": "The fan-shaped yellow energy in Frame 4 correctly erupts along the downward trajectory of the sword swing.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation sequence maintains sufficient consistency with reference poses and VFX. The expansion to 10 frames preserves anatomical integrity and directional flow."
+  }
+}
