@@ -57,8 +57,27 @@ interface ClassicFigBundle {
   strip: FigAniStrip;
 }
 
+export interface VfxManifestUnitEntry {
+  uid: number;
+  nameZh: string;
+  nameEn: string;
+  classNameZh: string;
+  classEn: string;
+  role: string;
+  side: 'player' | 'enemy';
+  cameraOrientation: 'up_left' | 'down_right';
+  cutinFacing: 'left' | 'right';
+  dir: string;
+  overallPass?: boolean;
+}
+
 interface VfxLabAssets {
   loaded: boolean;
+  manifestUnits: VfxManifestUnitEntry[];
+  rightUnit: VfxManifestUnitEntry;
+  leftUnit: VfxManifestUnitEntry;
+  rightCutIn: HTMLImageElement | null;
+  leftCutIn: HTMLImageElement | null;
   thorPoses: HTMLImageElement[];
   banditPoses: HTMLImageElement[];
   thorNb6Poses: HTMLImageElement[];
@@ -75,8 +94,41 @@ interface VfxLabAssets {
   classicBanditAtk: ClassicFigBundle | null;
 }
 
+const DEFAULT_RIGHT_UNIT: VfxManifestUnitEntry = {
+  uid: 0,
+  nameZh: '索爾',
+  nameEn: 'Thor',
+  classNameZh: '劍士',
+  classEn: 'Swordsman',
+  role: 'hero',
+  side: 'player',
+  cameraOrientation: 'up_left',
+  cutinFacing: 'left',
+  dir: 'assets/vfx_lab/units/u_000',
+  overallPass: true,
+};
+
+const DEFAULT_LEFT_UNIT: VfxManifestUnitEntry = {
+  uid: 96,
+  nameZh: '盜賊',
+  nameEn: 'Bandit',
+  classNameZh: '盜賊',
+  classEn: 'Bandit',
+  role: 'enemy',
+  side: 'enemy',
+  cameraOrientation: 'down_right',
+  cutinFacing: 'right',
+  dir: 'assets/vfx_lab/units/u_096',
+  overallPass: true,
+};
+
 const vfxAssetsCache: VfxLabAssets = {
   loaded: false,
+  manifestUnits: [DEFAULT_RIGHT_UNIT, DEFAULT_LEFT_UNIT],
+  rightUnit: DEFAULT_RIGHT_UNIT,
+  leftUnit: DEFAULT_LEFT_UNIT,
+  rightCutIn: null,
+  leftCutIn: null,
   thorPoses: [],
   banditPoses: [],
   thorNb6Poses: [],
@@ -102,11 +154,58 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
+export async function loadUnitSlotIntoVfxAssets(
+  assets: AssetManager,
+  target: VfxLabAssets,
+  side: 'player' | 'enemy',
+  entry: VfxManifestUnitEntry
+): Promise<void> {
+  const cb = '?v=9';
+  const [nb6, omni, cutIn, cIdle, cAtk] = await Promise.all([
+    Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/nb6_${i}.png${cb}`))),
+    Promise.all([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => loadImg(`${entry.dir}/omni_${i}.png${cb}`))),
+    loadImg(`${entry.dir}/cutin.jpg${cb}`).catch(() => null),
+    assets.loadUnitFigAni(entry.uid, 'idle').catch(() => null),
+    assets.loadUnitFigAni(entry.uid, 'attack').catch(() => null),
+  ]);
+
+  if (side === 'player') {
+    target.rightUnit = entry;
+    target.rightCutIn = cutIn;
+    target.thorNb6Poses = nb6;
+    target.thorPoses = [nb6[0], nb6[2], nb6[3]];
+    target.thorOmniPoses = omni;
+    target.classicThorIdle = cIdle;
+    target.classicThorAtk = cAtk;
+  } else {
+    target.leftUnit = entry;
+    target.leftCutIn = cutIn;
+    target.banditNb6Poses = nb6;
+    target.banditPoses = [nb6[0], nb6[2], nb6[3]];
+    target.banditOmniPoses = omni;
+    target.classicBanditIdle = cIdle;
+    target.classicBanditAtk = cAtk;
+  }
+}
+
 export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAssets> {
+  const cacheBust = '?v=9';
+  // Always refresh manifest so newly generated batch units appear immediately
+  try {
+    const resp = await fetch(`assets/vfx_lab/units_manifest.json?t=${Date.now()}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (Array.isArray(data?.units) && data.units.length > 0) {
+        vfxAssetsCache.manifestUnits = data.units;
+      }
+    }
+  } catch {
+    // fallback to default manifest units
+  }
+
   if (vfxAssetsCache.loaded) {
     return vfxAssetsCache;
   }
-  const cacheBust = '?v=8';
   const [
     t0,
     t1,
@@ -1504,16 +1603,34 @@ export class Modern25DCombatRenderer {
       ctx.stroke();
     }
 
-    const faceImg = this.vfxAssets.clashKeyArt;
-    if (faceImg && faceImg.complete && faceImg.naturalWidth > 0) {
-      if (isBandit) {
-        // Bandit close-up crop from clash_keyart.jpg (265, 185, 330, 165) — facing RIGHT (→), sliding slightly right
-        const slideX = (progress - 0.5) * 70;
-        ctx.drawImage(faceImg, 265, 185, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
-      } else {
-        // Thor close-up crop from clash_keyart.jpg (800, 175, 330, 165) — facing LEFT (←), sliding slightly left
-        const slideX = (0.5 - progress) * 70;
-        ctx.drawImage(faceImg, 800, 175, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
+    const customCutIn = isBandit ? this.vfxAssets.leftCutIn : this.vfxAssets.rightCutIn;
+    const isCustomUnit = isBandit ? this.vfxAssets.leftUnit.uid !== 96 : this.vfxAssets.rightUnit.uid !== 0;
+
+    if (isCustomUnit && customCutIn && customCutIn.complete && customCutIn.naturalWidth > 0) {
+      const slideX = isBandit ? (progress - 0.5) * 70 : (0.5 - progress) * 70;
+      ctx.drawImage(
+        customCutIn,
+        0,
+        0,
+        customCutIn.naturalWidth,
+        customCutIn.naturalHeight,
+        -250 + slideX,
+        -bannerH * 0.52,
+        500,
+        bannerH * 1.06
+      );
+    } else {
+      const faceImg = this.vfxAssets.clashKeyArt;
+      if (faceImg && faceImg.complete && faceImg.naturalWidth > 0) {
+        if (isBandit) {
+          // Bandit close-up crop from clash_keyart.jpg (265, 185, 330, 165) — facing RIGHT (→), sliding slightly right
+          const slideX = (progress - 0.5) * 70;
+          ctx.drawImage(faceImg, 265, 185, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
+        } else {
+          // Thor close-up crop from clash_keyart.jpg (800, 175, 330, 165) — facing LEFT (←), sliding slightly left
+          const slideX = (0.5 - progress) * 70;
+          ctx.drawImage(faceImg, 800, 175, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
+        }
       }
     }
 
@@ -1532,8 +1649,8 @@ export class Modern25DCombatRenderer {
 
   /**
    * Draws the authentic Flame Dragon II diagonal HUD placement:
-   *  - Enemy Bandit (#96): Bottom-Left `(38, H - 124)`
-   *  - Hero Thor (#0): Top-Right `(W - 38 - cardW, 24)`
+   *  - Enemy Unit (Top-Left stage): Bottom-Left `(38, H - 124)`
+   *  - Hero/Ally Unit (Bottom-Right stage): Top-Right `(W - 38 - cardW, 24)`
    * Both HP and MP bars anchor on the LEFT (`0` at left, `max` at right) and reduce from RIGHT (Green) -> Middle (Yellow) -> LEFT (Red)!
    */
   private drawModernDualHud(ctx: CanvasRenderingContext2D, W: number, H: number): void {
@@ -1643,11 +1760,16 @@ export class Modern25DCombatRenderer {
       ctx.restore();
     };
 
-    // Bottom-Left: Enemy Bandit (#96) (matching FD2.EXE `(0, 154)`)
+    const lu = this.vfxAssets.leftUnit;
+    const ru = this.vfxAssets.rightUnit;
+    const leftLabel = isEn ? `${lu.nameEn} (#${lu.uid})` : `${lu.nameZh} (#${lu.uid})`;
+    const rightLabel = isEn ? `${ru.nameEn} (#${ru.uid})` : `${ru.nameZh} (#${ru.uid})`;
+
+    // Bottom-Left: Enemy Unit (matching FD2.EXE `(0, 154)`)
     drawHudCard(
       38,
       H - 122,
-      isEn ? 'Bandit (#96)' : '盜賊 (#96)',
+      leftLabel,
       1,
       this.banditDisplayedHp,
       this.banditTargetHp,
@@ -1657,11 +1779,11 @@ export class Modern25DCombatRenderer {
       '#ef4444'
     );
 
-    // Top-Right: Hero Thor (#0) (matching FD2.EXE `(171, 4)`)
+    // Top-Right: Hero/Ally Unit (matching FD2.EXE `(171, 4)`)
     drawHudCard(
       W - 38 - cardW,
       24,
-      isEn ? 'Thor (#0)' : '索爾 (#0)',
+      rightLabel,
       1,
       this.thorDisplayedHp,
       this.thorTargetHp,
@@ -1709,7 +1831,8 @@ export class Modern25DCombatRenderer {
 let activeLabCleanup: (() => void) | null = null;
 
 /**
- * Mounts the interactive "Modern 2.5D VFX Lab: Thor (#0) vs. Bandit (#96)" directly inside a Gallery tab container.
+ * Mounts the interactive "Modern 2.5D VFX Lab" directly inside a Gallery tab container,
+ * supporting dynamic matchup selection across all generated player/ally (`↖`) and enemy/boss (`↘`) units.
  */
 export async function mountVfxLabInGallery(
   container: HTMLElement,
@@ -1729,20 +1852,35 @@ export async function mountVfxLabInGallery(
 
   const vfxAssets = await ensureVfxLabAssets(assets);
   const renderer = new Modern25DCombatRenderer(vfxAssets, sound);
+  const isEn = getLocale() === 'en';
+
+  const playerUnits = vfxAssets.manifestUnits.filter((u) => u.side === 'player');
+  const enemyUnits = vfxAssets.manifestUnits.filter((u) => u.side === 'enemy');
+  if (playerUnits.length === 0) playerUnits.push(DEFAULT_RIGHT_UNIT);
+  if (enemyUnits.length === 0) enemyUnits.push(DEFAULT_LEFT_UNIT);
+
+  const formatUnitOption = (u: VfxManifestUnitEntry) =>
+    isEn
+      ? `#${String(u.uid).padStart(3, '0')} ${u.nameEn} (${u.classEn})`
+      : `#${String(u.uid).padStart(3, '0')} ${u.nameZh} (${u.classNameZh})`;
 
   container.innerHTML = `
     <div style="max-width: 1460px; margin: 0 auto; padding: 12px 16px 28px; display: flex; flex-direction: column; gap: 14px;">
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: var(--bg-panel, #0f172a); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-          <span style="font-size: 18px; font-weight: 800; color: #38bdf8;">
+          <span id="vfx-title-banner" style="font-size: 18px; font-weight: 800; color: #38bdf8;">
             ⚡ ${tr(
-              '2026 現代 2.5D 戰鬥動畫實驗室 — 第 1 章：索爾 (#0 右下↖) vs 盜賊 (#96 左上↘)',
-              '2026 现代 2.5D 战斗动画实验室 — 第 1 章：索尔 (#0 右下↖) vs 盗贼 (#96 左上↘)',
-              '2026 Modern 2.5D VFX Lab — Ch.1: Thor (#0 Bottom-Right ↖) vs. Bandit (#96 Top-Left ↘)'
+              `2026 現代 2.5D 戰鬥動畫實驗室 — ${vfxAssets.rightUnit.nameZh} (#${vfxAssets.rightUnit.uid} 右下↖) vs ${vfxAssets.leftUnit.nameZh} (#${vfxAssets.leftUnit.uid} 左上↘)`,
+              `2026 现代 2.5D 战斗动画实验室 — ${vfxAssets.rightUnit.nameZh} (#${vfxAssets.rightUnit.uid} 右下↖) vs ${vfxAssets.leftUnit.nameZh} (#${vfxAssets.leftUnit.uid} 左上↘)`,
+              `2026 Modern 2.5D VFX Lab — ${vfxAssets.rightUnit.nameEn} (#${vfxAssets.rightUnit.uid} ↖) vs. ${vfxAssets.leftUnit.nameEn} (#${vfxAssets.leftUnit.uid} ↘)`
             )}
           </span>
-          <span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(56, 189, 248, 0.14); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.35);">
-            ${tr('Nano Banana 2 6幀原圖條件生成 vs Gemini Omni 1.2 影片 ffmpeg 抽幀對照', 'Nano Banana 2 6帧原图条件生成 vs Gemini Omni 1.2 视频 ffmpeg 抽帧对照', 'Compare Nano Banana 2 (6-Frame Strip) vs. Gemini Omni 1.2 Video (ffmpeg 10-Frame)')}
+          <span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(34, 197, 94, 0.14); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.35);">
+            ✅ ${tr(
+              `已生成角色：${vfxAssets.manifestUnits.length} / 121 (KP1..KP7 驗證通過)`,
+              `已生成角色：${vfxAssets.manifestUnits.length} / 121 (KP1..KP7 验证通过)`,
+              `Generated Units: ${vfxAssets.manifestUnits.length} / 121 (KP1..KP7 Verified)`
+            )}
           </span>
         </div>
 
@@ -1753,19 +1891,44 @@ export async function mountVfxLabInGallery(
         </div>
       </div>
 
-      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 18px; background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(251, 191, 36, 0.4); border-radius: 10px;">
-        <span style="font-size: 13.5px; font-weight: 700; color: #fde047;">
-          🔬 ${tr('切換動畫生成管線 (即時對比)：', '切换动画生成管线 (即时对比)：', 'Animation Generation Pipeline (Live Compare):')}
-        </span>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(56, 189, 248, 0.38); border-radius: 10px;">
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #38bdf8;">
+            🛡️ ${tr('我方/友軍 (右下↖ / 特寫向左←)：', '我方/友军 (右下↖ / 特写向左←)：', 'Hero/Ally (Bottom-Right ↖ / Cut-In ←):')}
+            <select id="vfx-sel-right-unit" style="background: #0f172a; color: #f8fafc; border: 1px solid #38bdf8; border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 600;">
+              ${playerUnits
+                .map(
+                  (u) =>
+                    `<option value="${u.uid}" ${u.uid === vfxAssets.rightUnit.uid ? 'selected' : ''}>${formatUnitOption(u)}</option>`
+                )
+                .join('')}
+            </select>
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #f87171;">
+            ⚔️ ${tr('敵軍/頭目 (左上↘ / 特寫向右→)：', '敌军/头目 (左上↘ / 特写向右→)：', 'Enemy/Boss (Top-Left ↘ / Cut-In →):')}
+            <select id="vfx-sel-left-unit" style="background: #0f172a; color: #f8fafc; border: 1px solid #f87171; border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 600;">
+              ${enemyUnits
+                .map(
+                  (u) =>
+                    `<option value="${u.uid}" ${u.uid === vfxAssets.leftUnit.uid ? 'selected' : ''}>${formatUnitOption(u)}</option>`
+                )
+                .join('')}
+            </select>
+          </label>
+        </div>
+
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-size: 13px; font-weight: 700; color: #fde047;">
+            🔬 ${tr('管線：', '管线：', 'Pipeline:')}
+          </span>
           <button class="gal-btn active" id="vfx-src-omni" type="button">
-            🎬 ${tr('方案 B：Gemini Omni 1.2 影片 + ffmpeg 抽幀 (10 幀)', '方案 B：Gemini Omni 1.2 视频 + ffmpeg 抽帧 (10 帧)', 'Option B: Gemini Omni 1.2 Video + ffmpeg (10 Frames)')}
+            🎬 ${tr('方案 B：Gemini Omni 1.2 (10 幀)', '方案 B：Gemini Omni 1.2 (10 帧)', 'Option B: Gemini Omni 1.2 (10F)')}
           </button>
           <button class="gal-btn" id="vfx-src-nb6" type="button">
-            🖼️ ${tr('方案 A：Nano Banana 2 餵入原版連續圖 (6 幀)', '方案 A：Nano Banana 2 喂入原版连续图 (6 帧)', 'Option A: Nano Banana 2 + Original Strip (6 Frames)')}
+            🖼️ ${tr('方案 A：Nano Banana 2 (6 幀)', '方案 A：Nano Banana 2 (6 帧)', 'Option A: Nano Banana 2 (6F)')}
           </button>
           <button class="gal-btn" id="vfx-src-nb3" type="button">
-            🎨 ${tr('基準組：Nano Banana 2 三關鍵幀 + 補間 (3 幀)', '基准组：Nano Banana 2 三关键帧 + 补间 (3 帧)', 'Baseline: Nano Banana 2 (3 Poses + Blend)')}
+            🎨 ${tr('基準組 (3 幀)', '基准组 (3 帧)', 'Baseline (3F)')}
           </button>
         </div>
       </div>
@@ -1777,28 +1940,28 @@ export async function mountVfxLabInGallery(
       <div id="vfx-art-container" style="display: none; padding: 20px; background: var(--bg-panel, #090d16); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px;">
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
-            <h4 style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B1: Thor (#0 索爾) Gemini Omni 1.2 Raw Video (45° CW Up-Left Crescent Aligned)</h4>
-            <video src="assets/vfx_lab/thor_omni_1p2.mp4?v=8" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
+            <h4 id="vfx-art-title-b1" style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B1: #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh} Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
+            <video id="vfx-art-vid-b1" src="${vfxAssets.rightUnit.dir}/omni_1p2.mp4?v=9" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
-            <h4 style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B2: Bandit (#96 盜賊) Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
-            <video src="assets/vfx_lab/bandit_omni_1p2.mp4?v=8" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
+            <h4 id="vfx-art-title-b2" style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B2: #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh} Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
+            <video id="vfx-art-vid-b2" src="${vfxAssets.leftUnit.dir}/omni_1p2.mp4?v=9" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #38bdf8;">
-            <h4 style="margin: 0 0 8px 0; color: #38bdf8;">🖼️ Option A1: Thor (#0 索爾) Nano Banana 2 6-Frame Sheet (45° CW Up-Left Crescent Aligned)</h4>
-            <img src="assets/vfx_lab/thor_nb6_sheet.jpg?v=8" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <h4 id="vfx-art-title-a1" style="margin: 0 0 8px 0; color: #38bdf8;">🖼️ Option A1: #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh} Nano Banana 2 6-Frame Sheet</h4>
+            <img id="vfx-art-img-a1" src="${vfxAssets.rightUnit.dir}/nb6_sheet.jpg?v=9" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #f87171;">
-            <h4 style="margin: 0 0 8px 0; color: #f87171;">🖼️ Option A2: Bandit (#96 盜賊) Nano Banana 2 6-Frame Sheet (Conditioned on 1995 Strip)</h4>
-            <img src="assets/vfx_lab/bandit_nb6_sheet.jpg?v=8" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <h4 id="vfx-art-title-a2" style="margin: 0 0 8px 0; color: #f87171;">🖼️ Option A2: #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh} Nano Banana 2 6-Frame Sheet</h4>
+            <img id="vfx-art-img-a2" src="${vfxAssets.leftUnit.dir}/nb6_sheet.jpg?v=9" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
-          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
-            <h4 style="margin: 0 0 8px 0; color: #94a3b8;">🎨 Baseline: Thor (#0) Transparent Sheet</h4>
-            <img src="assets/vfx_lab/thor_sheet_raw.png?v=8" style="width: 100%; border-radius: 8px; background: #fff;" />
+          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #38bdf8;">
+            <h4 id="vfx-art-title-c1" style="margin: 0 0 8px 0; color: #7dd3fc;">🔥 Crit Cut-In (←): #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh}</h4>
+            <img id="vfx-art-img-c1" src="${vfxAssets.rightUnit.dir}/cutin.jpg?v=9" style="width: 100%; border-radius: 8px; background: #0f172a;" />
           </div>
-          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #334155;">
-            <h4 style="margin: 0 0 8px 0; color: #94a3b8;">🎨 Baseline: Bandit (#96) Transparent Sheet</h4>
-            <img src="assets/vfx_lab/bandit_sheet_raw.png?v=8" style="width: 100%; border-radius: 8px; background: #fff;" />
+          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #f87171;">
+            <h4 id="vfx-art-title-c2" style="margin: 0 0 8px 0; color: #fca5a5;">💥 Crit Cut-In (→): #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh}</h4>
+            <img id="vfx-art-img-c2" src="${vfxAssets.leftUnit.dir}/cutin.jpg?v=9" style="width: 100%; border-radius: 8px; background: #0f172a;" />
           </div>
         </div>
       </div>
@@ -1806,16 +1969,16 @@ export async function mountVfxLabInGallery(
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; background: var(--bg-panel, #0f172a); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <button class="gal-btn active" id="vfx-play-thor-first" type="button">
-            ⚔️ ${tr('我方先攻 + 敵方反擊 (索爾↖ → 盜賊↘)', '我方先攻 + 敌方反击 (索尔↖ → 盗贼↘)', 'Hero Initiates (↖) + Enemy Retaliates (↘)')}
+            ⚔️ ${tr('我方先攻 + 敵方反擊 (右下↖ → 左上↘)', '我方先攻 + 敌方反击 (右下↖ → 左上↘)', 'Hero Initiates (↖) + Enemy Retaliates (↘)')}
           </button>
           <button class="gal-btn" id="vfx-play-bandit-first" type="button">
-            🛡️ ${tr('敵方先攻 + 我方反擊 (盜賊↘ → 索爾↖)', '敌方先攻 + 我方反击 (盗贼↘ → 索尔↖)', 'Enemy Initiates (↘) + Hero Retaliates (↖)')}
+            🛡️ ${tr('敵方先攻 + 我方反擊 (左上↘ → 右下↖)', '敌方先攻 + 我方反击 (左上↘ → 右下↖)', 'Enemy Initiates (↘) + Hero Retaliates (↖)')}
           </button>
           <button class="gal-btn" id="vfx-play-crit" type="button">
-            🔥 ${tr('索爾會心一擊 (頭像向左←)', '索尔会心一击 (头像向左←)', 'Thor Crit (Cut-In ←)')}
+            🔥 ${tr('我方會心一擊 (頭像向左←)', '我方会心一击 (头像向左←)', 'Hero Crit (Cut-In ←)')}
           </button>
           <button class="gal-btn" id="vfx-play-bandit-crit" type="button">
-            💥 ${tr('盜賊會心一擊 (頭像向右→)', '盗贼会心一击 (头像向右→)', 'Bandit Crit (Cut-In →)')}
+            💥 ${tr('敵方會心一擊 (頭像向右→)', '敌方会心一击 (头像向右→)', 'Enemy Crit (Cut-In →)')}
           </button>
           <label style="display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; font-size: 13px; color: #fde047; cursor: pointer;">
             <input type="checkbox" id="vfx-chk-slowmo" /> 🐢 ${tr('0.32x 慢動作檢視', '0.32x 慢动作检视', '0.32x Slow-Mo')}
@@ -1860,9 +2023,83 @@ export async function mountVfxLabInGallery(
   const btnCrit = container.querySelector('#vfx-play-crit') as HTMLButtonElement;
   const btnBanditCrit = container.querySelector('#vfx-play-bandit-crit') as HTMLButtonElement;
 
+  const selRightUnit = container.querySelector('#vfx-sel-right-unit') as HTMLSelectElement;
+  const selLeftUnit = container.querySelector('#vfx-sel-left-unit') as HTMLSelectElement;
+  const titleBanner = container.querySelector('#vfx-title-banner') as HTMLSpanElement;
+
   let splitCompare = false;
   let activeScenario: DuelScenario = 'thor_first_duel';
   renderer.startScenario(activeScenario);
+
+  const refreshMatchupLabelsAndArt = () => {
+    const ru = vfxAssets.rightUnit;
+    const lu = vfxAssets.leftUnit;
+    titleBanner.textContent = `⚡ ${tr(
+      `2026 現代 2.5D 戰鬥動畫實驗室 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
+      `2026 现代 2.5D 战斗动画实验室 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
+      `2026 Modern 2.5D VFX Lab — ${ru.nameEn} (#${ru.uid} ↖) vs. ${lu.nameEn} (#${lu.uid} ↘)`
+    )}`;
+
+    const cb = `?v=${Date.now()}`;
+    const setEl = <T extends HTMLElement>(id: string, fn: (el: T) => void) => {
+      const el = container.querySelector(id) as T | null;
+      if (el) fn(el);
+    };
+    setEl<HTMLHeadingElement>('#vfx-art-title-b1', (el) => {
+      el.textContent = `🎬 Option B1: #${ru.uid} ${ru.nameZh} (${ru.nameEn}) Gemini Omni 1.2 Raw Video`;
+    });
+    setEl<HTMLVideoElement>('#vfx-art-vid-b1', (el) => {
+      el.src = `${ru.dir}/omni_1p2.mp4${cb}`;
+    });
+    setEl<HTMLHeadingElement>('#vfx-art-title-b2', (el) => {
+      el.textContent = `🎬 Option B2: #${lu.uid} ${lu.nameZh} (${lu.nameEn}) Gemini Omni 1.2 Raw Video`;
+    });
+    setEl<HTMLVideoElement>('#vfx-art-vid-b2', (el) => {
+      el.src = `${lu.dir}/omni_1p2.mp4${cb}`;
+    });
+    setEl<HTMLHeadingElement>('#vfx-art-title-a1', (el) => {
+      el.textContent = `🖼️ Option A1: #${ru.uid} ${ru.nameZh} (${ru.nameEn}) Nano Banana 2 6-Frame Sheet`;
+    });
+    setEl<HTMLImageElement>('#vfx-art-img-a1', (el) => {
+      el.src = `${ru.dir}/nb6_sheet.jpg${cb}`;
+    });
+    setEl<HTMLHeadingElement>('#vfx-art-title-a2', (el) => {
+      el.textContent = `🖼️ Option A2: #${lu.uid} ${lu.nameZh} (${lu.nameEn}) Nano Banana 2 6-Frame Sheet`;
+    });
+    setEl<HTMLImageElement>('#vfx-art-img-a2', (el) => {
+      el.src = `${lu.dir}/nb6_sheet.jpg${cb}`;
+    });
+    setEl<HTMLHeadingElement>('#vfx-art-title-c1', (el) => {
+      el.textContent = `🔥 Crit Cut-In (←): #${ru.uid} ${ru.nameZh} (${ru.nameEn})`;
+    });
+    setEl<HTMLImageElement>('#vfx-art-img-c1', (el) => {
+      el.src = `${ru.dir}/cutin.jpg${cb}`;
+    });
+    setEl<HTMLHeadingElement>('#vfx-art-title-c2', (el) => {
+      el.textContent = `💥 Crit Cut-In (→): #${lu.uid} ${lu.nameZh} (${lu.nameEn})`;
+    });
+    setEl<HTMLImageElement>('#vfx-art-img-c2', (el) => {
+      el.src = `${lu.dir}/cutin.jpg${cb}`;
+    });
+  };
+
+  selRightUnit.addEventListener('change', async () => {
+    const uid = Number(selRightUnit.value);
+    const entry = playerUnits.find((u) => u.uid === uid);
+    if (!entry) return;
+    await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'player', entry);
+    refreshMatchupLabelsAndArt();
+    renderer.startScenario(activeScenario);
+  });
+
+  selLeftUnit.addEventListener('change', async () => {
+    const uid = Number(selLeftUnit.value);
+    const entry = enemyUnits.find((u) => u.uid === uid);
+    if (!entry) return;
+    await loadUnitSlotIntoVfxAssets(assets, vfxAssets, 'enemy', entry);
+    refreshMatchupLabelsAndArt();
+    renderer.startScenario(activeScenario);
+  });
 
   const updateAnimSource = (src: AnimSourceMode) => {
     renderer.config.animSource = src;

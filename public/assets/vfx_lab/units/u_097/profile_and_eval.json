@@ -1,0 +1,37 @@
+{
+  "uid": 97,
+  "nameZh": "盜賊頭目",
+  "nameEn": "Bandit Leader",
+  "classNameZh": "盜賊頭目",
+  "classEn": "Bandit Boss",
+  "role": "boss",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Bandit Leader",
+    "class_en": "Bandit Boss",
+    "visual_desc": "Muscular human in blue ninja-style headgear, red tunic, and blue pauldrons. Wears baggy blue trousers and a red waist sash.",
+    "face_cutin_desc": "Smirking man with a wide chin and a vertical scar on his left cheek. Features a dark headband with blue circular lenses.",
+    "weapon_desc": "Curved single-edged scimitar held in the right hand.",
+    "step1_ready": "Crouched isometric stance facing down-right. The scimitar is held low and pointed away from the body.",
+    "step2_windup": "Raises the blade overhead and tilts the torso back to build momentum for a heavy strike.",
+    "step3_impact": "Swings the blade downward in a sharp arc, generating a massive vertical yellow energy slash effect.",
+    "step4_finish": "Holds the low follow-through position as the golden light effect thins and fades from the air.",
+    "kp7_slash_vfx_rule": "The vertical yellow energy arc in Frame 4 must align with the downward diagonal trajectory of the scimitar swing.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The sequence maintains hand consistency and correct orientation. Wind-up is late but directional, and VFX timing aligns with the downward swing arc."
+  }
+}

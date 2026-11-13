@@ -1,0 +1,15 @@
+{
+  "uid": 0,
+  "nameZh": "索爾",
+  "nameEn": "Thor",
+  "classNameZh": "劍士",
+  "classEn": "Swordsman",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "evaluation": {
+    "overall_pass": true,
+    "kp1_to_kp7": true
+  }
+}

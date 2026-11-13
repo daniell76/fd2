@@ -1,0 +1,37 @@
+{
+  "uid": 1,
+  "nameZh": "哈諾",
+  "nameEn": "Hano",
+  "classNameZh": "戰士",
+  "classEn": "Fighter",
+  "role": "hero",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Hano",
+    "class_en": "Fighter",
+    "visual_desc": "Muscular human in a red-brown tunic with a prominent blue shoulder scarf and matching waist sash. Features grey trousers, dark leg wraps, and brown hair secured by a blue headband.",
+    "face_cutin_desc": "Stoic male profile facing left with a sharp jawline and determined eyes. Thick brown hair is partially covered by a wide blue headband.",
+    "weapon_desc": "Single-handed iron hatchet held in the right hand.",
+    "step1_ready": "Rear-isometric view facing up-left; wide crouched stance with the hatchet held near the right shoulder.",
+    "step2_windup": "Shifts weight forward while raising the hatchet high above the head to maximum reach.",
+    "step3_impact": "Forceful downward chop toward the top-left, generating a large, fan-shaped golden energy flash that expands outward.",
+    "step4_finish": "Follow-through pose with hatchet lowered; lingering yellow energy sparks dissipate as the unit recovers its stance.",
+    "kp7_slash_vfx_rule": "The triangular golden energy blast in Frame 4 correctly originates from the axe head and extends along the diagonal downward swing path toward the upper-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The sequence demonstrates adequate mechanical fidelity to the source. Motion curves and VFX placement align with established parameters, ensuring a coherent transition from windup to recovery."
+  }
+}

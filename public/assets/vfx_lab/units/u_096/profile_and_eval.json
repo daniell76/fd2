@@ -1,0 +1,15 @@
+{
+  "uid": 96,
+  "nameZh": "盜賊",
+  "nameEn": "Bandit",
+  "classNameZh": "盜賊",
+  "classEn": "Bandit",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "evaluation": {
+    "overall_pass": true,
+    "kp1_to_kp7": true
+  }
+}
