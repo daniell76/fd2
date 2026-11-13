@@ -1,0 +1,37 @@
+{
+  "uid": 86,
+  "nameZh": "龍騎士",
+  "nameEn": "Dragon Knight",
+  "classNameZh": "龍騎士",
+  "classEn": "Dragon Knight",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dragon Knight",
+    "class_en": "Dragon Knight",
+    "visual_desc": "Blue-armored knight riding a bipedal blue dragon. The dragon has large leathery wings and a pale underbelly. The knight wears full plate with a pointed helmet.",
+    "face_cutin_desc": "Close-up of a silver-grey knight helmet. A narrow horizontal visor reveals a single glowing red eye in the shadow.",
+    "weapon_desc": "A massive, grey conical lance held in the right hand.",
+    "step1_ready": "The dragon hovers with wings tucked. The knight sits tall, holding the lance vertically in a neutral guard.",
+    "step2_windup": "The dragon spreads its wings wide. The knight pulls the lance back toward the shoulder, preparing a heavy thrust.",
+    "step3_impact": "The dragon lunges forward. The knight thrusts the lance down-right. A sharp grey and white impact spark appears at the tip.",
+    "step4_finish": "The dragon beats its wings to retreat. The knight pulls the lance back to his side as the impact effect disappears.",
+    "kp7_slash_vfx_rule": "The thrust effect in Frame 4 must align perfectly with the linear trajectory of the lance tip directed down-right.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The animation captures essential thrust mechanics. Minor perspective shifts occur during wind-up, but weapon handling and VFX alignment remain consistent."
+  }
+}

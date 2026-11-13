@@ -1,0 +1,37 @@
+{
+  "uid": 92,
+  "nameZh": "巫師",
+  "nameEn": "Sorcerer",
+  "classNameZh": "巫師",
+  "classEn": "Sorcerer",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Sorcerer",
+    "class_en": "Sorcerer",
+    "visual_desc": "Human sorcerer in layered navy robes and a red face mask. Wears a deep blue turban-style hood and carries a large hook-topped staff. Glowing yellow eyes peer through a mesh visor.",
+    "face_cutin_desc": "Close-up of a red cloth mask with a dark mesh slit. Intense, glowing yellow eyes shine from the shadows of a heavy blue hood.",
+    "weapon_desc": "Large wooden staff with a hooked head in the right hand; blue arcane energy channeled through the left palm.",
+    "step1_ready": "Facing ↘ in a wide stance. Right hand holds the hook staff low; left hand is raised and open in a casting gesture.",
+    "step2_windup": "Lifts the staff vertically while gathering bright blue energy in the left palm, preparing to cast.",
+    "step3_impact": "Thrusts the left hand forward, launching a glowing light-blue energy ring toward the bottom-right target area.",
+    "step4_finish": "Maintains the forward thrust as the energy ring dissipates; staff remains elevated in the right hand during recovery.",
+    "kp7_slash_vfx_rule": "The circular blue energy arc in Frame 4 must travel forward along the vector established by the left hand's reaching motion.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation replicates DOS reference cues. Wind-up and projectile vectors are consistent; perspective and anatomy remain stable."
+  }
+}

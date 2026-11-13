@@ -1,0 +1,37 @@
+{
+  "uid": 81,
+  "nameZh": "狂戰士",
+  "nameEn": "Berserker",
+  "classNameZh": "狂戰士",
+  "classEn": "Berserker",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Berserker",
+    "class_en": "Berserker",
+    "visual_desc": "Massive human in dark navy spiked plate armor with a single brown horn and a bright blue loincloth.",
+    "face_cutin_desc": "Profile of a navy helmet featuring a prominent horn and menacing glowing red eyes within a dark visor.",
+    "weapon_desc": "Enormous two-handed silver greatsword with a circular guard, gripped firmly by both hands.",
+    "step1_ready": "Standing isometric ↘ stance with legs braced, holding the heavy blade low and behind the body.",
+    "step2_windup": "Rotates torso and hoists the massive sword vertically above the head to prepare a heavy downward strike.",
+    "step3_impact": "Lunges forward ↘ while swinging the blade down, creating a wide vertical golden energy arc.",
+    "step4_finish": "Maintains a deep forward lunge as the golden energy trail dissipates, resting the sword at the low point.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 must precisely follow the downward vertical trajectory of the greatsword's swing.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation captures reference weight effectively. Windup and VFX alignment match source frames well."
+  }
+}

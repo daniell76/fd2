@@ -1,0 +1,37 @@
+{
+  "uid": 93,
+  "nameZh": "僧侶",
+  "nameEn": "Cleric",
+  "classNameZh": "僧侶",
+  "classEn": "Cleric",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Cleric",
+    "class_en": "Cleric",
+    "visual_desc": "Human in heavy olive-grey robes with a blue tasseled sash and red headpiece. Features a grey face mask with a gold-trimmed visor.",
+    "face_cutin_desc": "Dramatic close-up of a grey mask. A gold-bordered visor reveals narrow, glowing red eyes with a stern expression.",
+    "weapon_desc": "Large wooden cudgel held in the right hand.",
+    "step1_ready": "Front-isometric ↘ stance. Stands upright in robes, holding the wooden staff vertically at his side.",
+    "step2_windup": "Shifts weight forward and lowers his center of gravity, pulling the club back for a horizontal strike.",
+    "step3_impact": "Lunges toward bottom-right, swinging the club in a wide arc. A thick brown motion blur tracks the weapon's trajectory.",
+    "step4_finish": "Completes the swing in a low crouch as the motion trail dissipates, then returns to a standing position.",
+    "kp7_slash_vfx_rule": "The brown motion blur in Frame 4 correctly follows the horizontal arc of the wooden cudgel swing toward the bottom-right.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains mechanical consistency. VFX arcs and wind-up phases align with source intent."
+  }
+}

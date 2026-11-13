@@ -1,0 +1,37 @@
+{
+  "uid": 88,
+  "nameZh": "黑暗射手",
+  "nameEn": "Dark Archer",
+  "classNameZh": "黑暗射手",
+  "classEn": "Dark Archer",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dark Archer",
+    "class_en": "Dark Archer",
+    "visual_desc": "Armored human in olive-grey tunic and baggy blue pants. Features a heavy blue mechanical helmet and massive shoulder-mounted cannon.",
+    "face_cutin_desc": "Blue metallic helmet with a single glowing red eye lens. Facing right with a cold, robotic appearance.",
+    "weapon_desc": "Large blue shoulder-mounted energy launcher held with both hands.",
+    "step1_ready": "Isometric ↘ stance; the unit braces the heavy launcher on the right shoulder, facing the target.",
+    "step2_windup": "Leans forward as the cannon muzzle charges with a bright yellow glow.",
+    "step3_impact": "Fires a thick, straight yellow energy beam projecting downward-right from the muzzle.",
+    "step4_finish": "Holds the firing recoil stance while the beam curves and dissipates into a fading trail.",
+    "kp7_slash_vfx_rule": "The straight energy beam in Frame 4 perfectly aligns with the cannon barrel's orientation toward the bottom-right.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The sequence effectively mirrors the reference wind-up and firing logic. VFX alignment and character orientation remain stable."
+  }
+}

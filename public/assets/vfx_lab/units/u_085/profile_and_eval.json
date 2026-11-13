@@ -1,0 +1,37 @@
+{
+  "uid": 85,
+  "nameZh": "黑暗騎士",
+  "nameEn": "Dark Knight",
+  "classNameZh": "黑暗騎士",
+  "classEn": "Dark Knight",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dark Knight",
+    "class_en": "Dark Knight",
+    "visual_desc": "Heavy navy plate armor with a red cape and waist cloth. Features a horned helmet with a red plume.",
+    "face_cutin_desc": "Dark blue visor with narrow, glowing red eyes. Menacing, shadowed expression behind a heavy metallic helm.",
+    "weapon_desc": "Large silver-bladed trident polearm held with both hands.",
+    "step1_ready": "Standing three-quarter front view, holding the polearm diagonally across the torso.",
+    "step2_windup": "Shifts weight forward, pulling the weapon back to prepare a heavy downward sweep.",
+    "step3_impact": "Lunges forward, creating a large, jagged golden-white energy arc that sweeps from top-left to bottom-right.",
+    "step4_finish": "Settles into a low crouch as the energy trail dissipates and the weapon rests near the ground.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 must align with the downward-right diagonal trajectory of the polearm head.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation follows reference standards. Sequence shows proper windup and aligned VFX without orientation errors."
+  }
+}

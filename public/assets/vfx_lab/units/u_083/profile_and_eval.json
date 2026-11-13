@@ -1,0 +1,37 @@
+{
+  "uid": 83,
+  "nameZh": "突擊騎兵",
+  "nameEn": "Assault Cavalry",
+  "classNameZh": "突擊騎兵",
+  "classEn": "Assault Cavalry",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Assault Cavalry",
+    "class_en": "Assault Cavalry",
+    "visual_desc": "Large human in bulky blue plate armor with oversized pauldrons. Features a horned helmet and a long red tabard hanging between the legs.",
+    "face_cutin_desc": "A blue armored knight helmet with a dark T-shaped visor and a single glowing red horizontal eye slit. Expressionless and imposing.",
+    "weapon_desc": "Massive blue conical lance held in the right hand.",
+    "step1_ready": "Standing in a front-isometric view facing down-right. The lance is held diagonally across the body, pointing toward the ground.",
+    "step2_windup": "Shifts weight back and raises the heavy lance to chest height, preparing for a forward thrusting motion.",
+    "step3_impact": "Lunges forward with the lance. A sharp burst of yellow and white jagged energy spikes radiates from the tip toward the bottom-right.",
+    "step4_finish": "Pulls the weapon back to a neutral stance as the yellow energy sparks quickly fade and disappear.",
+    "kp7_slash_vfx_rule": "The yellow energy burst in Frame 4 must originate exactly from the lance tip and extend along the vector of the forward thrust.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence accurately reproduces thrust mechanics and VFX timing."
+  }
+}

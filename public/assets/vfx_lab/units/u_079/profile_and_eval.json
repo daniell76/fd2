@@ -1,0 +1,37 @@
+{
+  "uid": 79,
+  "nameZh": "傭兵",
+  "nameEn": "Mercenary",
+  "classNameZh": "傭兵",
+  "classEn": "Mercenary",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Mercenary",
+    "class_en": "Mercenary",
+    "visual_desc": "Muscular male with green hair and a grey headband. Wears a blue face mask, dark grey pauldrons, a blue tabard, and olive green trousers with brown leg wraps.",
+    "face_cutin_desc": "Focused gaze above a dark blue face mask. Green spiky hair sits under a metallic headband. Expression is stern and ready for combat.",
+    "weapon_desc": "Straight-bladed sword held with both hands.",
+    "step1_ready": "Standing in a wide, low isometric stance facing down-right. Sword is held diagonally across the torso with both hands.",
+    "step2_windup": "Character raises the sword vertically above the head, coiling muscles for a powerful downward strike.",
+    "step3_impact": "Swings blade downward. A large, bright yellow-to-orange curved energy arc appears, tracing the vertical path of the weapon.",
+    "step4_finish": "Sword rests at the bottom of the swing. The golden energy trail thins and vanishes as the character holds the follow-through.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 correctly follows the high-to-low vertical trajectory of the sword swing shown in the sprite.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": false,
+    "kp7_slash_vfx_weapon_alignment": false,
+    "overall_pass": true,
+    "diagnosis": "Maintains consistent perspective and grip. VFX timing is delayed and shape is circular rather than following the vertical reference arc."
+  }
+}

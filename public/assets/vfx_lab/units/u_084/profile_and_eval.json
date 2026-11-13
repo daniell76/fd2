@@ -1,0 +1,37 @@
+{
+  "uid": 84,
+  "nameZh": "地獄騎士",
+  "nameEn": "Hell Knight",
+  "classNameZh": "地獄騎士",
+  "classEn": "Hell Knight",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Hell Knight",
+    "class_en": "Hell Knight",
+    "visual_desc": "Human in bulky crimson plate armor with a dark blue tabard. Features a horned helmet and heavy pauldrons.",
+    "face_cutin_desc": "Red full-face helmet with a T-shaped visor and etched decorative patterns. Facing right with a stoic presence.",
+    "weapon_desc": "Large silver-headed greataxe with a blue-wrapped shaft held in both hands.",
+    "step1_ready": "Stands facing down-right with the axe resting over the right shoulder in a heavy guard stance.",
+    "step2_windup": "Shifts weight forward while hoisting the axe higher to prepare a downward arc.",
+    "step3_impact": "Swings axe downward. A large, crescent-shaped golden energy arc follows the blade's trajectory from high to low.",
+    "step4_finish": "Holds the follow-through with the axe head near the ground as the golden light trail dissipates.",
+    "kp7_slash_vfx_rule": "The golden energy arc in Frame 4 must follow a vertical downward curve originating from the axe's peak height.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence expands reference frames with consistent perspective and correctly aligned vertical slash VFX."
+  }
+}

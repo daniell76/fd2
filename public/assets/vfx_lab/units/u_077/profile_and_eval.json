@@ -1,0 +1,37 @@
+{
+  "uid": 77,
+  "nameZh": "精英戰士",
+  "nameEn": "Elite Warrior",
+  "classNameZh": "精英戰士",
+  "classEn": "Elite Warrior",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Elite Warrior",
+    "class_en": "Elite Warrior",
+    "visual_desc": "Humanoid in full grey plate armor, spiked pauldrons, smooth T-visor helmet, red collar accents, and an orange tabard.",
+    "face_cutin_desc": "Facing right. Close-up of a grey full-plate helmet with a prominent black T-shaped visor completely concealing the face. Red neck accent visible.",
+    "weapon_desc": "Curved silver sword wielded in the right hand.",
+    "step1_ready": "Faces down-right. Stands with legs spread, holding the curved sword high over the right shoulder.",
+    "step2_windup": "Leans back slightly, raising the sword to its peak height to gather momentum.",
+    "step3_impact": "Swings diagonally downward, unleashing a massive, thick golden-yellow crescent energy wave that arcs widely across the front.",
+    "step4_finish": "Sword follows through to the lower left. The golden arc dissipates into a small ground wisp before the unit resets its stance.",
+    "kp7_slash_vfx_rule": "Frame 4 must display a large, thick golden-yellow crescent energy wave sweeping diagonally downward in front of the unit.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence aligns with reference frames. Biomechanics and crescent VFX timing are consistent."
+  }
+}

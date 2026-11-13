@@ -1,0 +1,37 @@
+{
+  "uid": 91,
+  "nameZh": "黑暗法師",
+  "nameEn": "Dark Mage",
+  "classNameZh": "黑暗法師",
+  "classEn": "Dark Mage",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dark Mage",
+    "class_en": "Dark Mage",
+    "visual_desc": "Humanoid in layered navy robes with crimson trim and a dark green base. A deep blue hood obscures the face, leaving only glowing red eyes visible.",
+    "face_cutin_desc": "Extreme close-up of a shadowed face within a dark hood. Features piercing red slit eyes and a sharp, prominent nasal ridge.",
+    "weapon_desc": "A dark wooden staff with a silver hook-shaped head, held in the right hand.",
+    "step1_ready": "Facing down-right, the unit stands with the staff held low. The left hand is raised in a curved gesture.",
+    "step2_windup": "Arms spread wide into a T-pose. Golden energy begins to flicker at the staff tip and left palm.",
+    "step3_impact": "Discharges a circular yellow energy ring from the left hand. The golden halo expands outward in a bright, thin arc.",
+    "step4_finish": "Holds the wide stance as the magical energy dissipates. The unit slowly lowers arms to transition back to neutral.",
+    "kp7_slash_vfx_rule": "The yellow energy arc in Frame 4 correctly emanates from the extended left palm, forming a localized circular pulse.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence accurately scales original assets. Weapon positioning and VFX timing match reference frames. Facing and anatomy remain consistent."
+  }
+}

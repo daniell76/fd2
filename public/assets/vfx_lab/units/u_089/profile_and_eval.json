@@ -1,0 +1,37 @@
+{
+  "uid": 89,
+  "nameZh": "狙擊手",
+  "nameEn": "Sniper",
+  "classNameZh": "狙擊手",
+  "classEn": "Sniper",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Sniper",
+    "class_en": "Sniper",
+    "visual_desc": "Muscular soldier in blue trousers and a brown tunic. Features a full-head grey mechanical helmet with external wiring and a massive, shoulder-mounted grey launcher.",
+    "face_cutin_desc": "Profile of a grey robotic helmet with a prominent blue circular lens and a smaller red sensor. Tufts of red hair visible from the rear.",
+    "weapon_desc": "Heavy grey shoulder-mounted energy cannon supported by both hands.",
+    "step1_ready": "Stands in a wide isometric stance facing down-right, bracing the heavy launcher on the right shoulder.",
+    "step2_windup": "Tenses posture while maintaining aim; the launcher barrel stabilizes for discharge.",
+    "step3_impact": "Fires a bright blue spherical energy blast from the muzzle directed toward the bottom-right.",
+    "step4_finish": "Launcher barrel kicks back slightly from recoil; blue energy trail dissipates as character resets stance.",
+    "kp7_slash_vfx_rule": "The circular blue energy discharge in Frame 4 originates exactly at the cannon's muzzle, aligning with the downward-right firing trajectory.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The 10-frame sequence is a high-quality expansion of the original 6-frame reference. The wind-up frames (F0-F4) include a torso rotation that adds believable anticipation, and the muzzle flash VFX in F5-F7 aligns perfectly with the cannon's muzzle, maintaining the downward-right trajectory without any body flipping or anatomical errors."
+  }
+}

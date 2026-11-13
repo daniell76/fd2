@@ -1,0 +1,37 @@
+{
+  "uid": 87,
+  "nameZh": "弓箭手",
+  "nameEn": "Archer",
+  "classNameZh": "弓箭手",
+  "classEn": "Archer",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Archer",
+    "class_en": "Archer",
+    "visual_desc": "Sturdy human in teal tunics and a brown cloak. Wears a teal turban with a blue gemstone and carries a back-mounted quiver.",
+    "face_cutin_desc": "Stern, tanned face shadowed by a teal hood. Features a prominent blue circular jewel and a focused, stoic expression.",
+    "weapon_desc": "Large black recurve bow held in the left hand, firing silver-tipped arrows.",
+    "step1_ready": "Standing in a 3/4 view facing down-right, nocking an arrow into a horizontally tilted bow.",
+    "step2_windup": "Draws the bowstring back fully, aiming rightward, then releases the projectile in a sharp motion.",
+    "step3_impact": "The arrow streaks right with a motion trail. Character shifts to a vertical bow stance, hand near the hood.",
+    "step4_finish": "Holds a stationary recovery pose with the bow upright as the projectile clears the area.",
+    "kp7_slash_vfx_rule": "The linear arrow projectile trajectory in the top-right frame aligns perfectly with the bow's horizontal release angle.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The 10-frame animation successfully expands upon the 6-frame reference. The wind-up phase (F0-F4) shows a smooth draw of the bow string, the projectile release (F5-F7) maintains perfect horizontal alignment with the weapon, and the follow-through (F8-F9) settles the character back to an idle state without any biomechanical or visual glitches."
+  }
+}

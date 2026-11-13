@@ -1,0 +1,37 @@
+{
+  "uid": 94,
+  "nameZh": "黑暗僧侶",
+  "nameEn": "Dark Cleric",
+  "classNameZh": "黑暗僧侶",
+  "classEn": "Dark Cleric",
+  "role": "enemy",
+  "side": "enemy",
+  "cameraOrientation": "down_right",
+  "cutinFacing": "right",
+  "profile": {
+    "name_en": "Dark Cleric",
+    "class_en": "Dark Cleric",
+    "visual_desc": "Stocky figure in voluminous navy robes with grey trim. Wears a fabric hood featuring a dark mesh visor. Brown boots and pouches accent the dark attire.",
+    "face_cutin_desc": "Close-up of a blue fabric mask. Glowing blue eyes shine through a rectangular black mesh visor. Mysterious and stern gaze.",
+    "weapon_desc": "Large, blunt wooden club-staff gripped in the right hand.",
+    "step1_ready": "Stands facing down-right in heavy robes. Staff held vertically at the side in a neutral guard.",
+    "step2_windup": "Shifts weight forward, tilting the heavy club back to prepare a horizontal sweeping strike.",
+    "step3_impact": "Lunges forward, swinging the wooden club in a wide horizontal arc. No magical VFX; focus is on the physical momentum of the blunt impact.",
+    "step4_finish": "Holds the extended follow-through pose. The club remains at the end of its trajectory as the character recovers balance.",
+    "kp7_slash_vfx_rule": "The strike follows a direct horizontal path consistent with the physical swing of the wooden club-staff.",
+    "player_side": false,
+    "camera_orientation": "down_right",
+    "cutin_facing": "right"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation matches source windup and strike. Biomechanics and VFX alignment are functional."
+  }
+}
