@@ -1,0 +1,37 @@
+{
+  "uid": 60,
+  "nameZh": "瑪琳",
+  "nameEn": "Marin",
+  "classNameZh": "聖者",
+  "classEn": "High Priest",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Marin",
+    "class_en": "High Priest",
+    "visual_desc": "Human female with floor-length pink hair. Wears a purple tunic under a heavy brown layered cloak featuring gold circular sigils. Adorned with thick gold wristbands and dark leg wraps.",
+    "face_cutin_desc": "Calm female face with brown eyes and purple lips. Voluminous pink hair is held by a delicate gold circlet with a central violet gem.",
+    "weapon_desc": "Dark metallic scepter with a bladed ornamental head, held in the right hand.",
+    "step1_ready": "Rear-isometric view facing ↖. Stands upright with staff held diagonally behind the right side.",
+    "step2_windup": "Spreads arms wide to gather energy, then lunges forward, bringing the staff into a horizontal thrusting position.",
+    "step3_impact": "Deep forward lunge. The staff tip emits a bright white-blue energy flare directed ↖ toward the target.",
+    "step4_finish": "Holds the extended lunge as the energy discharge fades. Hair and cloak billow forward from the momentum.",
+    "kp7_slash_vfx_rule": "The energy burst in Frame 4 originates exactly from the staff's head, following the forward-tilting trajectory of the thrust.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation follows reference logic. Windup and thrust are consistent. VFX aligns with staff head. View remains stable."
+  }
+}

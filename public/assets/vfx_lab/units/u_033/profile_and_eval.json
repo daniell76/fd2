@@ -1,0 +1,37 @@
+{
+  "uid": 33,
+  "nameZh": "哈諾",
+  "nameEn": "Hano",
+  "classNameZh": "聖戰士",
+  "classEn": "Paladin Warrior",
+  "role": "hero_promo_t2",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Hano",
+    "class_en": "Paladin Warrior",
+    "visual_desc": "A muscular human warrior seen from behind. He wears dark grey-green, bulky shoulder armor and greaves, with a teal cloth hanging from his waist over dark pants. His arms are bare and deeply tanned. In the portrait, he has spiky reddish-brown hair held back by a thick blue headband, and wears blue fingerless gloves.",
+    "face_cutin_desc": "A dramatic close-up profile facing left. He has a strong jawline, a prominent nose, and spiky reddish-brown hair kept out of his serious, brown eyes by a thick blue headband. His expression is stoic and determined. He wears blue fingerless gloves and a hint of yellow-trimmed armor with a blue gem on the shoulder is visible.",
+    "weapon_desc": "A large, silver battleaxe held in the right hand.",
+    "step1_ready": "Seen from a rear-isometric angle facing top-left. Hano stands with legs apart in a ready stance, holding the battleaxe in his right hand, resting near his waist.",
+    "step2_windup": "He raises the axe high above his head and slightly behind his right shoulder, shifting his weight and coiling his upper body for a powerful overhead swing.",
+    "step3_impact": "He swings the axe down forcefully to the left. A massive, broad wedge of solid, bright pale yellow light engulfs the upper half of the frame, originating from the axe head and expanding upwards and outwards to the top right, indicating a colossal energy impact.",
+    "step4_finish": "The solid yellow light vanishes, leaving a brief, fading trail of orange and yellow streaks along the axe's path. He holds the low follow-through pose, leaning forward, before returning to a neutral stance.",
+    "kp7_slash_vfx_rule": "The massive, solid pale yellow energy wedge must erupt from the axe head exactly as it strikes downward in the bottom-left frame, completely filling the upper right area.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The animation sequence aligns with the reference windup and swing logic. VFX timing and perspective remain stable throughout."
+  }
+}

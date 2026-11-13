@@ -1,0 +1,37 @@
+{
+  "uid": 58,
+  "nameZh": "希莉亞",
+  "nameEn": "Celia",
+  "classNameZh": "神射手",
+  "classEn": "Sniper",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Celia",
+    "class_en": "Sniper",
+    "visual_desc": "Human female with light brown hair in a high ponytail. Wears red pauldrons, a red split waist-cape, and grey-green layered tunic with tall grey boots.",
+    "face_cutin_desc": "Feminine face with large brown eyes, red lips, and soft brown hair. Expression is calm and focused, facing left.",
+    "weapon_desc": "Heavy dark metal crossbow held with both hands.",
+    "step1_ready": "Rear-isometric view facing up-left; character stands with crossbow held low at her side.",
+    "step2_windup": "Pivots left and raises the crossbow to shoulder height, bracing her legs in a wide stance to aim.",
+    "step3_impact": "Fires a sharp metal bolt toward the top-left with a small white and red spark at the muzzle.",
+    "step4_finish": "The bolt streaks off-screen as she lowers the weapon and resets her stance from the recoil.",
+    "kp7_slash_vfx_rule": "The projectile trajectory must align perfectly with the crossbow barrel's horizontal-diagonal tilt toward the upper-left corner.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains correct perspective and grip. VFX onset is delayed to F7 but maintains functional alignment with the barrel."
+  }
+}

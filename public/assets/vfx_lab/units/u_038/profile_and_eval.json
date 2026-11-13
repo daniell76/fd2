@@ -1,0 +1,37 @@
+{
+  "uid": 38,
+  "nameZh": "萊汀",
+  "nameEn": "Raiden",
+  "classNameZh": "聖騎士",
+  "classEn": "Holy Knight",
+  "role": "hero_promo_t2",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Raiden",
+    "class_en": "Holy Knight",
+    "visual_desc": "Human knight in blue spiked plate armor and a flowing red cape. Rides a grey armored steed with a dark blue mane. Rear-isometric view.",
+    "face_cutin_desc": "Determined male face with tanned skin, wild reddish hair, and a blue headband. Intense expression facing left.",
+    "weapon_desc": "Long silver polearm held in the right hand.",
+    "step1_ready": "Standing idle facing up-left. Polearm is held horizontally across the mount.",
+    "step2_windup": "Rider lifts the polearm vertically with both hands, preparing a heavy downward strike.",
+    "step3_impact": "Horse rears up while the rider thrusts the polearm down. A large, V-shaped golden light beam erupts from the impact point.",
+    "step4_finish": "Horse lands as the rider stabilizes. The golden energy dissipation effect fades while returning to a neutral pose.",
+    "kp7_slash_vfx_rule": "The V-shaped golden energy beam in Frame 4 correctly originates from the polearm tip and extends upward along the strike path.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation follows reference logic; weapon handling and VFX timing are consistent with requirements."
+  }
+}

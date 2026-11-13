@@ -1,0 +1,37 @@
+{
+  "uid": 61,
+  "nameZh": "索菲亞",
+  "nameEn": "Sophia",
+  "classNameZh": "聖者",
+  "classEn": "High Priest",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Sophia",
+    "class_en": "High Priest",
+    "visual_desc": "Human female in layered red and tan robes with olive sleeves. Long, voluminous ash-blonde hair in a high ponytail. Slender build, rear-facing stance.",
+    "face_cutin_desc": "Serene expression, brown eyes, and bright red lips. Framed by thick, flowing ash-blonde hair parted in the middle.",
+    "weapon_desc": "Ornate golden ring-topped staff with a central purple gem, held in the right hand.",
+    "step1_ready": "Rear-isometric view facing up-left. Standing neutral with staff held vertically at the side.",
+    "step2_windup": "Lifts both arms upward, tilting the staff diagonally while shifting weight forward.",
+    "step3_impact": "Lunges toward the top-left, thrusting the staff forward. A small purple energy burst ignites at the tip.",
+    "step4_finish": "Maintains the forward-leaning thrust as garments settle. The purple light fades from the staff's head.",
+    "kp7_slash_vfx_rule": "The purple energy flare at the staff's tip in Frame 4 correctly aligns with the forward casting trajectory.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Sequence matches reference poses and orientation. Staff handling and VFX timing are consistent throughout casting stages."
+  }
+}

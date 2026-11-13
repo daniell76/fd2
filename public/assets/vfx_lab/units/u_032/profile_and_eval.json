@@ -1,0 +1,37 @@
+{
+  "uid": 32,
+  "nameZh": "索爾",
+  "nameEn": "Thor",
+  "classNameZh": "劍聖",
+  "classEn": "Sword Saint",
+  "role": "hero_promo_t2",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Thor",
+    "class_en": "Sword Saint",
+    "visual_desc": "Muscular human with a long dark blue ponytail and red headband. Wears grey armor padding, an orange tunic, grey boots, and a flowing dark blue cape.",
+    "face_cutin_desc": "Left-facing close-up. Stern, resolute expression with heavy shadowing over the eyes. Prominent red headband and thick blue hair framing a strong jawline.",
+    "weapon_desc": "Straight sword wielded in the right hand.",
+    "step1_ready": "Rear-isometric view facing up-left. Stands firmly with the right arm raised, holding the sword directed forward.",
+    "step2_windup": "Lunges into a deep forward crouch, thrusting the sword. Emits a massive golden energy cone that condenses into three beams.",
+    "step3_impact": "Holds the crouched lunge. Three distinct golden energy bolts detach and travel rapidly toward the top-left.",
+    "step4_finish": "Rises and pivots, drawing the sword back to the right. The cape swirls dramatically as he settles into a resting rear guard.",
+    "kp7_slash_vfx_rule": "Verify three distinct golden energy bolts traveling top-left in alignment with the low-crouch sword thrust.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains perspective and anatomical logic. VFX timing and alignment are consistent with reference."
+  }
+}

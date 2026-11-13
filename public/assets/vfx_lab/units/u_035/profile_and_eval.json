@@ -1,0 +1,37 @@
+{
+  "uid": 35,
+  "nameZh": "哈瓦特",
+  "nameEn": "Hawat",
+  "classNameZh": "聖戰士",
+  "classEn": "Paladin Warrior",
+  "role": "hero_promo_t2",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Hawat",
+    "class_en": "Paladin Warrior",
+    "visual_desc": "Massive human male in spiked grey heavy armor, blue tunic, and red sash. He carries a large curved battle axe, a heavy dark shield, and has thick brown hair.",
+    "face_cutin_desc": "Intense profile facing left, featuring a fierce glare, thick brown eyebrows, and a massive bushy brown beard and mustache. A grey pauldron with a blue gem is visible.",
+    "weapon_desc": "Large curved battle axe in the right hand, heavy dark shield on the left arm.",
+    "step1_ready": "Rear-isometric stance facing up-left. Shield guarded on the left arm, right hand holding the axe high behind the head.",
+    "step2_windup": "The body compresses slightly, pulling the axe to its maximum backward height to build momentum.",
+    "step3_impact": "A powerful downward sweeping slash. A large, thick pale-yellow energy arc perfectly traces the axe blade's curved trajectory from top-right to bottom-left.",
+    "step4_finish": "The axe follows through low to the ground while the golden slash trail quickly dissipates, followed by a return to a resting guard stance.",
+    "kp7_slash_vfx_rule": "The pale-yellow energy arc in Frame 4 must perfectly follow the downward curved path of the axe blade.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Animation maintains stable perspective and biomechanical consistency. VFX arc and frame sequencing align with reference standards."
+  }
+}

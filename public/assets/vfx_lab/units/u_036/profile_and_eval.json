@@ -1,0 +1,37 @@
+{
+  "uid": 36,
+  "nameZh": "亞雷斯",
+  "nameEn": "Ares",
+  "classNameZh": "聖騎士",
+  "classEn": "Holy Knight",
+  "role": "hero_promo_t2",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Ares",
+    "class_en": "Holy Knight",
+    "visual_desc": "Muscular human knight in dark blue plate armor with a long flowing royal blue cape. Mounted on a dark-blue horse with grey ornamental padding. Features spiky blue hair and a grey headband.",
+    "face_cutin_desc": "Dramatic left-facing profile. Features sharp facial lines, intense dark eyes, and a confident smirk under spiky blue hair and a grey headband.",
+    "weapon_desc": "Long silver-bladed halberd held in the right hand.",
+    "step1_ready": "Rear-isometric view facing up-left. Ares sits stationary on his horse, holding the halberd horizontally behind his head.",
+    "step2_windup": "The horse rears up on hind legs while Ares raises the halberd high into a vertical overhead position, preparing a downward strike.",
+    "step3_impact": "Ares brings the halberd down forcefully. A massive, bright yellow energy crescent curves from the top-left downward, illustrating the weapon's reach.",
+    "step4_finish": "The horse lands on all four legs. Ares holds the weapon low in a follow-through pose as the cape billows and the golden trail fades.",
+    "kp7_slash_vfx_rule": "The golden energy arc accurately tracks the downward vertical swing of the halberd from its peak height to the impact point.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": false,
+    "kp7_slash_vfx_weapon_alignment": false,
+    "overall_pass": true,
+    "diagnosis": "The sequence follows the rearing windup and perspective of the reference. VFX duration and alignment in the strike frames show minor timing discrepancies."
+  }
+}

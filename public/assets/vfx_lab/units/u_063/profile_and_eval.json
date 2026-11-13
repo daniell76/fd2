@@ -1,0 +1,37 @@
+{
+  "uid": 63,
+  "nameZh": "貝克威",
+  "nameEn": "Beckway",
+  "classNameZh": "神射手",
+  "classEn": "Sniper",
+  "role": "hero_promo_t3",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Beckway",
+    "class_en": "Sniper",
+    "visual_desc": "Muscular elf with flowing blonde hair and blue headband. Wears grey-green tactical plating over a dark blue suit with a large mechanical backpack.",
+    "face_cutin_desc": "Confident smirk with sharp features. Long yellow hair framing a metallic blue headband and narrow orange eyes.",
+    "weapon_desc": "Large grey mechanical shoulder-mounted launcher held with both hands.",
+    "step1_ready": "Frame 1: Kneeling back-view facing up-left. Launcher held vertically against the right shoulder.",
+    "step2_windup": "Frames 2-3: Lowers launcher to horizontal position. Braces body and aims toward the target area.",
+    "step3_impact": "Frame 5: Releases a wide, spiraling light-blue energy beam. The blast features a dense core and rotating outer energy wisps.",
+    "step4_finish": "Frame 6: Character lifts the launcher upward during recoil. Post-fire recovery stance as the energy trail clears.",
+    "kp7_slash_vfx_rule": "The horizontal energy beam perfectly aligns with the barrel's trajectory in the firing frame.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The animation sequence adheres to the reference frame logic. Pose transitions and VFX alignment are technically consistent."
+  }
+}

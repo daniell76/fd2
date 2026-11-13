@@ -1,0 +1,37 @@
+{
+  "uid": 34,
+  "nameZh": "鐵諾",
+  "nameEn": "Tino",
+  "classNameZh": "劍聖",
+  "classEn": "Sword Saint",
+  "role": "hero_promo_t2",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Tino",
+    "class_en": "Sword Saint",
+    "visual_desc": "A human swordsman wearing dark grey armor with prominent rounded shoulder pads with blue tips. He has a dark blue tunic and pants with a long blue loincloth/sash bordered in gold hanging from his waist. A brown scabbard rests on his left hip. His most striking feature is long, flowing silver-white hair. He wields a large two-handed broadsword.",
+    "face_cutin_desc": "A close-up of a stern-faced man looking left. He wears a grey hooded cloak draped over his head. Under the hood, brown hair and a dark red headband are visible. He has sharp, intense eyes with dark blue irises and prominent dark eyebrows. His jawline is strong, set in a serious, determined expression.",
+    "weapon_desc": "Large two-handed broadsword held with both hands.",
+    "step1_ready": "Seen from behind (rear-isometric), facing top-left. He stands with his right leg forward, left leg back. Both hands grip the sword hilt near his right shoulder, blade pointing straight up.",
+    "step2_windup": "He raises the sword higher, leaning slightly right. His long white hair flows dramatically to the right as he prepares for a heavy downward swing.",
+    "step3_impact": "He swings the sword down and to the left. A massive, sweeping crescent of pale yellow energy bursts outward, following the wide arc of the blade from the top right down to the bottom left.",
+    "step4_finish": "The yellow energy trail quickly dissipates. He remains in a low, wide stance, facing left, with the sword held low and extended to the left, his hair settling.",
+    "kp7_slash_vfx_rule": "In Frame 4, a large, sweeping pale yellow energy crescent must trace the path of the sword from top-right down to bottom-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": false,
+    "kp2_grip_anatomical_validity": false,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "Motion and VFX arcs align with reference. Minor hilt and limb scaling variances noted."
+  }
+}

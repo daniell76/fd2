@@ -1,0 +1,37 @@
+{
+  "uid": 37,
+  "nameZh": "洛娜",
+  "nameEn": "Lorna",
+  "classNameZh": "聖騎士",
+  "classEn": "Holy Knight",
+  "role": "hero_promo_t2",
+  "side": "player",
+  "cameraOrientation": "up_left",
+  "cutinFacing": "left",
+  "profile": {
+    "name_en": "Lorna",
+    "class_en": "Holy Knight",
+    "visual_desc": "Female knight with long grey hair riding a white horse. Wears silver plate armor with blue accents and a matching blue saddle cloth.",
+    "face_cutin_desc": "Determined female face with dark eyes, red lips, and long ash-grey hair featuring subtle top braids.",
+    "weapon_desc": "Long silver lance with a blue grip, held in the right hand.",
+    "step1_ready": "Rear-isometric view facing up-left. Knight sits upright holding the lance vertically while the white horse stands still.",
+    "step2_windup": "Knight pulls the lance back and raises it high; the horse leans forward to build momentum for a thrust.",
+    "step3_impact": "A powerful forward thrust releasing a large, sharp conical yellow energy burst from the lance tip toward the top-left.",
+    "step4_finish": "Lance stays extended as the energy fades into small sparks, then the knight retracts the weapon to a horizontal rest.",
+    "kp7_slash_vfx_rule": "The conical yellow energy effect in Frame 4 correctly follows the linear thrusting path of the lance toward the upper-left.",
+    "player_side": true,
+    "camera_orientation": "up_left",
+    "cutin_facing": "left"
+  },
+  "evaluation": {
+    "kp1_weapon_hand_consistency": true,
+    "kp2_grip_anatomical_validity": true,
+    "kp3_camera_view_no_flip": true,
+    "kp4_windup_direction": true,
+    "kp5_direct_swing_no_spin": true,
+    "kp6_vfx_and_follow_through": true,
+    "kp7_slash_vfx_weapon_alignment": true,
+    "overall_pass": true,
+    "diagnosis": "The sequence successfully interpolates the reference frames. Mechanical integrity and VFX timing are consistent with the original thrust animation."
+  }
+}
