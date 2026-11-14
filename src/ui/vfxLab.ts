@@ -160,7 +160,7 @@ export async function loadUnitSlotIntoVfxAssets(
   side: 'player' | 'enemy',
   entry: VfxManifestUnitEntry
 ): Promise<void> {
-  const cb = '?v=11';
+  const cb = '?v=12';
   const [nb6, omni, cutIn, cIdle, cAtk] = await Promise.all([
     Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/nb6_${i}.png${cb}`))),
     Promise.all([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => loadImg(`${entry.dir}/omni_${i}.png${cb}`))),
@@ -189,7 +189,7 @@ export async function loadUnitSlotIntoVfxAssets(
 }
 
 export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAssets> {
-  const cacheBust = '?v=11';
+  const cacheBust = '?v=12';
   // Always refresh manifest so newly generated batch units appear immediately
   try {
     const resp = await fetch(`assets/vfx_lab/units_manifest.json?t=${Date.now()}`);
@@ -2040,27 +2040,27 @@ export async function mountVfxLabInGallery(
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px;">
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
             <h4 id="vfx-art-title-b1" style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B1: #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh} Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
-            <video id="vfx-art-vid-b1" src="${vfxAssets.rightUnit.dir}/omni_1p2.mp4?v=11" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
+            <video id="vfx-art-vid-b1" src="${vfxAssets.rightUnit.dir}/omni_1p2.mp4?v=12" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
             <h4 id="vfx-art-title-b2" style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B2: #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh} Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
-            <video id="vfx-art-vid-b2" src="${vfxAssets.leftUnit.dir}/omni_1p2.mp4?v=11" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
+            <video id="vfx-art-vid-b2" src="${vfxAssets.leftUnit.dir}/omni_1p2.mp4?v=12" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #38bdf8;">
             <h4 id="vfx-art-title-a1" style="margin: 0 0 8px 0; color: #38bdf8;">🖼️ Option A1: #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh} Nano Banana 2 6-Frame Sheet</h4>
-            <img id="vfx-art-img-a1" src="${vfxAssets.rightUnit.dir}/nb6_sheet.jpg?v=11" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <img id="vfx-art-img-a1" src="${vfxAssets.rightUnit.dir}/nb6_sheet.jpg?v=12" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #f87171;">
             <h4 id="vfx-art-title-a2" style="margin: 0 0 8px 0; color: #f87171;">🖼️ Option A2: #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh} Nano Banana 2 6-Frame Sheet</h4>
-            <img id="vfx-art-img-a2" src="${vfxAssets.leftUnit.dir}/nb6_sheet.jpg?v=11" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <img id="vfx-art-img-a2" src="${vfxAssets.leftUnit.dir}/nb6_sheet.jpg?v=12" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #38bdf8;">
             <h4 id="vfx-art-title-c1" style="margin: 0 0 8px 0; color: #7dd3fc;">🔥 Crit Cut-In (←): #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh}</h4>
-            <img id="vfx-art-img-c1" src="${vfxAssets.rightUnit.dir}/cutin.jpg?v=11" style="width: 100%; border-radius: 8px; background: #0f172a;" />
+            <img id="vfx-art-img-c1" src="${vfxAssets.rightUnit.dir}/cutin.jpg?v=12" style="width: 100%; border-radius: 8px; background: #0f172a;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #f87171;">
             <h4 id="vfx-art-title-c2" style="margin: 0 0 8px 0; color: #fca5a5;">💥 Crit Cut-In (→): #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh}</h4>
-            <img id="vfx-art-img-c2" src="${vfxAssets.leftUnit.dir}/cutin.jpg?v=11" style="width: 100%; border-radius: 8px; background: #0f172a;" />
+            <img id="vfx-art-img-c2" src="${vfxAssets.leftUnit.dir}/cutin.jpg?v=12" style="width: 100%; border-radius: 8px; background: #0f172a;" />
           </div>
         </div>
       </div>
@@ -2251,7 +2251,7 @@ export async function mountVfxLabInGallery(
             data-jump-uid="${u.uid}"
             style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: ${bgCol}; border: ${isFocused ? '2px' : '1px'} solid ${borderCol}; color: #f8fafc; text-align: left; cursor: pointer; transition: transform 0.1s;"
           >
-            <img src="${u.dir}/cutin.jpg?v=11" loading="lazy" style="width: 68px; height: 34px; object-fit: cover; border-radius: 4px; border: 1px solid #475569; flex-shrink: 0;" />
+            <img src="${u.dir}/cutin.jpg?v=12" loading="lazy" style="width: 68px; height: 34px; object-fit: cover; border-radius: 4px; border: 1px solid #475569; flex-shrink: 0;" />
             <div style="min-width: 0; flex: 1;">
               <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 12px; font-weight: 700;">
                 <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">#${String(u.uid).padStart(3, '0')} ${titleStr}</span>
@@ -2294,7 +2294,7 @@ export async function mountVfxLabInGallery(
     btnFocusRight?.classList.toggle('active', u.uid === vfxAssets.rightUnit.uid);
     btnFocusLeft?.classList.toggle('active', u.uid === vfxAssets.leftUnit.uid);
 
-    const cb = '?v=11';
+    const cb = '?v=12';
     const cutinImg = container.querySelector('#vfx-focus-cutin') as HTMLImageElement | null;
     const vidEl = container.querySelector('#vfx-focus-video') as HTMLVideoElement | null;
     const nb6Img = container.querySelector('#vfx-focus-nb6sheet') as HTMLImageElement | null;
@@ -2348,7 +2348,7 @@ export async function mountVfxLabInGallery(
       `2026 Modern 2.5D All-121 Inspector — ${ru.nameEn} (#${ru.uid} ↖) vs. ${lu.nameEn} (#${lu.uid} ↘)`
     )}`;
 
-    const cb = '?v=11';
+    const cb = '?v=12';
     const setEl = <T extends HTMLElement>(id: string, fn: (el: T) => void) => {
       const el = container.querySelector(id) as T | null;
       if (el) fn(el);
