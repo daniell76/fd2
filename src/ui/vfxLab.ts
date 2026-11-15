@@ -160,7 +160,7 @@ export async function loadUnitSlotIntoVfxAssets(
   side: 'player' | 'enemy',
   entry: VfxManifestUnitEntry
 ): Promise<void> {
-  const cb = '?v=15';
+  const cb = '?v=16';
   const [nb6, omni, cutIn, cIdle, cAtk] = await Promise.all([
     Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/nb6_${i}.png${cb}`))),
     Promise.all([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => loadImg(`${entry.dir}/omni_${i}.png${cb}`))),
@@ -189,7 +189,7 @@ export async function loadUnitSlotIntoVfxAssets(
 }
 
 export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAssets> {
-  const cacheBust = '?v=15';
+  const cacheBust = '?v=16';
   // Always refresh manifest so newly generated batch units appear immediately
   try {
     const resp = await fetch(`assets/vfx_lab/units_manifest.json?t=${Date.now()}`);
@@ -2294,7 +2294,7 @@ export async function mountVfxLabInGallery(
     btnFocusRight?.classList.toggle('active', u.uid === vfxAssets.rightUnit.uid);
     btnFocusLeft?.classList.toggle('active', u.uid === vfxAssets.leftUnit.uid);
 
-    const cb = '?v=15';
+    const cb = '?v=16';
     const cutinImg = container.querySelector('#vfx-focus-cutin') as HTMLImageElement | null;
     const vidEl = container.querySelector('#vfx-focus-video') as HTMLVideoElement | null;
     const nb6Img = container.querySelector('#vfx-focus-nb6sheet') as HTMLImageElement | null;
@@ -2348,7 +2348,7 @@ export async function mountVfxLabInGallery(
       `2026 Modern 2.5D All-121 Inspector — ${ru.nameEn} (#${ru.uid} ↖) vs. ${lu.nameEn} (#${lu.uid} ↘)`
     )}`;
 
-    const cb = '?v=15';
+    const cb = '?v=16';
     const setEl = <T extends HTMLElement>(id: string, fn: (el: T) => void) => {
       const el = container.querySelector(id) as T | null;
       if (el) fn(el);
