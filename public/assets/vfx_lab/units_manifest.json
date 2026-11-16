@@ -291,6 +291,91 @@
       "overallPass": true
     },
     {
+      "uid": 16,
+      "nameZh": "凱拉斯",
+      "nameEn": "Kailas",
+      "classNameZh": "龍劍士",
+      "classEn": "Dragon Swordsman",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_016",
+      "isFlying": true,
+      "overallPass": true
+    },
+    {
+      "uid": 17,
+      "nameZh": "米亞斯多德",
+      "nameEn": "Miasdod",
+      "classNameZh": "劍士",
+      "classEn": "Swordsman",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_017",
+      "isFlying": true,
+      "overallPass": true
+    },
+    {
+      "uid": 18,
+      "nameZh": "蜜蒂",
+      "nameEn": "Mitty",
+      "classNameZh": "劍聖",
+      "classEn": "Sword Saint",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_018",
+      "omniFrameCount": 12,
+      "hasMagic": false,
+      "hitFrames": [
+        {
+          "frame": 4,
+          "weight": 0.4,
+          "sfx": "slash",
+          "color": "gold"
+        },
+        {
+          "frame": 8,
+          "weight": 0.6,
+          "sfx": "crit",
+          "color": "azure"
+        }
+      ],
+      "overallPass": true
+    },
+    {
+      "uid": 19,
+      "nameZh": "羅德曼",
+      "nameEn": "Rodman",
+      "classNameZh": "劍聖",
+      "classEn": "Sword Saint",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_019",
+      "hasMagic": false,
+      "overallPass": true
+    },
+    {
+      "uid": 20,
+      "nameZh": "莎拉",
+      "nameEn": "Sara",
+      "classNameZh": "龍騎士",
+      "classEn": "Dragon Knight",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_020",
+      "isFlying": true,
+      "overallPass": true
+    },
+    {
       "uid": 96,
       "nameZh": "盜賊",
       "nameEn": "Bandit",
@@ -304,6 +389,6 @@
       "overallPass": true
     }
   ],
-  "totalUnits": 17,
+  "totalUnits": 22,
   "format": "webp"
 }
