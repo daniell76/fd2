@@ -192,6 +192,105 @@
       "overallPass": true
     },
     {
+      "uid": 11,
+      "nameZh": "索菲亞",
+      "nameEn": "Sophia",
+      "classNameZh": "僧侶",
+      "classEn": "Cleric",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_011",
+      "hasMagic": true,
+      "magicElement": "holy",
+      "magicNameZh": "聖光審判",
+      "magicNameEn": "Holy Radiance",
+      "overallPass": true
+    },
+    {
+      "uid": 12,
+      "nameZh": "凱麗",
+      "nameEn": "Kelly",
+      "classNameZh": "武者",
+      "classEn": "Martial Artist",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_012",
+      "omniFrameCount": 12,
+      "hitFrames": [
+        {
+          "frame": 4,
+          "weight": 0.35,
+          "sfx": "slash",
+          "color": "gold"
+        },
+        {
+          "frame": 8,
+          "weight": 0.65,
+          "sfx": "crit",
+          "color": "gold"
+        }
+      ],
+      "overallPass": true
+    },
+    {
+      "uid": 13,
+      "nameZh": "貝克威",
+      "nameEn": "Beckway",
+      "classNameZh": "弓兵",
+      "classEn": "Archer",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_013",
+      "isRemote": true,
+      "projectileType": "beam",
+      "rangedBurstCount": 3,
+      "muzzleAnchor": {
+        "x": 0.285,
+        "y": 0.521
+      },
+      "rangedFireFrame": {
+        "nb6": 2,
+        "omni": 3
+      },
+      "overallPass": true
+    },
+    {
+      "uid": 14,
+      "nameZh": "珊",
+      "nameEn": "Shan",
+      "classNameZh": "法師",
+      "classEn": "Mage",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_014",
+      "hasMagic": true,
+      "magicElement": "thunder",
+      "magicNameZh": "轟雷術",
+      "magicNameEn": "Thunderstorm",
+      "overallPass": true
+    },
+    {
+      "uid": 15,
+      "nameZh": "塞可邦勒",
+      "nameEn": "Secobang",
+      "classNameZh": "武者",
+      "classEn": "Martial Artist",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_015",
+      "overallPass": true
+    },
+    {
       "uid": 96,
       "nameZh": "盜賊",
       "nameEn": "Bandit",
@@ -205,6 +304,6 @@
       "overallPass": true
     }
   ],
-  "totalUnits": 12,
+  "totalUnits": 17,
   "format": "webp"
 }

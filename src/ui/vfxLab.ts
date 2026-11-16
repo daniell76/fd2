@@ -98,6 +98,8 @@ export interface VfxManifestUnitEntry {
   muzzleAnchor?: { x: number; y: number };
   /** Exact firing frame index when the projectile releases on Stage 1. */
   rangedFireFrame?: { nb6: number; omni: number };
+  /** Number of rapid consecutive projectiles/hits in a ranged volley (e.g., 3 for #013 Beckway plasma burst, 1 default). */
+  rangedBurstCount?: number;
   hasMagic?: boolean;
   magicElement?: 'fire' | 'holy' | 'thunder' | 'ice' | 'arcane';
   magicNameZh?: string;
@@ -241,7 +243,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=23';
+const VFX_ASSET_VERSION = '?v=24';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -1681,6 +1683,7 @@ export class Modern25DCombatRenderer {
     const targetTerrain = getTerrainPreset(targetBgId);
     const actorUnit = isHeroAtk ? this.vfxAssets.rightUnit : this.vfxAssets.leftUnit;
     const projectileType = actorUnit.projectileType ?? 'bolt';
+    const burstCount = Math.max(1, actorUnit.rangedBurstCount ?? 1);
 
     const stage1End = 1120;
     const bridgeEnd = 1460;
@@ -1704,7 +1707,7 @@ export class Modern25DCombatRenderer {
         ? `[2/3 Ranged Transit] Speed-Line Bridge (${actorTerrain.en} → ${targetTerrain.en})`
         : `[2/3 遠程飛行過場] 水平速度線 (${actorTerrain.zh} → ${targetTerrain.zh})`;
       // Authentic FD2: Stage 2 speed-line transit is a clean visual cut between bow/gun fire (Stage 1) and arrow/bolt hit (Stage 3)!
-      this.drawRangedSpeedLineBridge(ctx, W, H, bp, isHeroAtk ? -1 : 1, projectileType);
+      this.drawRangedSpeedLineBridge(ctx, W, H, bp, isHeroAtk ? -1 : 1, projectileType, burstCount);
       this.drawModernDualHud(ctx, W, H);
       return;
     }
@@ -1719,8 +1722,8 @@ export class Modern25DCombatRenderer {
         : `[1/3 攻方遠程發射] ${actorUnit.nameZh} 獨屏 · ${actorTerrain.zh} (#${actorTerrain.id})`;
 
       let cutInProgress = -1;
-      if (isCrit && this.config.enableAnimeCutIn && p >= 0.14 && p <= 0.48) {
-        cutInProgress = (p - 0.14) / 0.34;
+      if (isCrit && this.config.enableAnimeCutIn && p >= 0.14 && p <= 0.44) {
+        cutInProgress = (p - 0.14) / 0.30;
       }
 
       const actorSpec: PoseRenderSpec = {
@@ -1736,30 +1739,35 @@ export class Modern25DCombatRenderer {
         dashDirY: 0,
       };
 
-      // Map launch progress cleanly through Ready -> Wind-Up/Aim -> Exact Firing Frame -> Recoil Hold!
-      // Fire release happens at p = 0.56, synced to per-unit `rangedFireFrame` (e.g., Celia nb6=4, omni=5).
+      // Map launch progress cleanly through Ready -> Wind-Up/Aim -> Exact Firing Frame(s) -> Recoil Hold!
       const fireOmni = actorUnit.rangedFireFrame?.omni ?? Math.min(actorMaxIdx, 5);
       const fireNb6 = actorUnit.rangedFireFrame?.nb6 ?? 3;
+      const shotTimes =
+        burstCount === 1
+          ? [0.56]
+          : Array.from({ length: burstCount }, (_, i) => 0.36 + i * (0.42 / Math.max(1, burstCount - 1)));
+      const firstShot = shotTimes[0];
+
       if (srcMode === 'omni_video') {
-        if (p < 0.54) {
-          this.setContinuousFrame(actorSpec, (p / 0.54) * Math.max(1, fireOmni - 0.6), actorMaxIdx);
-        } else if (p < 0.84) {
-          const fp = (p - 0.54) / 0.3;
+        if (p < firstShot - 0.02) {
+          this.setContinuousFrame(actorSpec, (p / (firstShot - 0.02)) * Math.max(1, fireOmni - 0.6), actorMaxIdx);
+        } else if (p < 0.88) {
+          const fp = (p - (firstShot - 0.02)) / (0.88 - (firstShot - 0.02));
           this.setContinuousFrame(actorSpec, Math.min(actorMaxIdx, fireOmni + fp * (actorMaxIdx - fireOmni)), actorMaxIdx);
         } else {
           actorSpec.primaryIdx = actorMaxIdx;
         }
       } else if (srcMode === 'nb2_6frame') {
-        if (p < 0.54) {
-          this.setContinuousFrame(actorSpec, (p / 0.54) * Math.max(1, fireNb6 - 0.6), 5);
-        } else if (p < 0.84) {
-          const fp = (p - 0.54) / 0.3;
+        if (p < firstShot - 0.02) {
+          this.setContinuousFrame(actorSpec, (p / (firstShot - 0.02)) * Math.max(1, fireNb6 - 0.6), 5);
+        } else if (p < 0.88) {
+          const fp = (p - (firstShot - 0.02)) / (0.88 - (firstShot - 0.02));
           this.setContinuousFrame(actorSpec, Math.min(5, fireNb6 + fp * (5 - fireNb6)), 5);
         } else {
           actorSpec.primaryIdx = 5;
         }
       } else {
-        actorSpec.primaryIdx = p < 0.25 ? 0 : p < 0.54 ? 1 : 2;
+        actorSpec.primaryIdx = p < 0.25 ? 0 : p < firstShot - 0.02 ? 1 : 2;
       }
 
       // Per-unit normalized muzzle anchor in 680x680 sprite space (matches drawCharacterSprite anchorRatioY = 648/680)
@@ -1771,30 +1779,33 @@ export class Modern25DCombatRenderer {
         y: actorSpec.y + (muzzleAnchor.y - 648 / 680) * actorDispSize * actorSpec.scaleY,
       });
 
-      // Slight recoil kickback on release at p = 0.56
+      // Trigger recoil kickback & authentic FD2 launch SFX for EVERY shot in the volley!
       let camShake = 0;
-      if (p >= 0.56) {
-        const rp = Math.min(1, (p - 0.56) / 0.22);
-        const kick = Math.sin(rp * Math.PI) * 18;
-        actorSpec.x += isHeroAtk ? kick : -kick;
-        camShake = (1 - rp) * 7;
-        const mPos = getMuzzlePos();
-        this.fireOnce(`ranged_fire_sfx_${attackerSide}`, () => {
-          // Authentic FD2 ranged launch SFX from unit's FIGANI bank (e.g., Celia bowstring `bank:50:2`, Beckwith `bank:51:4`, Mech gun `bank:51:1`)!
-          const launchSfx: SfxKind = actorUnit.sfxProfile?.launchSfx ?? 'bank:50:2';
-          this.sound.playSfx(launchSfx);
-          this.spawnDustPlume(actorSpec.x, actorSpec.y, isHeroAtk ? 1 : -1, 0.2, 12);
-          this.spawnImpactSparks(
-            mPos.x,
-            mPos.y,
-            actorSpec.y,
-            24,
-            ['#ffffff', '#fde047', '#f59e0b', '#fb923c'],
-            isHeroAtk ? -1 : 1,
-            0
-          );
-        });
+      let totalKick = 0;
+      for (let si = 0; si < shotTimes.length; si++) {
+        const st = shotTimes[si];
+        if (p >= st) {
+          const rp = Math.min(1, (p - st) / 0.18);
+          totalKick = Math.max(totalKick, Math.sin(rp * Math.PI) * (burstCount > 1 ? 14 : 18));
+          camShake = Math.max(camShake, (1 - rp) * (burstCount > 1 ? 9 : 7));
+          const mPos = getMuzzlePos();
+          this.fireOnce(`ranged_fire_sfx_${attackerSide}_${si}`, () => {
+            const launchSfx: SfxKind = actorUnit.sfxProfile?.launchSfx ?? 'bank:50:2';
+            this.sound.playSfx(launchSfx);
+            this.spawnDustPlume(actorSpec.x, actorSpec.y, isHeroAtk ? 1 : -1, 0.2, si === 0 ? 12 : 6);
+            this.spawnImpactSparks(
+              mPos.x,
+              mPos.y,
+              actorSpec.y,
+              burstCount > 1 ? 18 : 24,
+              ['#ffffff', '#fde047', '#f59e0b', '#fb923c'],
+              isHeroAtk ? -1 : 1,
+              0
+            );
+          });
+        }
       }
+      actorSpec.x += isHeroAtk ? totalKick : -totalKick;
 
       const camZoom = 1.02 + Math.min(1, p * 1.4) * 0.11;
       const camX = (isHeroAtk ? 1 : -1) * W * 0.05 * Math.min(1, p * 1.5);
@@ -1819,30 +1830,30 @@ export class Modern25DCombatRenderer {
         actorDispSize
       );
 
-      // Blazing crossbow bolt / arrow streaks out from per-unit `muzzleAnchor` off screen edge!
-      if (p >= 0.56 && p <= 0.94) {
-        const boltP = Math.min(1, (p - 0.56) / 0.22);
-        const mPos = getMuzzlePos();
-        const muzzleX = mPos.x;
-        const muzzleY = mPos.y;
-        const endX = isHeroAtk ? -160 : W + 160;
-        const bx = muzzleX + (endX - muzzleX) * boltP;
-        this.drawHdProjectile(ctx, bx, muzzleY, isHeroAtk ? -1 : 1, projectileType, 1.15);
+      // Render every active outgoing bolt/beam streaking straight out of `muzzleAnchor` off screen edge!
+      const mPos = getMuzzlePos();
+      const endX = isHeroAtk ? -160 : W + 160;
+      for (let si = 0; si < shotTimes.length; si++) {
+        const st = shotTimes[si];
+        if (p >= st && p <= st + 0.28) {
+          const boltP = Math.min(1, (p - st) / 0.2);
+          const bx = mPos.x + (endX - mPos.x) * boltP;
+          this.drawHdProjectile(ctx, bx, mPos.y, isHeroAtk ? -1 : 1, projectileType, 1.15);
 
-        // Muzzle burst flash at launch moment
-        if (boltP < 0.45) {
-          const mf = 1 - boltP / 0.45;
-          ctx.save();
-          ctx.globalCompositeOperation = 'screen';
-          const grad = ctx.createRadialGradient(muzzleX, muzzleY, 4, muzzleX, muzzleY, 125 * mf + 20);
-          grad.addColorStop(0, `rgba(255, 255, 240, ${0.95 * mf})`);
-          grad.addColorStop(0.4, `rgba(253, 224, 71, ${0.65 * mf})`);
-          grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(muzzleX, muzzleY, 125 * mf + 20, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
+          if (boltP < 0.48) {
+            const mf = 1 - boltP / 0.48;
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const grad = ctx.createRadialGradient(mPos.x, mPos.y, 4, mPos.x, mPos.y, 130 * mf + 22);
+            grad.addColorStop(0, `rgba(255, 255, 240, ${0.95 * mf})`);
+            grad.addColorStop(0.4, `rgba(253, 224, 71, ${0.65 * mf})`);
+            grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(mPos.x, mPos.y, 130 * mf + 22, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
         }
       }
 
@@ -1884,52 +1895,74 @@ export class Modern25DCombatRenderer {
       dashDirY: 0,
     };
 
-    const hitAt = 0.19;
+    const hitTimes3 =
+      burstCount === 1
+        ? [0.19]
+        : Array.from({ length: burstCount }, (_, i) => 0.16 + i * (0.36 / Math.max(1, burstCount - 1)));
+    const yOffsets3 = burstCount === 1 ? [0] : [-36, 6, 40];
+
     let camShake = 0;
     let camZoom = 1.04;
     let impactFlashAlpha = 0;
     let shockwaveProgress = -1;
+    let activeRecoil = 0;
+    let activeFlash = 0;
 
-    if (p3 >= hitAt) {
-      const hp = (p3 - hitAt) / (1 - hitAt);
-      this.fireOnce(`ranged_impact_${attackerSide}`, () => {
-        // Authentic FD2 ranged impact SFX from unit's FIGANI bank (e.g., Celia arrow pierce `bank:50:1`, Sniper/Mech `bank:51:2`)!
-        const hitList = actorUnit.sfxProfile?.hitSfxList ?? [];
-        const hitSfx: SfxKind = hitList[0] ?? 'bank:50:1';
-        this.sound.playSfx(hitSfx);
-        if (this.config.enableHitStopAndSparks) {
-          this.hitStopRemainingMs = isCrit ? 95 : 70;
-        }
-        this.spawnImpactSparks(
-          impactX,
-          impactY,
-          targetHomeY,
-          isCrit ? 85 : 58,
-          ['#ffffff', '#fde047', '#f59e0b', '#ef4444', '#fb923c'],
-          isHeroAtk ? -1 : 1,
-          -0.25
+    for (let hi = 0; hi < hitTimes3.length; hi++) {
+      const hitAt = hitTimes3[hi];
+      const isLastHit = hi === hitTimes3.length - 1;
+      const hy = impactY + (yOffsets3[hi % yOffsets3.length] ?? 0);
+      if (p3 >= hitAt) {
+        const span = isLastHit ? Math.max(0.32, 1 - hitAt) : 0.28;
+        const hp = Math.min(1, (p3 - hitAt) / span);
+        this.fireOnce(`ranged_impact_${attackerSide}_${hi}`, () => {
+          const hitList = actorUnit.sfxProfile?.hitSfxList ?? [];
+          const hitSfx: SfxKind = hitList[hi] ?? hitList[hitList.length - 1] ?? 'bank:50:1';
+          this.sound.playSfx(hitSfx);
+          if (this.config.enableHitStopAndSparks) {
+            this.hitStopRemainingMs = isLastHit ? (isCrit ? 90 : 65) : 28;
+          }
+          this.spawnImpactSparks(
+            impactX,
+            hy,
+            targetHomeY,
+            isLastHit ? (isCrit ? 85 : 58) : 34,
+            ['#ffffff', '#fde047', '#f59e0b', '#ef4444', '#fb923c'],
+            isHeroAtk ? -1 : 1,
+            -0.25
+          );
+          this.spawnDustPlume(targetHomeX, targetHomeY, isHeroAtk ? -1 : 1, -0.2, isLastHit ? 16 : 7);
+          const totalDmg = isHeroAtk ? this.thorStrikeDmg : this.banditStrikeDmg;
+          const partDmg = isLastHit
+            ? Math.max(1, totalDmg - Math.floor(totalDmg / hitTimes3.length) * (hitTimes3.length - 1))
+            : Math.max(1, Math.floor(totalDmg / hitTimes3.length));
+          if (isHeroAtk) {
+            this.banditTargetHp = Math.max(0, this.banditTargetHp - partDmg);
+          } else {
+            this.thorTargetHp = Math.max(1, this.thorTargetHp - partDmg);
+          }
+        });
+
+        const r = Math.sin(Math.min(1, hp * 2.1) * Math.PI) * (isLastHit ? 1.0 : 0.62);
+        activeRecoil = Math.max(activeRecoil, r);
+        activeFlash = Math.max(activeFlash, Math.max(0, 1 - hp * 3.2) * (isLastHit ? 1.0 : 0.78));
+        impactFlashAlpha = Math.max(impactFlashAlpha, Math.max(0, 1 - hp * 4.2) * (isLastHit ? 1.0 : 0.65));
+        if (isLastHit) shockwaveProgress = Math.min(1, hp * 1.9);
+        camZoom = Math.max(camZoom, 1.14 - hp * 0.1);
+        camShake = Math.max(
+          camShake,
+          this.config.enableHitStopAndSparks ? Math.max(0, (1 - hp * 2.4) * (isLastHit ? 24 : 14)) : 0
         );
-        this.spawnDustPlume(targetHomeX, targetHomeY, isHeroAtk ? -1 : 1, -0.2, 16);
-        if (isHeroAtk) {
-          this.banditTargetHp = Math.max(0, this.banditTargetHp - this.thorStrikeDmg);
-        } else {
-          this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
-        }
-      });
-
-      const recoil = Math.sin(Math.min(1, hp * 2.1) * Math.PI);
-      const dir = isHeroAtk ? -1 : 1;
-      targetSpec.x = targetHomeX + dir * recoil * 62;
-      targetSpec.y = targetHomeY + dir * recoil * 18;
-      targetSpec.rot = dir * recoil * 0.11;
-      targetSpec.scaleX = 1.0 - recoil * 0.08;
-      targetSpec.scaleY = 1.0 + recoil * 0.06;
-      targetSpec.flashWhite = Math.max(0, 1 - hp * 3.2);
-      impactFlashAlpha = Math.max(0, 1 - hp * 4.2);
-      shockwaveProgress = Math.min(1, hp * 1.9);
-      camZoom = 1.15 - hp * 0.11;
-      camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - hp * 2.4) * 24) : 0;
+      }
     }
+
+    const dir = isHeroAtk ? -1 : 1;
+    targetSpec.x = targetHomeX + dir * activeRecoil * 62;
+    targetSpec.y = targetHomeY + dir * activeRecoil * 18;
+    targetSpec.rot = dir * activeRecoil * 0.11;
+    targetSpec.scaleX = 1.0 - activeRecoil * 0.08;
+    targetSpec.scaleY = 1.0 + activeRecoil * 0.06;
+    targetSpec.flashWhite = activeFlash;
 
     const shakeX = camShake > 0 ? (Math.random() - 0.5) * camShake * 2 : 0;
     const shakeY = camShake > 0 ? (Math.random() - 0.5) * camShake * 1.5 : 0;
@@ -1956,20 +1989,25 @@ export class Modern25DCombatRenderer {
       isHeroAtk ? 545 : 700
     );
 
-    // Arriving HD projectile streaking in horizontally from the edge into the target's torso!
-    if (p3 < hitAt) {
-      const ap = p3 / hitAt;
-      const startX = isHeroAtk ? W + 120 : -120;
-      const bx = startX + (impactX - startX) * ap;
-      this.drawHdProjectile(ctx, bx, impactY, isHeroAtk ? -1 : 1, projectileType, 1.25);
-    } else if (p3 < hitAt + 0.16) {
-      // Brief embedded/piercing bolt flash & starburst right on impact!
-      const bp = (p3 - hitAt) / 0.16;
-      const vibY = Math.sin(bp * 45) * 4 * (1 - bp);
-      ctx.save();
-      ctx.globalAlpha = 1 - bp;
-      this.drawHdProjectile(ctx, targetSpec.x + (isHeroAtk ? 30 : -30), impactY + vibY, isHeroAtk ? -1 : 1, projectileType, 1.0);
-      ctx.restore();
+    // Render all arriving projectiles streaking in horizontally from the edge into the target's torso!
+    const approachSpan = 0.17;
+    for (let hi = 0; hi < hitTimes3.length; hi++) {
+      const hitAt = hitTimes3[hi];
+      const hy = impactY + (yOffsets3[hi % yOffsets3.length] ?? 0);
+      const enterAt = Math.max(0, hitAt - approachSpan);
+      if (p3 >= enterAt && p3 < hitAt) {
+        const ap = (p3 - enterAt) / Math.max(0.01, hitAt - enterAt);
+        const startX = isHeroAtk ? W + 120 : -120;
+        const bx = startX + (impactX - startX) * ap;
+        this.drawHdProjectile(ctx, bx, hy, isHeroAtk ? -1 : 1, projectileType, 1.25);
+      } else if (p3 >= hitAt && p3 < hitAt + 0.14) {
+        const bp = (p3 - hitAt) / 0.14;
+        const vibY = Math.sin(bp * 45) * 4 * (1 - bp);
+        ctx.save();
+        ctx.globalAlpha = 1 - bp;
+        this.drawHdProjectile(ctx, targetSpec.x + (isHeroAtk ? 30 : -30), hy + vibY, isHeroAtk ? -1 : 1, projectileType, 1.0);
+        ctx.restore();
+      }
     }
 
     this.drawDustAndSparks(ctx);
@@ -2431,7 +2469,8 @@ export class Modern25DCombatRenderer {
     H: number,
     progress: number,
     dirX: -1 | 1,
-    projectileType: 'bolt' | 'arrow' | 'beam' | 'orb'
+    projectileType: 'bolt' | 'arrow' | 'beam' | 'orb',
+    burstCount = 1
   ): void {
     ctx.save();
     // Deep cobalt-navy horizontal speed backdrop matching BG.DAT[0..2] palette
@@ -2478,32 +2517,39 @@ export class Modern25DCombatRenderer {
     }
     ctx.restore();
 
-    // Central glowing supersonic slipstream + large HD projectile tearing across the screen!
-    const startX = dirX < 0 ? W * 0.96 : W * 0.04;
-    const endX = dirX < 0 ? W * 0.04 : W * 0.96;
-    const projX = startX + (endX - startX) * progress;
-    const projY = H * 0.5 + Math.sin(progress * Math.PI * 4) * 4;
+    // Central glowing supersonic slipstream + large HD projectile(s) tearing across the screen!
+    const startX = dirX < 0 ? W * 0.98 : W * 0.02;
+    const endX = dirX < 0 ? W * 0.02 : W * 0.98;
+    const bCount = Math.max(1, burstCount);
+    const yOffs = bCount === 1 ? [0] : [-72, 12, 84];
+    for (let bi = 0; bi < bCount; bi++) {
+      const stagger = bCount === 1 ? 0 : (bi - (bCount - 1) * 0.5) * 0.16;
+      const bp = progress - stagger;
+      if (bp < -0.2 || bp > 1.25) continue;
+      const projX = startX + (endX - startX) * bp;
+      const projY = H * 0.5 + (yOffs[bi % yOffs.length] ?? 0) + Math.sin(progress * Math.PI * 4 + bi) * 4;
 
-    // Full-span luminous wake trail behind projectile
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    const wakeLen = 580;
-    const tailX = projX - dirX * wakeLen;
-    const wakeGrad = ctx.createLinearGradient(projX, projY, tailX, projY);
-    wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-    wakeGrad.addColorStop(0.25, 'rgba(253, 224, 71, 0.72)');
-    wakeGrad.addColorStop(0.65, 'rgba(56, 189, 248, 0.35)');
-    wakeGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
-    ctx.fillStyle = wakeGrad;
-    ctx.beginPath();
-    ctx.moveTo(projX + dirX * 35, projY);
-    ctx.lineTo(tailX, projY - 34);
-    ctx.lineTo(tailX, projY + 34);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+      // Full-span luminous wake trail behind projectile
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const wakeLen = 580;
+      const tailX = projX - dirX * wakeLen;
+      const wakeGrad = ctx.createLinearGradient(projX, projY, tailX, projY);
+      wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      wakeGrad.addColorStop(0.25, 'rgba(253, 224, 71, 0.72)');
+      wakeGrad.addColorStop(0.65, 'rgba(56, 189, 248, 0.35)');
+      wakeGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.fillStyle = wakeGrad;
+      ctx.beginPath();
+      ctx.moveTo(projX + dirX * 35, projY);
+      ctx.lineTo(tailX, projY - 30);
+      ctx.lineTo(tailX, projY + 30);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
 
-    this.drawHdProjectile(ctx, projX, projY, dirX, projectileType, 1.85);
+      this.drawHdProjectile(ctx, projX, projY, dirX, projectileType, bCount > 1 ? 1.55 : 1.85);
+    }
 
     // Subtle dark vignette top & bottom framing like dramatic widescreen anime cutaway
     const vig = ctx.createLinearGradient(0, 0, 0, H);
@@ -2557,8 +2603,28 @@ export class Modern25DCombatRenderer {
     ctx.restore();
 
     if (projectileType === 'beam') {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(-180, -8, 250, 16);
+      // High-energy golden-white plasma cannon lance (matching #013 Beckway's iconic yellow plasma bolts!)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const outer = ctx.createLinearGradient(95, 0, -240, 0);
+      outer.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      outer.addColorStop(0.25, 'rgba(253, 224, 71, 0.95)');
+      outer.addColorStop(0.7, 'rgba(249, 115, 22, 0.65)');
+      outer.addColorStop(1, 'rgba(249, 115, 22, 0)');
+      ctx.fillStyle = outer;
+      ctx.beginPath();
+      ctx.roundRect(-230, -16, 320, 32, 16);
+      ctx.fill();
+
+      const core = ctx.createLinearGradient(88, 0, -200, 0);
+      core.addColorStop(0, '#ffffff');
+      core.addColorStop(0.55, '#fef9c3');
+      core.addColorStop(1, 'rgba(254, 240, 138, 0)');
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.roundRect(-195, -7, 280, 14, 7);
+      ctx.fill();
+      ctx.restore();
     } else {
       // Dark mahogany & crimson-banded shaft
       ctx.fillStyle = '#7c2d12';
@@ -2751,6 +2817,59 @@ export class Modern25DCombatRenderer {
       ctx.moveTo(cx, crossY - cSize * 1.25);
       ctx.lineTo(cx, crossY + cSize * 1.05);
       ctx.stroke();
+    } else if (element === 'thunder') {
+      // Sky-Splitting Jagged Lightning Bolts + Orbiting High-Voltage Plasma Spheres (#014 Shan 轟雷術!)
+      const boltSeeds = [0, -68, 62];
+      for (let bi = 0; bi < boltSeeds.length; bi++) {
+        const bx0 = cx + boltSeeds[bi];
+        const flicker = 0.65 + 0.35 * Math.sin(progress * 42 + bi * 2.1);
+        const segs = 14;
+        const pts: { x: number; y: number }[] = [];
+        for (let s = 0; s <= segs; s++) {
+          const u = s / segs;
+          const y = -40 + (groundY - 20 + 40) * u;
+          const jitter = s === 0 || s === segs ? 0 : Math.sin(s * 5.7 + Math.floor(progress * 18) * 3.1 + bi) * 38;
+          pts.push({ x: bx0 + jitter, y });
+        }
+        // Electric cyan outer glow
+        ctx.strokeStyle = `rgba(56, 189, 248, ${0.72 * fade * flicker})`;
+        ctx.lineWidth = bi === 0 ? 28 : 16;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        pts.forEach((pt, idx) => (idx === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+        ctx.stroke();
+
+        // White-hot plasma core
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.96 * fade * flicker})`;
+        ctx.lineWidth = bi === 0 ? 9 : 5;
+        ctx.stroke();
+      }
+
+      // Orbiting electric plasma spheres (classic FD2 #6 轟雷術 signature!)
+      for (let oi = 0; oi < 4; oi++) {
+        const ang = progress * Math.PI * 5 + (oi * Math.PI) / 2;
+        const ox = cx + Math.cos(ang) * 145;
+        const oy = groundY - 190 + Math.sin(ang) * 55;
+        const sGrad = ctx.createRadialGradient(ox, oy, 2, ox, oy, 48 * fade);
+        sGrad.addColorStop(0, `rgba(255, 255, 255, ${0.95 * fade})`);
+        sGrad.addColorStop(0.4, `rgba(56, 189, 248, ${0.75 * fade})`);
+        sGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
+        ctx.fillStyle = sGrad;
+        ctx.beginPath();
+        ctx.arc(ox, oy, 48 * fade, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // High-voltage ground discharge burst
+      const gGrad = ctx.createRadialGradient(cx, groundY - 130, 10, cx, groundY - 130, 210 * fade);
+      gGrad.addColorStop(0, `rgba(255, 255, 255, ${0.92 * fade})`);
+      gGrad.addColorStop(0.35, `rgba(125, 211, 252, ${0.65 * fade})`);
+      gGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.fillStyle = gGrad;
+      ctx.beginPath();
+      ctx.arc(cx, groundY - 130, 210 * fade, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       // Spiraling Twin Flame Dragon / Arcane Inferno Pillar erupting skyward (#009 Uni)
       const isFire = element === 'fire';
