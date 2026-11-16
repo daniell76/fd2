@@ -956,6 +956,28 @@ export class AssetManager {
     ctx.restore();
   }
 
+  /** Draws a 4x HD-upscaled TAI.DAT ground platform scaled cleanly into any Modern 2.5D stage rect. */
+  drawTaiPlatformScaled(
+    ctx: CanvasRenderingContext2D,
+    taiId: number,
+    dx: number,
+    dy: number,
+    dw: number,
+    dh: number
+  ): boolean {
+    const meta = this.gameData.taiPlatforms?.[taiId];
+    if (!meta || !meta.valid || meta.w <= 0 || meta.h <= 0) return false;
+    const sx = (taiId % 4) * 160;
+    const sy = Math.floor(taiId / 4) * 48;
+    const hdTai = this.getHdRegion4x(`tai:${taiId}`, this.taisAtlas, sx, sy, meta.w, meta.h);
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(hdTai, 0, 0, meta.w * 4, meta.h * 4, dx, dy, dw, dh);
+    ctx.restore();
+    return true;
+  }
+
   /**
    * Renders the 100% authentic `FD2.EXE` (`fn_107145` -> `fn_35949`) 149x42 cutaway battle HUD panel
    * using extracted `FDOTHER.DAT[5]` sprites (`battle_hud.png`), without portrait avatars:

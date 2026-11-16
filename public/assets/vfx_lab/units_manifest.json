@@ -145,6 +145,8 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_008",
+      "isRemote": true,
+      "projectileType": "bolt",
       "overallPass": true
     },
     {
@@ -158,6 +160,10 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_009",
+      "hasMagic": true,
+      "magicElement": "fire",
+      "magicNameZh": "炎龍術",
+      "magicNameEn": "Flame Dragon",
       "overallPass": true
     },
     {
@@ -171,6 +177,10 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_010",
+      "hasMagic": true,
+      "magicElement": "holy",
+      "magicNameZh": "聖光審判",
+      "magicNameEn": "Holy Radiance",
       "overallPass": true
     },
     {

@@ -32,6 +32,7 @@ export interface SpellBurstInstance {
 export interface TimelineStep {
   delay: number; // in 55ms DOS ticks
   mode: StageViewMode;
+  bgId?: number; // Per-stage terrain backdrop override (Ranged & Magic split-screen: Attacker & Target each show their own tile!)
   showBothHuds?: boolean; // true in multi-target magic Stage B (`FD2.EXE` L108934 + L108954)
   stageLabel: string;
   leftUnit: CombatantSpec | null;
@@ -468,6 +469,8 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
     //          fires the full-screen 320x150 blinding laser beam (`F06`), and cools down (`F07..F15`) — NEVER sharing a melee screen with the target!
     const actorMode: StageViewMode = actor.isHeroSide ? 'right_only' : 'left_only';
     const targetMode: StageViewMode = target.isHeroSide ? 'right_only' : 'left_only';
+    const actorBgId = actor.taiId > 0 ? actor.taiId : inp.bgId;
+    const targetBgId = target.taiId > 0 ? target.taiId : inp.bgId;
     const SLIDE_IN_STEPS = 5;
     const maxOffset = actor.isHeroSide ? 140 : -140;
 
@@ -479,6 +482,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: 1,
           mode: actorMode,
+          bgId: actorBgId,
           stageLabel: `${tr('[1/3 砲座就位]', '[1/3 炮座就位]', '[1/3 Turret Slide-In]')} ${s + 1}/${SLIDE_IN_STEPS}`,
           leftPack: actor.isHeroSide ? targetIdle : (actorIdle ?? actPack),
           leftFrameIdx: 0,
@@ -506,6 +510,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: dly,
           mode: actorMode,
+          bgId: actorBgId,
           stageLabel: `${tr('[1/3 光束砲發射]', '[1/3 光束炮发射]', '[1/3 Beam Cannon Fire]')} F${i + 1}/${frames.length}${isBeamFire ? ' ★BEAM' : ''}`,
           leftPack: actor.isHeroSide ? targetIdle : actPack,
           leftFrameIdx: actor.isHeroSide ? 0 : i,
@@ -559,6 +564,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: 1,
           mode: targetMode,
+          bgId: targetBgId,
           stageLabel: `${tr('[3/3 光束命中]', '[3/3 光束命中]', '[3/3 Beam Impact]')} T${tick + 1}/${impactTicks}${tick === 1 ? ' ★HIT 1/1' : ''}${recoilNote}`,
           leftSlideX: !target.isHeroSide ? signedRecoilX : 0,
           rightSlideX: target.isHeroSide ? signedRecoilX : 0,
@@ -580,6 +586,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: 1,
           mode: targetMode,
+          bgId: targetBgId,
           stageLabel: `${tr('[結算] 總傷害', '[结算] 总伤害', '[Result] Total DMG')} -${inp.hit ? inp.totalDamage : 0} (1 Hit)`,
           leftSlideX: !target.isHeroSide ? signedRecoilX : 0,
           rightSlideX: target.isHeroSide ? signedRecoilX : 0,
@@ -595,6 +602,8 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
     const split = actPack.strip.splitFrame!;
     const actorMode: StageViewMode = actor.isHeroSide ? 'right_only' : 'left_only';
     const targetMode: StageViewMode = target.isHeroSide ? 'right_only' : 'left_only';
+    const actorBgId = actor.taiId > 0 ? actor.taiId : inp.bgId;
+    const targetBgId = target.taiId > 0 ? target.taiId : inp.bgId;
 
     // Stage 1: Attacker performs ranged/wave launch on their own screen (no target)
     const launchTriggerIdx = frames.slice(0, split).findIndex((f) => f.sfx && f.sfx !== 0);
@@ -609,6 +618,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: dly,
           mode: actorMode,
+          bgId: actorBgId,
           stageLabel: `${tr('[1/3 攻方發動]', '[1/3 攻方发动]', '[1/3 Attacker Launch]')} F${i + 1}/${frames.length}`,
           leftPack: actor.isHeroSide ? targetIdle : actPack,
           leftFrameIdx: actor.isHeroSide ? 0 : i,
@@ -666,6 +676,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
           makeStep({
             delay: 1,
             mode: targetMode,
+            bgId: targetBgId,
             stageLabel: `${tr('[3/3 命中目標]', '[3/3 命中目标]', '[3/3 Target Impact]')} F${i + 1}/${frames.length} (T${tick + 1}/${dly})${hitInfo && tick === 0 ? ` ★HIT ${hitInfo.idx + 1}/${hitFrames.length}` : ''}${recoilNote}`,
             leftSlideX: !target.isHeroSide ? signedRecoilX : 0,
             rightSlideX: target.isHeroSide ? signedRecoilX : 0,
@@ -691,6 +702,7 @@ export function buildPhysicalStrikeTimeline(inp: PhysicalStrikeTimelineInput): T
         makeStep({
           delay: 1,
           mode: targetMode,
+          bgId: targetBgId,
           stageLabel: `${tr('[結算] 總傷害', '[结算] 总伤害', '[Result] Total DMG')} -${inp.hit ? inp.totalDamage : 0} (${hitFrames.length} Hits)${recoilNote}`,
           leftSlideX: !target.isHeroSide ? signedRecoilX : 0,
           rightSlideX: target.isHeroSide ? signedRecoilX : 0,
@@ -1301,6 +1313,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
     steps.push({
       delay: dly,
       mode: casterMode,
+      bgId: caster.taiId > 0 ? caster.taiId : undefined,
       showBothHuds: firstTarget !== null,
       stageLabel: `[${tr('1/2 詠唱施法', '1/2 咏唱施法', '1/2 Spell Chant')}: ${spell.nameZh}] F${i + 1}/${castCount}`,
       leftUnit: leftU,
@@ -1338,6 +1351,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
     const getRightMp = () => (target.isHeroSide ? target.startMp : curCasterMp);
 
     // 2a. Target slides horizontally onto the screen (both unit and right-side TAI slide in together)
+    const targetBgId = target.taiId > 0 ? target.taiId : undefined;
     const maxOffset = target.isHeroSide ? 140 : -140;
     for (let s = 0; s < SLIDE_IN_STEPS; s++) {
       const t = (s + 1) / SLIDE_IN_STEPS;
@@ -1346,6 +1360,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
       steps.push({
         delay: 1,
         mode: targetMode,
+        bgId: targetBgId,
         showBothHuds: leftU !== rightU,
         stageLabel: `[${tr('2/2 目標滑入', '2/2 目标滑入', '2/2 Target Slide-In')}${targetTag}] ${s + 1}/${SLIDE_IN_STEPS}`,
         leftUnit: leftU,
@@ -1429,6 +1444,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
         steps.push({
           delay: 1,
           mode: targetMode,
+          bgId: targetBgId,
           showBothHuds: leftU !== rightU,
           stageLabel: `[${tr('2/2 法術轟擊', '2/2 法术轰击', '2/2 Spell Barrage')}: ${spell.nameZh}${targetTag}] F${pIdx + 1}/${tickPlans.length}${hitInfo && tick === 0 ? ` ★HIT ${hitInfo.idx + 1}/${hitStepIndices.length}` : ''}${recoilNote}`,
           leftUnit: leftU,
@@ -1473,6 +1489,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
       steps.push({
         delay: 1,
         mode: targetMode,
+        bgId: targetBgId,
         showBothHuds: leftU !== rightU,
         stageLabel: `[${tr('結算', '结算', 'Result')}${targetTag}] ${spell.nameZh} ${settleText}${recoilNote}`,
         leftUnit: leftU,
@@ -1499,6 +1516,7 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
         steps.push({
           delay: 1,
           mode: targetMode,
+          bgId: targetBgId,
           showBothHuds: leftU !== rightU,
           stageLabel: `${tr('[切換下一目標]', '[切换下一目标]', '[Next Target]')} ${tIdx + 1}/${targets.length}`,
           leftUnit: leftU,
@@ -1582,8 +1600,10 @@ export function renderTimelineStep(
   const dispLeftMp = canLerp ? lerp(step.leftMp, nextStep!.leftMp) : step.leftMp;
 
   // 1. Authentic DOS 320x200 stage backdrop: BG.DAT at (0, 50) + single right-hand TAI.DAT at (320 - w, 156)
+  // For split-screen Ranged & Magic stages, `step.bgId` lets Attacker and Target each display their own tile's terrain!
   // Both BG.DAT and TAI.DAT remain completely stationary during physical/magic hits (FD2.EXE L105058..105105).
-  assets.drawBattleBg(ctx, bgId, 0, 50, 320, 100);
+  const effectiveBgId = step.bgId && step.bgId > 0 ? step.bgId : bgId;
+  assets.drawBattleBg(ctx, effectiveBgId, 0, 50, 320, 100);
 
   const showLeft = (step.mode === 'both' || step.mode === 'left_only') && step.leftUnit !== null;
   const showRight = (step.mode === 'both' || step.mode === 'right_only') && step.rightUnit !== null;

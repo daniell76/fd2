@@ -77,11 +77,62 @@ export interface VfxManifestUnitEntry {
   dir: string;
   omniFrameCount?: number;
   hitFrames?: VfxHitFrameSpec[];
+  isRemote?: boolean;
+  projectileType?: 'bolt' | 'arrow' | 'beam' | 'orb';
+  hasMagic?: boolean;
+  magicElement?: 'fire' | 'holy' | 'thunder' | 'ice' | 'arcane';
+  magicNameZh?: string;
+  magicNameEn?: string;
+  isFlying?: boolean;
   overallPass?: boolean;
+}
+
+export interface HdTerrainPreset {
+  id: number;
+  zh: string;
+  en: string;
+  hasTai: boolean;
+  outdoor: boolean;
+  weather?: 'leaves' | 'snow' | 'embers' | 'dust';
+}
+
+export const HD_TERRAIN_PRESETS: HdTerrainPreset[] = [
+  { id: 4, zh: '村郊林地', en: 'Village Meadow', hasTai: true, outdoor: true, weather: 'leaves' },
+  { id: 5, zh: '幽深森林', en: 'Deep Forest', hasTai: true, outdoor: true, weather: 'leaves' },
+  { id: 6, zh: '海岸沙灘', en: 'Coastal Beach', hasTai: true, outdoor: true, weather: 'dust' },
+  { id: 9, zh: '荒山峽谷', en: 'Mountain Pass', hasTai: true, outdoor: true, weather: 'dust' },
+  { id: 10, zh: '城鎮街道', en: 'Town Street', hasTai: true, outdoor: true, weather: 'dust' },
+  { id: 14, zh: '赤岩洞窟', en: 'Red Rock Cavern', hasTai: true, outdoor: false, weather: 'embers' },
+  { id: 16, zh: '斷崖高地', en: 'Highland Cliff', hasTai: true, outdoor: true, weather: 'dust' },
+  { id: 18, zh: '河畔水域', en: 'Riverbank Shore', hasTai: true, outdoor: true, weather: 'leaves' },
+  { id: 19, zh: '沼澤濕地', en: 'Swamp Marsh', hasTai: true, outdoor: false, weather: 'dust' },
+  { id: 21, zh: '城牆雉堞', en: 'Castle Battlement', hasTai: true, outdoor: true, weather: 'dust' },
+  { id: 25, zh: '高空雲海 (飛兵)', en: 'Sky Clouds (Flyers)', hasTai: false, outdoor: true, weather: 'dust' },
+  { id: 28, zh: '熔岩洞穴', en: 'Lava Cavern', hasTai: true, outdoor: false, weather: 'embers' },
+  { id: 29, zh: '要塞通道', en: 'Fortress Hallway', hasTai: true, outdoor: false, weather: 'dust' },
+  { id: 31, zh: '熔岩鐵網', en: 'Lava Iron Grate', hasTai: true, outdoor: false, weather: 'embers' },
+  { id: 33, zh: '鋼鐵神殿', en: 'Steel Sanctuary', hasTai: true, outdoor: false, weather: 'dust' },
+  { id: 38, zh: '廣闊草原', en: 'Open Grassland', hasTai: true, outdoor: true, weather: 'leaves' },
+  { id: 40, zh: '雪原道路', en: 'Snowfield Road', hasTai: true, outdoor: true, weather: 'snow' },
+  { id: 42, zh: '冰封海岸', en: 'Frozen Coast', hasTai: true, outdoor: true, weather: 'snow' },
+  { id: 44, zh: '古城鎮路', en: 'Old Town Road', hasTai: true, outdoor: true, weather: 'dust' },
+  { id: 45, zh: '城堡石橋', en: 'Castle Stone Bridge', hasTai: true, outdoor: true, weather: 'dust' },
+  { id: 48, zh: '烈焰深淵 (飛兵)', en: 'Fiery Abyss (Flyers)', hasTai: false, outdoor: false, weather: 'embers' },
+  { id: 49, zh: '松林草坡', en: 'Pine Forest Meadow', hasTai: true, outdoor: true, weather: 'leaves' },
+  { id: 50, zh: '林間大路', en: 'Forest Highway', hasTai: true, outdoor: true, weather: 'leaves' },
+  { id: 51, zh: '沙地松林', en: 'Sandy Pine Field', hasTai: true, outdoor: true, weather: 'dust' },
+  { id: 52, zh: '邊境驛道', en: 'Frontier Road', hasTai: true, outdoor: true, weather: 'dust' },
+  { id: 53, zh: '山丘斷崖', en: 'Hilltop Cliff', hasTai: true, outdoor: true, weather: 'leaves' },
+  { id: 55, zh: '黃金城堡', en: 'Golden Castle Gate', hasTai: true, outdoor: true, weather: 'dust' },
+];
+
+export function getTerrainPreset(bgId: number): HdTerrainPreset {
+  return HD_TERRAIN_PRESETS.find((p) => p.id === bgId) ?? HD_TERRAIN_PRESETS[0];
 }
 
 interface VfxLabAssets {
   loaded: boolean;
+  assetManager: AssetManager | null;
   manifestUnits: VfxManifestUnitEntry[];
   rightUnit: VfxManifestUnitEntry;
   leftUnit: VfxManifestUnitEntry;
@@ -97,6 +148,9 @@ interface VfxLabAssets {
   banditSheetRaw: HTMLImageElement;
   clashKeyArt: HTMLImageElement;
   forestBg: HTMLImageElement | null;
+  heroBgId: number;
+  enemyBgId: number;
+  bgImages: Map<number, HTMLImageElement>;
   classicThorIdle: ClassicFigBundle | null;
   classicThorAtk: ClassicFigBundle | null;
   classicBanditIdle: ClassicFigBundle | null;
@@ -133,6 +187,7 @@ const DEFAULT_LEFT_UNIT: VfxManifestUnitEntry = {
 
 const vfxAssetsCache: VfxLabAssets = {
   loaded: false,
+  assetManager: null,
   manifestUnits: [DEFAULT_RIGHT_UNIT, DEFAULT_LEFT_UNIT],
   rightUnit: DEFAULT_RIGHT_UNIT,
   leftUnit: DEFAULT_LEFT_UNIT,
@@ -148,6 +203,9 @@ const vfxAssetsCache: VfxLabAssets = {
   banditSheetRaw: new Image(),
   clashKeyArt: new Image(),
   forestBg: null,
+  heroBgId: 4,
+  enemyBgId: 10,
+  bgImages: new Map<number, HTMLImageElement>(),
   classicThorIdle: null,
   classicThorAtk: null,
   classicBanditIdle: null,
@@ -165,12 +223,74 @@ function loadImg(url: string): Promise<HTMLImageElement> {
 
 const VFX_ASSET_VERSION = '?v=23';
 
+function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
+  const dex = assets.gameData.unitDex?.[entry.uid];
+  const hero = entry.uid < (assets.gameData.heroes?.length ?? 0) ? assets.gameData.heroes[entry.uid] : null;
+  const isRemote = entry.isRemote ?? Boolean(dex?.figani?.attack?.isRemote);
+  const spellIds = new Set<number>([...(dex?.knownSpells ?? []), ...(hero?.spells ?? [])]);
+  if (hero?.promotions) {
+    for (const pr of hero.promotions) {
+      if (pr.tier === 1 && pr.growth?.learnableSpells) {
+        for (const ls of pr.growth.learnableSpells) spellIds.add(ls.spellId);
+      }
+    }
+  }
+  const hasMagic = entry.hasMagic ?? spellIds.size > 0;
+  let magicElement = entry.magicElement;
+  if (!magicElement && hasMagic) {
+    if (spellIds.has(0) || spellIds.has(1) || spellIds.has(2)) magicElement = 'fire';
+    else if (spellIds.has(3) || spellIds.has(4) || spellIds.has(5)) magicElement = 'thunder';
+    else if (spellIds.has(6) || spellIds.has(7) || spellIds.has(8)) magicElement = 'ice';
+    else if (spellIds.has(13) || spellIds.has(14) || spellIds.has(32)) magicElement = 'holy';
+    else magicElement = 'arcane';
+  }
+  const isFlying =
+    entry.isFlying ??
+    Boolean(
+      dex &&
+        (dex.classNameZh?.includes('龍騎士') ||
+          dex.classNameZh?.includes('飛龍') ||
+          ((dex.raceId === 4 || dex.raceId === 5) && entry.uid !== 28))
+    );
+  const projectileType = entry.projectileType ?? (isRemote ? 'bolt' : undefined);
+  return {
+    ...entry,
+    isRemote,
+    projectileType,
+    hasMagic,
+    magicElement,
+    isFlying,
+  };
+}
+
+export async function loadTerrainBgIntoVfxAssets(
+  target: VfxLabAssets,
+  side: 'hero' | 'enemy',
+  bgId: number
+): Promise<HTMLImageElement | null> {
+  if (side === 'hero') target.heroBgId = bgId;
+  else target.enemyBgId = bgId;
+
+  const cached = target.bgImages.get(bgId);
+  if (cached) return cached;
+
+  try {
+    const img = await loadImg(`assets/hd_bgs/bg_${bgId}.png`);
+    target.bgImages.set(bgId, img);
+    return img;
+  } catch {
+    return target.forestBg;
+  }
+}
+
 export async function loadUnitSlotIntoVfxAssets(
   assets: AssetManager,
   target: VfxLabAssets,
   side: 'player' | 'enemy',
-  entry: VfxManifestUnitEntry
+  rawEntry: VfxManifestUnitEntry
 ): Promise<void> {
+  target.assetManager = assets;
+  const entry = enrichUnitMetadataFromGameData(assets, rawEntry);
   const cb = VFX_ASSET_VERSION;
   const omniCount = Math.max(10, entry.omniFrameCount ?? 10);
   const omniIndices = Array.from({ length: omniCount }, (_, i) => i);
@@ -202,13 +322,16 @@ export async function loadUnitSlotIntoVfxAssets(
 }
 
 export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAssets> {
+  vfxAssetsCache.assetManager = assets;
   // Always refresh manifest so newly refactored batch units appear immediately
   try {
     const resp = await fetch(`assets/vfx_lab/units_manifest.json?t=${Date.now()}`);
     if (resp.ok) {
       const data = await resp.json();
       if (Array.isArray(data?.units) && data.units.length > 0) {
-        vfxAssetsCache.manifestUnits = data.units;
+        vfxAssetsCache.manifestUnits = data.units.map((u: VfxManifestUnitEntry) =>
+          enrichUnitMetadataFromGameData(assets, u)
+        );
       }
     }
   } catch {
@@ -229,7 +352,8 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
     DEFAULT_LEFT_UNIT;
 
   const [forestBg] = await Promise.all([
-    loadImg('assets/hd_bgs/bg_4.png').catch(() => loadImg('assets/bgs/bg_4.png')),
+    loadTerrainBgIntoVfxAssets(vfxAssetsCache, 'hero', vfxAssetsCache.heroBgId),
+    loadTerrainBgIntoVfxAssets(vfxAssetsCache, 'enemy', vfxAssetsCache.enemyBgId),
     loadUnitSlotIntoVfxAssets(assets, vfxAssetsCache, 'player', defaultRight),
     loadUnitSlotIntoVfxAssets(assets, vfxAssetsCache, 'enemy', defaultLeft),
   ]);
@@ -239,7 +363,7 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
   return vfxAssetsCache;
 }
 
-export type DuelScenario = 'thor_first_duel' | 'bandit_first_duel' | 'thor_crit' | 'bandit_crit';
+export type DuelScenario = 'thor_first_duel' | 'bandit_first_duel' | 'thor_crit' | 'bandit_crit' | 'hero_magic';
 
 interface PoseRenderSpec {
   primaryIdx: number;
@@ -291,6 +415,9 @@ export class Modern25DCombatRenderer {
   // the character sprite's own alpha silhouette (never painting a square over the background).
   private spriteTintCanvas: HTMLCanvasElement | null = null;
   private spriteTintCtx: CanvasRenderingContext2D | null = null;
+  private taiScratchCanvas: HTMLCanvasElement | null = null;
+  private taiScratchCtx: CanvasRenderingContext2D | null = null;
+  private activeStageBadge = '';
 
   constructor(
     private vfxAssets: VfxLabAssets,
@@ -370,12 +497,22 @@ export class Modern25DCombatRenderer {
     this.banditMaxMp = 0;
     this.banditMp = 0;
 
-    this.thorStrikeDmg = scenario === 'thor_crit' ? 35 : 22;
+    this.thorStrikeDmg = scenario === 'thor_crit' ? 35 : scenario === 'hero_magic' ? 28 : 22;
     this.banditStrikeDmg = scenario === 'bandit_crit' ? 28 : 7;
+    this.activeStageBadge = '';
   }
 
   public getTotalDurationMs(): number {
-    if (this.scenario === 'thor_crit' || this.scenario === 'bandit_crit') return 2600;
+    if (this.scenario === 'hero_magic') return 3150;
+    if (this.scenario === 'thor_crit') {
+      return this.vfxAssets.rightUnit.isRemote ? 2850 : 2600;
+    }
+    if (this.scenario === 'bandit_crit') {
+      return this.vfxAssets.leftUnit.isRemote ? 2850 : 2600;
+    }
+    if (this.vfxAssets.rightUnit.isRemote || this.vfxAssets.leftUnit.isRemote) {
+      return 4850;
+    }
     return 4400;
   }
 
@@ -544,21 +681,27 @@ export class Modern25DCombatRenderer {
     }
   }
 
-  private getPhaseStartTimes(): { thorStart: number; banditStart: number } {
+  private getPhaseStartTimes(): { thorStart: number; banditStart: number; thorDur: number; banditDur: number } {
+    const thorDur = this.vfxAssets.rightUnit.isRemote ? 2450 : 1830;
+    const banditDur = this.vfxAssets.leftUnit.isRemote ? 2450 : 1850;
+    if (this.scenario === 'hero_magic') {
+      return { thorStart: 120, banditStart: -1, thorDur: 2950, banditDur: 0 };
+    }
     if (this.scenario === 'bandit_first_duel') {
-      return { banditStart: 280, thorStart: 2200 };
+      return { banditStart: 220, thorStart: 220 + banditDur + 140, thorDur, banditDur };
     }
     if (this.scenario === 'bandit_crit') {
-      return { banditStart: 280, thorStart: -1 };
+      return { banditStart: 220, thorStart: -1, thorDur, banditDur };
     }
     if (this.scenario === 'thor_crit') {
-      return { thorStart: 320, banditStart: -1 };
+      return { thorStart: 220, banditStart: -1, thorDur, banditDur };
     }
-    return { thorStart: 320, banditStart: 2250 };
+    return { thorStart: 220, banditStart: 220 + thorDur + 140, thorDur, banditDur };
   }
 
   private renderClassic1995Scene(ctx: CanvasRenderingContext2D, W: number, H: number): void {
-    // Emulate exact 1995 320x200 diagonal battle stage (BG.DAT at y=50..150, Bandit at top-left, Thor at bottom-right)
+    // Emulate exact 1995 320x200 diagonal battle stage (BG.DAT at y=50..150 + right-hand TAI.DAT at (320-w, 156))
+    // Supports authentic 1-stage shared melee, 3-stage ranged cutaway (with BG[0..2] speed-line strips!), and 2-stage magic!
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = '#05080c';
@@ -566,63 +709,45 @@ export class Modern25DCombatRenderer {
 
     const scaleX = W / 320;
     const scaleY = H / 200;
-
-    if (this.vfxAssets.forestBg) {
-      ctx.drawImage(this.vfxAssets.forestBg, 0, 42 * scaleY, W, 112 * scaleY);
-    }
+    const am = this.vfxAssets.assetManager;
+    const heroBgId = this.vfxAssets.heroBgId;
+    const enemyBgId = this.vfxAssets.enemyBgId;
 
     const t = this.elapsedMs;
-    const { thorStart, banditStart } = this.getPhaseStartTimes();
+    const { thorStart, banditStart, thorDur, banditDur } = this.getPhaseStartTimes();
 
     const cThorIdle = this.vfxAssets.classicThorIdle;
     const cThorAtk = this.vfxAssets.classicThorAtk;
     const cBanditIdle = this.vfxAssets.classicBanditIdle;
     const cBanditAtk = this.vfxAssets.classicBanditAtk;
 
-    let thorSprite = cThorIdle;
-    let thorFrameIdx = Math.floor(t / 180) % Math.max(1, cThorIdle?.strip.frames.length ?? 1);
-    let thorRecoilX = 0;
-    let thorRecoilY = 0;
-
-    let banditSprite = cBanditIdle;
-    let banditFrameIdx = Math.floor(t / 180) % Math.max(1, cBanditIdle?.strip.frames.length ?? 1);
-    let banditRecoilX = 0;
-    let banditRecoilY = 0;
-
-    if (thorStart >= 0 && t >= thorStart && t < thorStart + 1600 && cThorAtk && cThorAtk.strip.frames.length > 0) {
-      thorSprite = cThorAtk;
-      const p = Math.min(0.999, (t - thorStart) / 1550);
-      thorFrameIdx = Math.floor(p * cThorAtk.strip.frames.length);
-      if (p >= 0.52 && p <= 0.78) {
-        const rp = Math.sin(((p - 0.52) / 0.26) * Math.PI);
-        banditRecoilX = -Math.round(rp * 16);
-        banditRecoilY = -Math.round(rp * 8);
+    const drawClassicBgAndTai = (bgId: number, showHeroTai: boolean) => {
+      if (am) {
+        ctx.save();
+        ctx.scale(scaleX, scaleY);
+        am.drawBattleBg(ctx, bgId, 0, 50, 320, 100);
+        if (showHeroTai && !this.vfxAssets.rightUnit.isFlying) {
+          const rightTai = am.gameData.taiPlatforms?.[heroBgId];
+          if (rightTai && rightTai.valid) {
+            am.drawTaiPlatform(ctx, heroBgId, 320 - rightTai.w, 156, false);
+          }
+        }
+        ctx.restore();
+      } else {
+        const bgImg = this.vfxAssets.bgImages.get(bgId) ?? this.vfxAssets.forestBg;
+        if (bgImg) {
+          ctx.drawImage(bgImg, 0, 50 * scaleY, W, 100 * scaleY);
+        }
       }
-    }
-
-    if (
-      banditStart >= 0 &&
-      t >= banditStart &&
-      t < banditStart + 1550 &&
-      cBanditAtk &&
-      cBanditAtk.strip.frames.length > 0
-    ) {
-      banditSprite = cBanditAtk;
-      const p = Math.min(0.999, (t - banditStart) / 1500);
-      banditFrameIdx = Math.floor(p * cBanditAtk.strip.frames.length);
-      if (p >= 0.52 && p <= 0.78) {
-        const rp = Math.sin(((p - 0.52) / 0.26) * Math.PI);
-        thorRecoilX = Math.round(rp * 16);
-        thorRecoilY = Math.round(rp * 8);
-      }
-    }
+    };
 
     // Draw using exact FD2.EXE `f.ox, f.oy` 320x200 screen coordinates!
     const drawClassicFigExact = (
       bundle: ClassicFigBundle | null,
       fIdx: number,
       slideX: number,
-      slideY: number
+      slideY: number,
+      flash = false
     ) => {
       if (!bundle || bundle.strip.frames.length === 0) return;
       const frames = bundle.strip.frames;
@@ -635,11 +760,129 @@ export class Modern25DCombatRenderer {
       const dy = (f.oy + slideY) * scaleY;
       const dw = f.w * scaleX;
       const dh = f.h * scaleY;
+      ctx.save();
+      if (flash) {
+        ctx.filter = 'brightness(2.6) contrast(1.4)';
+      }
       ctx.drawImage(bundle.img, sx, 0, sw, sh, dx, dy, dw, dh);
+      ctx.restore();
     };
 
-    drawClassicFigExact(banditSprite, banditFrameIdx, banditRecoilX, banditRecoilY);
-    drawClassicFigExact(thorSprite, thorFrameIdx, thorRecoilX, thorRecoilY);
+    // Case A: Classic 2-Stage Magic Cutaway (`hero_magic`)
+    if (this.scenario === 'hero_magic') {
+      const localT = Math.max(0, t - thorStart);
+      if (localT < 1380) {
+        // Stage 1: Caster alone on Hero's tile terrain
+        drawClassicBgAndTai(heroBgId, true);
+        const strip = cThorAtk ?? cThorIdle;
+        const fCount = Math.max(1, strip?.strip.frames.length ?? 1);
+        const fIdx = Math.min(fCount - 1, Math.floor((localT / 1380) * fCount));
+        drawClassicFigExact(strip, fIdx, 0, 0, false);
+      } else {
+        // Stage 2: Target alone on Enemy's tile terrain
+        drawClassicBgAndTai(enemyBgId, false);
+        const s2 = localT - 1380;
+        const slideInX = s2 < 180 ? -Math.round((1 - s2 / 180) * 140) : 0;
+        const hitPulse = s2 >= 320 && s2 < 950;
+        const recoil = hitPulse ? -Math.round(Math.abs(Math.sin((s2 - 320) * 0.025)) * 16) : 0;
+        const isFlash = hitPulse && Math.floor((s2 - 320) / 160) % 2 === 0 && ((s2 - 320) % 160) < 70;
+        drawClassicFigExact(cBanditIdle, 0, slideInX + recoil, 0, isFlash);
+      }
+      ctx.restore();
+      this.drawModernDualHud(ctx, W, H);
+      return;
+    }
+
+    // Case B: Classic 3-Stage Ranged Cutaway (`isRemote = true`, e.g., #008 Celia!)
+    const isHeroRemoteActive =
+      this.vfxAssets.rightUnit.isRemote &&
+      thorStart >= 0 &&
+      (this.scenario === 'thor_crit' ||
+        (t >= thorStart && t < thorStart + thorDur) ||
+        (this.scenario === 'thor_first_duel' && t < thorStart)) &&
+      cThorAtk &&
+      cThorAtk.strip.frames.length > 0;
+    if (isHeroRemoteActive && cThorAtk) {
+      const localT = Math.max(0, Math.min(thorDur, t - thorStart));
+      const split = cThorAtk.strip.splitFrame && cThorAtk.strip.splitFrame > 0 && cThorAtk.strip.splitFrame < cThorAtk.strip.frames.length
+        ? cThorAtk.strip.splitFrame
+        : Math.max(1, cThorAtk.strip.frames.length - 5);
+      if (localT < 1120) {
+        // Stage 1: Attacker solo on Hero's tile terrain
+        drawClassicBgAndTai(heroBgId, true);
+        const p = Math.min(0.999, localT / 1120);
+        const fIdx = Math.floor(p * split);
+        drawClassicFigExact(cThorAtk, fIdx, 0, 0, false);
+      } else if (localT < 1460) {
+        // Stage 2: Authentic 1995 horizontal speed-line strips BG.DAT[0..2]!
+        const bIdx = Math.floor((localT - 1120) / 60) % 3;
+        drawClassicBgAndTai(bIdx, false);
+      } else {
+        // Stage 3: Target solo on Enemy's tile terrain + arriving DOS missile frames [split..end-1]
+        drawClassicBgAndTai(enemyBgId, false);
+        const p3 = Math.min(0.999, (localT - 1460) / (thorDur - 1460));
+        const missileCount = Math.max(1, cThorAtk.strip.frames.length - split);
+        const mIdx = split + Math.min(missileCount - 1, Math.floor(p3 * missileCount * 1.4));
+        const hitP = Math.max(0, (p3 - 0.19) / 0.35);
+        const recoilX = p3 >= 0.19 && hitP <= 1 ? -Math.round(Math.sin(hitP * Math.PI) * 18) : 0;
+        const isFlash = p3 >= 0.19 && p3 < 0.28;
+        drawClassicFigExact(cBanditIdle, 0, recoilX, 0, isFlash);
+        if (p3 < 0.68) {
+          drawClassicFigExact(cThorAtk, mIdx, 0, 0, false);
+        }
+      }
+      ctx.restore();
+      this.drawModernDualHud(ctx, W, H);
+      return;
+    }
+
+    // Default: Authentic 1-Stage Shared Melee (`BG[enemyBgId]` + right-hand `TAI[heroBgId]`)
+    drawClassicBgAndTai(enemyBgId, true);
+
+    let thorSprite = cThorIdle;
+    let thorFrameIdx = Math.floor(t / 180) % Math.max(1, cThorIdle?.strip.frames.length ?? 1);
+    let thorRecoilX = 0;
+    let thorRecoilY = 0;
+    let thorFlash = false;
+
+    let banditSprite = cBanditIdle;
+    let banditFrameIdx = Math.floor(t / 180) % Math.max(1, cBanditIdle?.strip.frames.length ?? 1);
+    let banditRecoilX = 0;
+    let banditRecoilY = 0;
+    let banditFlash = false;
+
+    if (thorStart >= 0 && t >= thorStart && t < thorStart + thorDur && cThorAtk && cThorAtk.strip.frames.length > 0) {
+      thorSprite = cThorAtk;
+      const p = Math.min(0.999, (t - thorStart) / Math.max(1, thorDur - 100));
+      thorFrameIdx = Math.floor(p * cThorAtk.strip.frames.length);
+      if (p >= 0.52 && p <= 0.78) {
+        const rp = Math.sin(((p - 0.52) / 0.26) * Math.PI);
+        banditRecoilX = -Math.round(rp * 16);
+        banditRecoilY = -Math.round(rp * 8);
+        banditFlash = p < 0.6;
+      }
+    }
+
+    if (
+      banditStart >= 0 &&
+      t >= banditStart &&
+      t < banditStart + banditDur &&
+      cBanditAtk &&
+      cBanditAtk.strip.frames.length > 0
+    ) {
+      banditSprite = cBanditAtk;
+      const p = Math.min(0.999, (t - banditStart) / Math.max(1, banditDur - 100));
+      banditFrameIdx = Math.floor(p * cBanditAtk.strip.frames.length);
+      if (p >= 0.52 && p <= 0.78) {
+        const rp = Math.sin(((p - 0.52) / 0.26) * Math.PI);
+        thorRecoilX = Math.round(rp * 16);
+        thorRecoilY = Math.round(rp * 8);
+        thorFlash = p < 0.6;
+      }
+    }
+
+    drawClassicFigExact(banditSprite, banditFrameIdx, banditRecoilX, banditRecoilY, banditFlash);
+    drawClassicFigExact(thorSprite, thorFrameIdx, thorRecoilX, thorRecoilY, thorFlash);
     ctx.restore();
 
     this.drawModernDualHud(ctx, W, H);
@@ -647,7 +890,51 @@ export class Modern25DCombatRenderer {
 
   private renderModernScene(ctx: CanvasRenderingContext2D, W: number, H: number): void {
     const t = this.elapsedMs;
-    const { thorStart, banditStart } = this.getPhaseStartTimes();
+    const { thorStart, banditStart, thorDur, banditDur } = this.getPhaseStartTimes();
+
+    // 1. Dedicated 2-Stage Remote Magic Cutaway (`hero_magic`: Caster Solo -> Target Solo + Elemental Spell)
+    if (this.scenario === 'hero_magic') {
+      this.renderModernMagicScene(ctx, W, H, thorStart);
+      return;
+    }
+
+    // 2. Dedicated 3-Stage Ranged Cutaway (`isRemote = true`, e.g., #008 Celia, #013 Beckwith, Snipers!)
+    //    Stage 1: Attacker Solo on Attacker's Terrain -> Stage 2: HD Horizontal Speed-Line Transit Bridge -> Stage 3: Target Solo on Target's Terrain
+    if (this.vfxAssets.rightUnit.isRemote && thorStart >= 0) {
+      const inHeroRange =
+        this.scenario === 'thor_crit' ||
+        (t >= thorStart && t < thorStart + thorDur) ||
+        (this.scenario === 'thor_first_duel' && t < thorStart);
+      if (inHeroRange) {
+        const localT = Math.max(0, Math.min(thorDur, t - thorStart));
+        this.renderModernRangedAttackScene(ctx, W, H, 'hero', localT, thorDur, this.scenario === 'thor_crit');
+        return;
+      }
+    }
+    if (this.vfxAssets.leftUnit.isRemote && banditStart >= 0) {
+      const inEnemyRange =
+        this.scenario === 'bandit_crit' ||
+        (t >= banditStart && t < banditStart + banditDur) ||
+        (this.scenario === 'bandit_first_duel' && t < banditStart);
+      if (inEnemyRange) {
+        const localT = Math.max(0, Math.min(banditDur, t - banditStart));
+        this.renderModernRangedAttackScene(ctx, W, H, 'enemy', localT, banditDur, this.scenario === 'bandit_crit');
+        return;
+      }
+    }
+
+    const isEn = getLocale() === 'en';
+    const heroTerrain = getTerrainPreset(this.vfxAssets.heroBgId);
+    const enemyTerrain = getTerrainPreset(this.vfxAssets.enemyBgId);
+    if (this.vfxAssets.heroBgId === this.vfxAssets.enemyBgId) {
+      this.activeStageBadge = isEn
+        ? `⚔️ Melee Shared Stage · ${enemyTerrain.en} (#${enemyTerrain.id})`
+        : `⚔️ 近戰同屏舞台 · ${enemyTerrain.zh} (#${enemyTerrain.id})`;
+    } else {
+      this.activeStageBadge = isEn
+        ? `⚔️ Melee Mixed Tiles · BG: ${enemyTerrain.en} / Hero TAI: ${heroTerrain.en}`
+        : `⚔️ 近戰異地地形 · 敵BG: ${enemyTerrain.zh} / 我方TAI: ${heroTerrain.zh}`;
+    }
 
     // -------------------------------------------------------------------------
     // Authentic Flame Dragon II Diagonal Isometric Battle Geometry:
@@ -1189,10 +1476,19 @@ export class Modern25DCombatRenderer {
     ctx.rotate(camTilt);
     ctx.translate(-W * 0.5 - camX, -H * 0.5 - camY);
 
-    this.drawForestBackground(ctx, W, H, camX, camY, thorHomeY);
+    this.drawTerrainBackdrop(ctx, W, H, this.vfxAssets.enemyBgId, camX, camY, thorHomeY);
 
-    // Draw Foreground Elevated TAI Terrain Mound at Bottom-Right (under Thor)
-    this.drawForegroundTaiMound(ctx, thorHomeX, thorHomeY);
+    // Draw Foreground Elevated TAI Terrain Platform at Bottom-Right (under Hero)
+    // When heroBgId !== enemyBgId, renders harmonized HD TAI[heroBgId]; when identical, blends seamlessly!
+    this.drawHeroTaiPlatform(
+      ctx,
+      this.vfxAssets.heroBgId,
+      this.vfxAssets.enemyBgId,
+      thorHomeX,
+      thorHomeY,
+      Boolean(this.vfxAssets.rightUnit.isFlying),
+      false
+    );
 
     this.drawGroundShadow(ctx, banditSpec.x, banditSpec.y, 195);
     this.drawGroundShadow(ctx, thorSpec.x, thorSpec.y, 215);
@@ -1280,6 +1576,608 @@ export class Modern25DCombatRenderer {
     this.drawModernDualHud(ctx, W, H);
   }
 
+  /**
+   * Authentic Flame Dragon II 3-Stage Remote Ranged Cutaway (e.g., #008 Celia, #013 Beckwith, Snipers):
+   *  - Stage 1 (0 .. 1120ms): Attacker stands ALONE on Attacker's own tile terrain (`actorBgId`), aims & fires off-screen.
+   *  - Stage 2 (1120 .. 1460ms): Full-width HD horizontal speed-line transit strip (modern homage to `BG.DAT[0..2]`) with blazing projectile!
+   *  - Stage 3 (1460 .. 2450ms): Target stands ALONE on Target's own tile terrain (`targetBgId`); arriving projectile strikes with silhouette flash, recoil & sparks!
+   */
+  private renderModernRangedAttackScene(
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    attackerSide: 'hero' | 'enemy',
+    localT: number,
+    totalDur: number,
+    isCrit: boolean
+  ): void {
+    const isEn = getLocale() === 'en';
+    const isHeroAtk = attackerSide === 'hero';
+    const actorBgId = isHeroAtk ? this.vfxAssets.heroBgId : this.vfxAssets.enemyBgId;
+    const targetBgId = isHeroAtk ? this.vfxAssets.enemyBgId : this.vfxAssets.heroBgId;
+    const actorTerrain = getTerrainPreset(actorBgId);
+    const targetTerrain = getTerrainPreset(targetBgId);
+    const actorUnit = isHeroAtk ? this.vfxAssets.rightUnit : this.vfxAssets.leftUnit;
+    const projectileType = actorUnit.projectileType ?? 'bolt';
+
+    const stage1End = 1120;
+    const bridgeEnd = 1460;
+
+    const banditHomeX = W * 0.29;
+    const banditHomeY = H * 0.70;
+    const thorHomeX = W * 0.67;
+    const thorHomeY = H * 0.89;
+
+    const srcMode = this.config.animSource;
+    const actorPoses = this.getActivePoseList(isHeroAtk ? 'thor' : 'bandit');
+    const targetPoses = this.getActivePoseList(isHeroAtk ? 'bandit' : 'thor');
+    const actorMaxIdx = Math.max(1, actorPoses.length - 1);
+
+    // -------------------------------------------------------------------------
+    // STAGE 2: Horizontal Speed-Line Transit Bridge (`BG.DAT[0..2]` HD Homage)
+    // -------------------------------------------------------------------------
+    if (localT >= stage1End && localT < bridgeEnd) {
+      const bp = (localT - stage1End) / (bridgeEnd - stage1End);
+      this.activeStageBadge = isEn
+        ? `[2/3 Ranged Transit] Speed-Line Bridge (${actorTerrain.en} → ${targetTerrain.en})`
+        : `[2/3 遠程飛行過場] 水平速度線 (${actorTerrain.zh} → ${targetTerrain.zh})`;
+      this.fireOnce(`ranged_bridge_sfx_${attackerSide}`, () => {
+        this.sound.playSfx('slash');
+      });
+      this.drawRangedSpeedLineBridge(ctx, W, H, bp, isHeroAtk ? -1 : 1, projectileType);
+      this.drawModernDualHud(ctx, W, H);
+      return;
+    }
+
+    // -------------------------------------------------------------------------
+    // STAGE 1: Attacker Solo Screen on Attacker's Own Tile Terrain (`actorBgId`)
+    // -------------------------------------------------------------------------
+    if (localT < stage1End) {
+      const p = Math.min(1, localT / stage1End);
+      this.activeStageBadge = isEn
+        ? `[1/3 Ranged Launch] ${actorUnit.nameEn} Solo · ${actorTerrain.en} (#${actorTerrain.id})`
+        : `[1/3 攻方遠程發射] ${actorUnit.nameZh} 獨屏 · ${actorTerrain.zh} (#${actorTerrain.id})`;
+
+      let cutInProgress = -1;
+      if (isCrit && this.config.enableAnimeCutIn && p >= 0.14 && p <= 0.48) {
+        cutInProgress = (p - 0.14) / 0.34;
+      }
+
+      const actorSpec: PoseRenderSpec = {
+        primaryIdx: 0,
+        x: isHeroAtk ? thorHomeX : banditHomeX,
+        y: isHeroAtk ? thorHomeY : banditHomeY,
+        scaleX: 1.0,
+        scaleY: 1.0,
+        rot: 0,
+        flashWhite: 0,
+        afterimages: 0,
+        dashDirX: isHeroAtk ? -1 : 1,
+        dashDirY: 0,
+      };
+
+      // Map launch progress cleanly through Ready -> Cock -> Kneel Aim -> Fire Recoil -> Hold!
+      // Fire release happens at p = 0.56 (NB6 frame 3 / Omni frame 5)
+      if (srcMode === 'omni_video') {
+        if (p < 0.54) {
+          this.setContinuousFrame(actorSpec, (p / 0.54) * Math.min(4.2, actorMaxIdx * 0.46), actorMaxIdx);
+        } else if (p < 0.84) {
+          const fp = (p - 0.54) / 0.3;
+          this.setContinuousFrame(actorSpec, Math.min(actorMaxIdx, 4.8 + fp * (actorMaxIdx - 4.8)), actorMaxIdx);
+        } else {
+          actorSpec.primaryIdx = actorMaxIdx;
+        }
+      } else if (srcMode === 'nb2_6frame') {
+        if (p < 0.54) {
+          this.setContinuousFrame(actorSpec, (p / 0.54) * 2.4, 5);
+        } else if (p < 0.84) {
+          const fp = (p - 0.54) / 0.3;
+          this.setContinuousFrame(actorSpec, 3.0 + fp * 2.0, 5);
+        } else {
+          actorSpec.primaryIdx = 5;
+        }
+      } else {
+        actorSpec.primaryIdx = p < 0.25 ? 0 : p < 0.54 ? 1 : 2;
+      }
+
+      // Slight recoil kickback on release at p = 0.56
+      let camShake = 0;
+      if (p >= 0.56) {
+        this.fireOnce(`ranged_fire_sfx_${attackerSide}`, () => {
+          this.sound.playSfx('slash');
+          this.spawnDustPlume(actorSpec.x, actorSpec.y, isHeroAtk ? 1 : -1, 0.2, 12);
+          this.spawnImpactSparks(
+            actorSpec.x + (isHeroAtk ? -175 : 155),
+            actorSpec.y - (isHeroAtk ? 210 : 190),
+            actorSpec.y,
+            24,
+            ['#ffffff', '#fde047', '#f59e0b', '#fb923c'],
+            isHeroAtk ? -1 : 1,
+            0
+          );
+        });
+        const rp = Math.min(1, (p - 0.56) / 0.22);
+        const kick = Math.sin(rp * Math.PI) * 18;
+        actorSpec.x += isHeroAtk ? kick : -kick;
+        camShake = (1 - rp) * 7;
+      }
+
+      const camZoom = 1.02 + Math.min(1, p * 1.4) * 0.11;
+      const camX = (isHeroAtk ? 1 : -1) * W * 0.05 * Math.min(1, p * 1.5);
+      const camY = (isHeroAtk ? 1 : -1) * H * 0.03 * Math.min(1, p * 1.5);
+      const shakeX = camShake > 0 ? (Math.random() - 0.5) * camShake * 2 : 0;
+      const shakeY = camShake > 0 ? (Math.random() - 0.5) * camShake * 1.5 : 0;
+
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.translate(W * 0.5 + shakeX, H * 0.5 + shakeY);
+      ctx.scale(camZoom, camZoom);
+      ctx.translate(-W * 0.5 - camX, -H * 0.5 - camY);
+
+      this.drawTerrainBackdrop(ctx, W, H, actorBgId, camX, camY, actorSpec.y);
+      if (isHeroAtk) {
+        this.drawHeroTaiPlatform(ctx, actorBgId, actorBgId, thorHomeX, thorHomeY, Boolean(actorUnit.isFlying), false);
+      }
+      this.drawGroundShadow(ctx, actorSpec.x, actorSpec.y, isHeroAtk ? 225 : 195);
+      this.renderCombatantWithBlend(
+        ctx,
+        actorPoses,
+        actorSpec,
+        isHeroAtk ? '#38bdf8' : '#ef4444',
+        isHeroAtk ? 720 : 510
+      );
+
+      // Blazing crossbow bolt / arrow streaks out from weapon tip off screen edge!
+      if (p >= 0.56 && p <= 0.94) {
+        const boltP = Math.min(1, (p - 0.56) / 0.22);
+        const muzzleX = actorSpec.x + (isHeroAtk ? -175 : 155);
+        const muzzleY = actorSpec.y - (isHeroAtk ? 215 : 190);
+        const endX = isHeroAtk ? -160 : W + 160;
+        const bx = muzzleX + (endX - muzzleX) * boltP;
+        this.drawHdProjectile(ctx, bx, muzzleY, isHeroAtk ? -1 : 1, projectileType, 1.15);
+
+        // Muzzle burst flash at launch moment
+        if (boltP < 0.45) {
+          const mf = 1 - boltP / 0.45;
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          const grad = ctx.createRadialGradient(muzzleX, muzzleY, 4, muzzleX, muzzleY, 125 * mf + 20);
+          grad.addColorStop(0, `rgba(255, 255, 240, ${0.95 * mf})`);
+          grad.addColorStop(0.4, `rgba(253, 224, 71, ${0.65 * mf})`);
+          grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(muzzleX, muzzleY, 125 * mf + 20, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      this.drawDustAndSparks(ctx);
+      this.drawForegroundLeaves(ctx, actorBgId);
+      ctx.restore();
+
+      if (cutInProgress >= 0 && cutInProgress <= 1) {
+        this.drawAnimeCutInBanner(ctx, W, H, cutInProgress, isHeroAtk ? 'thor' : 'bandit');
+      }
+      this.drawModernDualHud(ctx, W, H);
+      return;
+    }
+
+    // -------------------------------------------------------------------------
+    // STAGE 3: Target Solo Screen on Target's Own Tile Terrain (`targetBgId`)
+    // -------------------------------------------------------------------------
+    const p3 = Math.min(1, (localT - bridgeEnd) / Math.max(1, totalDur - bridgeEnd));
+    const targetUnit = isHeroAtk ? this.vfxAssets.leftUnit : this.vfxAssets.rightUnit;
+    this.activeStageBadge = isEn
+      ? `[3/3 Target Impact] ${targetUnit.nameEn} Solo · ${targetTerrain.en} (#${targetTerrain.id})`
+      : `[3/3 目標受擊] ${targetUnit.nameZh} 獨屏 · ${targetTerrain.zh} (#${targetTerrain.id})`;
+
+    const targetHomeX = isHeroAtk ? W * 0.34 : W * 0.66;
+    const targetHomeY = isHeroAtk ? H * 0.72 : H * 0.88;
+    const impactY = targetHomeY - (isHeroAtk ? 185 : 220);
+    const impactX = targetHomeX + (isHeroAtk ? 25 : -25);
+
+    const targetSpec: PoseRenderSpec = {
+      primaryIdx: 0,
+      x: targetHomeX,
+      y: targetHomeY,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      rot: 0,
+      flashWhite: 0,
+      afterimages: 0,
+      dashDirX: isHeroAtk ? -1 : 1,
+      dashDirY: 0,
+    };
+
+    const hitAt = 0.19;
+    let camShake = 0;
+    let camZoom = 1.04;
+    let impactFlashAlpha = 0;
+    let shockwaveProgress = -1;
+
+    if (p3 >= hitAt) {
+      const hp = (p3 - hitAt) / (1 - hitAt);
+      this.fireOnce(`ranged_impact_${attackerSide}`, () => {
+        this.sound.playSfx(isCrit ? 'crit' : 'hit');
+        if (this.config.enableHitStopAndSparks) {
+          this.hitStopRemainingMs = isCrit ? 95 : 70;
+        }
+        this.spawnImpactSparks(
+          impactX,
+          impactY,
+          targetHomeY,
+          isCrit ? 85 : 58,
+          ['#ffffff', '#fde047', '#f59e0b', '#ef4444', '#fb923c'],
+          isHeroAtk ? -1 : 1,
+          -0.25
+        );
+        this.spawnDustPlume(targetHomeX, targetHomeY, isHeroAtk ? -1 : 1, -0.2, 16);
+        if (isHeroAtk) {
+          this.banditTargetHp = Math.max(0, this.banditTargetHp - this.thorStrikeDmg);
+        } else {
+          this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
+        }
+      });
+
+      const recoil = Math.sin(Math.min(1, hp * 2.1) * Math.PI);
+      const dir = isHeroAtk ? -1 : 1;
+      targetSpec.x = targetHomeX + dir * recoil * 62;
+      targetSpec.y = targetHomeY + dir * recoil * 18;
+      targetSpec.rot = dir * recoil * 0.11;
+      targetSpec.scaleX = 1.0 - recoil * 0.08;
+      targetSpec.scaleY = 1.0 + recoil * 0.06;
+      targetSpec.flashWhite = Math.max(0, 1 - hp * 3.2);
+      impactFlashAlpha = Math.max(0, 1 - hp * 4.2);
+      shockwaveProgress = Math.min(1, hp * 1.9);
+      camZoom = 1.15 - hp * 0.11;
+      camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - hp * 2.4) * 24) : 0;
+    }
+
+    const shakeX = camShake > 0 ? (Math.random() - 0.5) * camShake * 2 : 0;
+    const shakeY = camShake > 0 ? (Math.random() - 0.5) * camShake * 1.5 : 0;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.translate(W * 0.5 + shakeX, H * 0.5 + shakeY);
+    ctx.scale(camZoom, camZoom);
+    ctx.translate(-W * 0.5, -H * 0.5);
+
+    this.drawTerrainBackdrop(ctx, W, H, targetBgId, 0, 0, targetHomeY);
+    if (!isHeroAtk) {
+      this.drawHeroTaiPlatform(ctx, targetBgId, targetBgId, targetHomeX, targetHomeY, Boolean(targetUnit.isFlying), false);
+    }
+    this.drawGroundShadow(ctx, targetSpec.x, targetSpec.y, isHeroAtk ? 210 : 225);
+
+    if (shockwaveProgress >= 0 && shockwaveProgress <= 1 && this.config.enableHitStopAndSparks) {
+      this.drawGroundShockwave(ctx, impactX, targetHomeY - 12, shockwaveProgress);
+    }
+
+    this.renderCombatantWithBlend(
+      ctx,
+      targetPoses,
+      targetSpec,
+      isHeroAtk ? '#ef4444' : '#38bdf8',
+      isHeroAtk ? 545 : 700
+    );
+
+    // Arriving HD projectile streaking in horizontally from the edge into the target's torso!
+    if (p3 < hitAt) {
+      const ap = p3 / hitAt;
+      const startX = isHeroAtk ? W + 120 : -120;
+      const bx = startX + (impactX - startX) * ap;
+      this.drawHdProjectile(ctx, bx, impactY, isHeroAtk ? -1 : 1, projectileType, 1.25);
+    } else if (p3 < hitAt + 0.16) {
+      // Brief embedded/piercing bolt flash & starburst right on impact!
+      const bp = (p3 - hitAt) / 0.16;
+      const vibY = Math.sin(bp * 45) * 4 * (1 - bp);
+      ctx.save();
+      ctx.globalAlpha = 1 - bp;
+      this.drawHdProjectile(ctx, targetSpec.x + (isHeroAtk ? 30 : -30), impactY + vibY, isHeroAtk ? -1 : 1, projectileType, 1.0);
+      ctx.restore();
+    }
+
+    this.drawDustAndSparks(ctx);
+    this.drawForegroundLeaves(ctx, targetBgId);
+    ctx.restore();
+
+    if ((this.hitStopRemainingMs > 0 || impactFlashAlpha > 0.05) && this.config.enableHitStopAndSparks) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const grad = ctx.createRadialGradient(impactX, impactY, 16, impactX, impactY, W * 0.65);
+      const a = this.hitStopRemainingMs > 0 ? 0.55 : impactFlashAlpha * 0.45;
+      grad.addColorStop(0, `rgba(255, 252, 220, ${a})`);
+      grad.addColorStop(0.35, `rgba(245, 158, 11, ${a * 0.45})`);
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    this.drawModernDualHud(ctx, W, H);
+  }
+
+  /**
+   * Authentic Flame Dragon II 2-Stage Remote Magic Cutaway (e.g., #009 Uni Fire Dragon, #010 Marin Holy Radiance):
+   *  - Stage 1 (0 .. 1380ms): Caster stands ALONE on Caster's tile terrain (`heroBgId`), rotating magic circle + wand chant + MP drain!
+   *  - Stage 2 (1380 .. 2950ms): Target slides ALONE onto Target's tile terrain (`enemyBgId`) and takes full elemental HD spell VFX!
+   */
+  private renderModernMagicScene(ctx: CanvasRenderingContext2D, W: number, H: number, startMs: number): void {
+    const isEn = getLocale() === 'en';
+    const localT = Math.max(0, this.elapsedMs - startMs);
+    const stage1End = 1380;
+    const heroBgId = this.vfxAssets.heroBgId;
+    const enemyBgId = this.vfxAssets.enemyBgId;
+    const heroTerrain = getTerrainPreset(heroBgId);
+    const enemyTerrain = getTerrainPreset(enemyBgId);
+    const caster = this.vfxAssets.rightUnit;
+    const target = this.vfxAssets.leftUnit;
+    const element = caster.magicElement ?? 'fire';
+    const spellName = isEn
+      ? (caster.magicNameEn ?? (element === 'holy' ? 'Holy Radiance' : element === 'fire' ? 'Flame Dragon' : 'Arcane Nova'))
+      : (caster.magicNameZh ?? (element === 'holy' ? '聖光審判' : element === 'fire' ? '炎龍術' : '星辰秘法'));
+
+    const srcMode = this.config.animSource;
+    const casterPoses = this.getActivePoseList('thor');
+    const targetPoses = this.getActivePoseList('bandit');
+    const casterMaxIdx = Math.max(1, casterPoses.length - 1);
+
+    // -------------------------------------------------------------------------
+    // STAGE 1: Caster Solo Screen (`heroBgId`) + Rotating 3D Magic Circle + MP Drain
+    // -------------------------------------------------------------------------
+    if (localT < stage1End) {
+      const p = Math.min(1, localT / stage1End);
+      this.activeStageBadge = isEn
+        ? `[1/2 Spell Chant: ${spellName}] ${caster.nameEn} Solo · ${heroTerrain.en} (#${heroTerrain.id})`
+        : `[1/2 法術詠唱：${spellName}] ${caster.nameZh} 獨屏 · ${heroTerrain.zh} (#${heroTerrain.id})`;
+
+      const casterHomeX = W * 0.63;
+      const casterHomeY = H * 0.89;
+      const casterSpec: PoseRenderSpec = {
+        primaryIdx: 0,
+        x: casterHomeX,
+        y: casterHomeY,
+        scaleX: 1.0,
+        scaleY: 1.0,
+        rot: 0,
+        flashWhite: 0,
+        afterimages: 0,
+        dashDirX: -1,
+        dashDirY: 0,
+      };
+
+      if (srcMode === 'omni_video') {
+        this.setContinuousFrame(casterSpec, Math.min(casterMaxIdx, p * (casterMaxIdx + 0.4)), casterMaxIdx);
+      } else if (srcMode === 'nb2_6frame') {
+        this.setContinuousFrame(casterSpec, Math.min(5, p * 5.3), 5);
+      } else {
+        casterSpec.primaryIdx = p < 0.28 ? 0 : p < 0.62 ? 1 : 2;
+      }
+
+      if (p >= 0.48) {
+        this.fireOnce('magic_chant_sfx', () => {
+          this.sound.playSfx('magic');
+          this.thorMp = Math.max(0, this.thorMp - 4);
+          this.spawnImpactSparks(
+            casterHomeX - 45,
+            casterHomeY - 310,
+            casterHomeY,
+            32,
+            element === 'holy'
+              ? ['#ffffff', '#fef08a', '#fde047', '#7dd3fc']
+              : element === 'fire'
+                ? ['#ffffff', '#fde047', '#f97316', '#ef4444']
+                : ['#ffffff', '#c084fc', '#38bdf8', '#fde047'],
+            0,
+            -0.8
+          );
+        });
+      }
+
+      let cutInProgress = -1;
+      if (this.config.enableAnimeCutIn && p >= 0.12 && p <= 0.45) {
+        cutInProgress = (p - 0.12) / 0.33;
+      }
+
+      const camZoom = 1.02 + Math.sin(Math.min(1, p * 1.1) * Math.PI * 0.5) * 0.12;
+      const camX = W * 0.04 * p;
+      const camY = H * 0.02 * p;
+
+      ctx.save();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.translate(W * 0.5, H * 0.5);
+      ctx.scale(camZoom, camZoom);
+      ctx.translate(-W * 0.5 - camX, -H * 0.5 - camY);
+
+      this.drawTerrainBackdrop(ctx, W, H, heroBgId, camX, camY, casterHomeY);
+      this.drawHeroTaiPlatform(ctx, heroBgId, heroBgId, casterHomeX, casterHomeY, Boolean(caster.isFlying), false);
+
+      // Rotating 3D Perspective Arcane/Holy/Fire Magic Circle beneath Caster!
+      this.drawMagicCastCircle(ctx, casterHomeX, casterHomeY - 12, p, element);
+
+      this.drawGroundShadow(ctx, casterSpec.x, casterSpec.y, 215);
+      this.renderCombatantWithBlend(ctx, casterPoses, casterSpec, element === 'holy' ? '#fde047' : '#f97316', 720);
+
+      // Luminous mana convergence pillar around caster at chant peak
+      if (p >= 0.44) {
+        const gp = Math.sin(Math.min(1, (p - 0.44) / 0.5) * Math.PI);
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const grad = ctx.createRadialGradient(casterHomeX - 40, casterHomeY - 260, 12, casterHomeX - 40, casterHomeY - 260, 290);
+        const coreCol = element === 'holy' ? '254, 240, 138' : element === 'fire' ? '251, 146, 60' : '168, 85, 247';
+        grad.addColorStop(0, `rgba(255, 255, 255, ${0.75 * gp})`);
+        grad.addColorStop(0.45, `rgba(${coreCol}, ${0.52 * gp})`);
+        grad.addColorStop(1, `rgba(${coreCol}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(casterHomeX - 40, casterHomeY - 260, 290, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      this.drawDustAndSparks(ctx);
+      this.drawForegroundLeaves(ctx, heroBgId);
+      ctx.restore();
+
+      // Luminous screen flash transition into Target Screen at end of Stage 1
+      if (p > 0.88) {
+        const wp = (p - 0.88) / 0.12;
+        ctx.save();
+        ctx.fillStyle =
+          element === 'holy'
+            ? `rgba(255, 252, 230, ${wp * 0.88})`
+            : element === 'fire'
+              ? `rgba(255, 230, 180, ${wp * 0.85})`
+              : `rgba(220, 210, 255, ${wp * 0.85})`;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      if (cutInProgress >= 0 && cutInProgress <= 1) {
+        this.drawAnimeCutInBanner(ctx, W, H, cutInProgress, 'thor');
+      }
+      this.drawModernDualHud(ctx, W, H);
+      return;
+    }
+
+    // -------------------------------------------------------------------------
+    // STAGE 2: Target Solo Screen (`enemyBgId`) + Slide-In + Elemental HD Spell Barrage!
+    // -------------------------------------------------------------------------
+    const s2 = localT - stage1End;
+    this.activeStageBadge = isEn
+      ? `[2/2 ${spellName} Impact] ${target.nameEn} Solo · ${enemyTerrain.en} (#${enemyTerrain.id})`
+      : `[2/2 ${spellName} 轟擊] ${target.nameZh} 獨屏 · ${enemyTerrain.zh} (#${enemyTerrain.id})`;
+
+    const targetHomeX = W * 0.42;
+    const targetHomeY = H * 0.75;
+    const slideP = Math.min(1, s2 / 190);
+    const slideEase = 1 - Math.pow(1 - slideP, 3);
+    const slideOffsetX = -260 * (1 - slideEase);
+
+    const targetSpec: PoseRenderSpec = {
+      primaryIdx: 0,
+      x: targetHomeX + slideOffsetX,
+      y: targetHomeY,
+      scaleX: 1.0,
+      scaleY: 1.0,
+      rot: 0,
+      flashWhite: 0,
+      afterimages: 0,
+      dashDirX: -1,
+      dashDirY: 0,
+    };
+
+    const hitTimes = element === 'holy' ? [420, 760] : [340, 580, 820];
+    let activeRecoil = 0;
+    let activeFlash = 0;
+    let camShake = 0;
+    let shockwaveProgress = -1;
+
+    for (let hi = 0; hi < hitTimes.length; hi++) {
+      const ht = hitTimes[hi];
+      if (s2 >= ht) {
+        const isLast = hi === hitTimes.length - 1;
+        this.fireOnce(`magic_hit_${hi}`, () => {
+          this.sound.playSfx(isLast ? 'crit' : 'hit');
+          if (this.config.enableHitStopAndSparks && isLast) {
+            this.hitStopRemainingMs = 75;
+          }
+          const pal =
+            element === 'holy'
+              ? ['#ffffff', '#fef08a', '#fde047', '#7dd3fc']
+              : element === 'fire'
+                ? ['#ffffff', '#fde047', '#f97316', '#ef4444']
+                : ['#ffffff', '#e879f9', '#38bdf8', '#fde047'];
+          this.spawnImpactSparks(targetHomeX, targetHomeY - 190, targetHomeY, isLast ? 75 : 36, pal, -0.3, -0.65);
+          this.spawnDustPlume(targetHomeX, targetHomeY, -0.5, -0.3, isLast ? 16 : 8);
+          const dmgPart = isLast
+            ? Math.max(1, this.thorStrikeDmg - Math.floor(this.thorStrikeDmg / hitTimes.length) * (hitTimes.length - 1))
+            : Math.max(1, Math.floor(this.thorStrikeDmg / hitTimes.length));
+          this.banditTargetHp = Math.max(0, this.banditTargetHp - dmgPart);
+        });
+        const span = isLast ? 420 : 210;
+        const delta = s2 - ht;
+        if (delta < span) {
+          const hp = delta / span;
+          activeRecoil = Math.max(activeRecoil, Math.sin(Math.min(1, hp * 1.5) * Math.PI) * (isLast ? 1.0 : 0.55));
+          activeFlash = Math.max(activeFlash, Math.max(0, 1 - hp * 2.8) * (isLast ? 1.0 : 0.72));
+          camShake = Math.max(camShake, this.config.enableHitStopAndSparks ? (1 - hp) * (isLast ? 24 : 13) : 0);
+          if (isLast) shockwaveProgress = Math.min(1, hp * 1.6);
+        }
+      }
+    }
+
+    targetSpec.x = targetHomeX + slideOffsetX - activeRecoil * 48;
+    targetSpec.y = targetHomeY - activeRecoil * 20;
+    targetSpec.rot = -activeRecoil * 0.09;
+    targetSpec.scaleX = 1.0 - activeRecoil * 0.07;
+    targetSpec.scaleY = 1.0 + activeRecoil * 0.06;
+    targetSpec.flashWhite = activeFlash;
+
+    const spellStart = 180;
+    const spellEnd = 1220;
+    const spellP = s2 >= spellStart && s2 <= spellEnd ? (s2 - spellStart) / (spellEnd - spellStart) : -1;
+
+    const camZoom = 1.04 + (spellP >= 0 ? Math.sin(spellP * Math.PI) * 0.1 : 0);
+    const shakeX = camShake > 0 ? (Math.random() - 0.5) * camShake * 2 : 0;
+    const shakeY = camShake > 0 ? (Math.random() - 0.5) * camShake * 1.5 : 0;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.translate(W * 0.5 + shakeX, H * 0.5 + shakeY);
+    ctx.scale(camZoom, camZoom);
+    ctx.translate(-W * 0.5, -H * 0.5);
+
+    this.drawTerrainBackdrop(ctx, W, H, enemyBgId, 0, 0, targetHomeY);
+    this.drawGroundShadow(ctx, targetSpec.x, targetSpec.y, 210);
+
+    // Back-layer magic seal beneath Target
+    if (spellP >= 0) {
+      this.drawMagicCastCircle(ctx, targetHomeX, targetHomeY - 12, spellP, element);
+    }
+    if (shockwaveProgress >= 0 && shockwaveProgress <= 1 && this.config.enableHitStopAndSparks) {
+      this.drawGroundShockwave(ctx, targetHomeX, targetHomeY - 10, shockwaveProgress);
+    }
+
+    this.renderCombatantWithBlend(ctx, targetPoses, targetSpec, '#ef4444', 550);
+
+    // Front-layer elemental spell pillar & vortex over Target!
+    if (spellP >= 0) {
+      this.drawModernSpellEffect(ctx, targetHomeX, targetHomeY, spellP, element);
+    }
+
+    this.drawDustAndSparks(ctx);
+    this.drawForegroundLeaves(ctx, enemyBgId);
+    ctx.restore();
+
+    // Soft transition fade-in from Stage 1 flash
+    if (s2 < 140) {
+      const fp = 1 - s2 / 140;
+      ctx.save();
+      ctx.fillStyle = `rgba(255, 250, 225, ${fp * 0.85})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    } else if (activeFlash > 0.1 && this.config.enableHitStopAndSparks) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const grad = ctx.createRadialGradient(targetHomeX, targetHomeY - 180, 20, targetHomeX, targetHomeY - 180, W * 0.65);
+      const col = element === 'holy' ? '254, 240, 138' : element === 'fire' ? '249, 115, 22' : '168, 85, 247';
+      grad.addColorStop(0, `rgba(255, 255, 240, ${activeFlash * 0.42})`);
+      grad.addColorStop(0.4, `rgba(${col}, ${activeFlash * 0.3})`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    this.drawModernDualHud(ctx, W, H);
+  }
+
   private renderCombatantWithBlend(
     ctx: CanvasRenderingContext2D,
     poses: HTMLImageElement[],
@@ -1355,38 +2253,152 @@ export class Modern25DCombatRenderer {
     }
   }
 
-  private drawForegroundTaiMound(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
+  /**
+   * Draws the Hero's foreground TAI ground platform when Hero & Enemy stand on DIFFERENT tile types
+   * (or blends seamlessly when both share the same terrain). Flying units suppress TAI per FD2 `fn_61827`.
+   */
+  private drawHeroTaiPlatform(
+    ctx: CanvasRenderingContext2D,
+    heroBgId: number,
+    activeBgId: number,
+    cx: number,
+    cy: number,
+    isFlying: boolean,
+    forceShow: boolean
+  ): void {
+    if (isFlying) {
+      // Flying units float above terrain with only a soft distant shadow (faithful to FD2 `fn_61827`)
+      ctx.save();
+      ctx.translate(cx + 10, cy + 22);
+      ctx.scale(1, 0.24);
+      const grad = ctx.createRadialGradient(0, 0, 20, 0, 0, 210);
+      grad.addColorStop(0, 'rgba(5, 8, 12, 0.36)');
+      grad.addColorStop(1, 'rgba(5, 8, 12, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 210, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    const showDistinctTai = forceShow || heroBgId !== activeBgId;
+    if (!showDistinctTai) {
+      // Same tile type: soft organic ground blend so both combatants share one unified scenic stage!
+      ctx.save();
+      ctx.translate(cx + 25, cy + 4);
+      ctx.scale(1, 0.32);
+      const grad = ctx.createRadialGradient(0, 0, 40, 0, 0, 390);
+      grad.addColorStop(0, 'rgba(32, 46, 28, 0.42)');
+      grad.addColorStop(0.6, 'rgba(20, 30, 18, 0.22)');
+      grad.addColorStop(1, 'rgba(12, 18, 12, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 390, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
+
+    // Mixed tile types (e.g., Hero on Forest/Snowfield vs Enemy on Town Street/Castle):
+    // Render the authentic 4x HD TAI.DAT[heroBgId] platform as a harmonized foreground 2.5D terrain ledge!
+    const platW = 730;
+    const platH = 198;
+    const dx = cx - platW * 0.47;
+    const dy = cy - platH * 0.56;
+
+    // 1. Grounded ambient cast shadow underneath the foreground terrain platform
     ctx.save();
-    ctx.translate(cx + 25, cy + 4);
-    ctx.scale(1, 0.32);
-    const grad = ctx.createRadialGradient(0, 0, 40, 0, 0, 390);
-    grad.addColorStop(0, 'rgba(42, 62, 34, 0.65)');
-    grad.addColorStop(0.55, 'rgba(28, 44, 24, 0.45)');
-    grad.addColorStop(0.85, 'rgba(18, 28, 16, 0.2)');
-    grad.addColorStop(1, 'rgba(18, 28, 16, 0)');
-    ctx.fillStyle = grad;
+    ctx.translate(cx + 16, cy + 28);
+    ctx.scale(1, 0.27);
+    const shGrad = ctx.createRadialGradient(0, 0, 90, 0, 0, 415);
+    shGrad.addColorStop(0, 'rgba(4, 7, 10, 0.85)');
+    shGrad.addColorStop(0.68, 'rgba(4, 7, 10, 0.48)');
+    shGrad.addColorStop(1, 'rgba(4, 7, 10, 0)');
+    ctx.fillStyle = shGrad;
     ctx.beginPath();
-    ctx.arc(0, 0, 390, 0, Math.PI * 2);
+    ctx.arc(0, 0, 415, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+
+    // 2. Render 4x HD TAI.DAT[heroBgId] onto reusable scratch canvas with soft lighting harmonization
+    const am = this.vfxAssets.assetManager;
+    let drewRealTai = false;
+    if (am) {
+      if (!this.taiScratchCanvas) {
+        this.taiScratchCanvas = document.createElement('canvas');
+        this.taiScratchCanvas.width = 640;
+        this.taiScratchCanvas.height = 176;
+        this.taiScratchCtx = this.taiScratchCanvas.getContext('2d');
+      }
+      const tctx = this.taiScratchCtx;
+      if (tctx && this.taiScratchCanvas) {
+        tctx.globalCompositeOperation = 'source-over';
+        tctx.globalAlpha = 1;
+        tctx.clearRect(0, 0, 640, 176);
+        drewRealTai = am.drawTaiPlatformScaled(tctx, heroBgId, 0, 0, 640, 176);
+        if (drewRealTai) {
+          // Harmonize top-lit sheen & bottom rim shading directly onto the TAI silhouette
+          tctx.globalCompositeOperation = 'source-atop';
+          const lit = tctx.createLinearGradient(0, 0, 0, 176);
+          lit.addColorStop(0, 'rgba(255, 250, 232, 0.14)');
+          lit.addColorStop(0.55, 'rgba(0, 0, 0, 0)');
+          lit.addColorStop(1, 'rgba(6, 10, 16, 0.34)');
+          tctx.fillStyle = lit;
+          tctx.fillRect(0, 0, 640, 176);
+          tctx.globalCompositeOperation = 'source-over';
+
+          ctx.save();
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(this.taiScratchCanvas, dx, dy, platW, platH);
+
+          // Subtle rim highlight along top edge of terrain ledge so it reads cleanly in 2.5D
+          ctx.strokeStyle = 'rgba(255, 248, 220, 0.22)';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.ellipse(cx + 18, cy - 6, platW * 0.45, platH * 0.36, 0, Math.PI * 1.08, Math.PI * 1.92);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+
+    if (!drewRealTai) {
+      // Fallback soft ground rim for sky/void slots without a TAI texture
+      ctx.save();
+      ctx.translate(cx + 16, cy + 4);
+      ctx.scale(1, 0.28);
+      const grad = ctx.createRadialGradient(0, 0, 40, 0, 0, 360);
+      grad.addColorStop(0, 'rgba(72, 92, 118, 0.45)');
+      grad.addColorStop(1, 'rgba(18, 28, 38, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 360, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
-  private drawForestBackground(
+  private drawTerrainBackdrop(
     ctx: CanvasRenderingContext2D,
     W: number,
     H: number,
+    bgId: number,
     camX: number,
     camY: number,
     groundY: number
   ): void {
+    const preset = getTerrainPreset(bgId);
     const pFactor = this.config.enableParallaxAndGodRays ? 0.35 : 0;
     const bgX = -W * 0.06 + camX * pFactor;
     const bgY = -H * 0.06 + camY * pFactor;
     const bgW = W * 1.12;
     const bgH = H * 1.12;
 
-    if (this.vfxAssets.forestBg) {
-      ctx.drawImage(this.vfxAssets.forestBg, bgX, bgY, bgW, bgH);
+    const bgImg = this.vfxAssets.bgImages.get(bgId) ?? this.vfxAssets.forestBg;
+    if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+      ctx.drawImage(bgImg, bgX, bgY, bgW, bgH);
     } else {
       const sky = ctx.createLinearGradient(0, 0, 0, H);
       sky.addColorStop(0, '#0f291e');
@@ -1396,14 +2408,24 @@ export class Modern25DCombatRenderer {
     }
 
     const stageGrade = ctx.createLinearGradient(0, 0, 0, H);
-    stageGrade.addColorStop(0, 'rgba(8, 22, 16, 0.35)');
-    stageGrade.addColorStop(0.55, 'rgba(16, 38, 24, 0.12)');
-    stageGrade.addColorStop(0.82, 'rgba(28, 24, 14, 0.28)');
-    stageGrade.addColorStop(1, 'rgba(10, 12, 8, 0.65)');
+    if (preset.weather === 'embers') {
+      stageGrade.addColorStop(0, 'rgba(32, 8, 6, 0.36)');
+      stageGrade.addColorStop(0.55, 'rgba(48, 14, 8, 0.14)');
+      stageGrade.addColorStop(1, 'rgba(16, 6, 4, 0.68)');
+    } else if (preset.weather === 'snow') {
+      stageGrade.addColorStop(0, 'rgba(14, 28, 48, 0.24)');
+      stageGrade.addColorStop(0.55, 'rgba(200, 228, 255, 0.06)');
+      stageGrade.addColorStop(1, 'rgba(12, 20, 32, 0.52)');
+    } else {
+      stageGrade.addColorStop(0, 'rgba(8, 22, 16, 0.30)');
+      stageGrade.addColorStop(0.55, 'rgba(16, 38, 24, 0.10)');
+      stageGrade.addColorStop(0.82, 'rgba(28, 24, 14, 0.24)');
+      stageGrade.addColorStop(1, 'rgba(10, 12, 8, 0.62)');
+    }
     ctx.fillStyle = stageGrade;
     ctx.fillRect(bgX, bgY, bgW, bgH);
 
-    if (!this.config.enableParallaxAndGodRays) return;
+    if (!this.config.enableParallaxAndGodRays || !preset.outdoor) return;
 
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
@@ -1417,9 +2439,10 @@ export class Modern25DCombatRenderer {
       const topX = r.x + sway - 140;
       const botX = r.x + sway + 160;
       const grad = ctx.createLinearGradient(topX, 0, botX, groundY);
-      grad.addColorStop(0, `rgba(254, 240, 138, ${r.alpha * 1.3})`);
-      grad.addColorStop(0.6, `rgba(253, 224, 71, ${r.alpha * 0.7})`);
-      grad.addColorStop(1, 'rgba(253, 224, 71, 0)');
+      const rayRgb = preset.weather === 'snow' ? '186, 230, 253' : '254, 240, 138';
+      grad.addColorStop(0, `rgba(${rayRgb}, ${r.alpha * 1.25})`);
+      grad.addColorStop(0.6, `rgba(${rayRgb}, ${r.alpha * 0.65})`);
+      grad.addColorStop(1, `rgba(${rayRgb}, 0)`);
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.moveTo(topX - r.w * 0.4, -40);
@@ -1429,6 +2452,393 @@ export class Modern25DCombatRenderer {
       ctx.closePath();
       ctx.fill();
     }
+    ctx.restore();
+  }
+
+  /**
+   * Stage 2 of Ranged 3-Stage Cutaway: Modern HD horizontal speed-line parallax bands
+   * (direct homage to 1995 `BG.DAT[0..2]`'s iconic horizontal navy speed strips) + supersonic projectile!
+   */
+  private drawRangedSpeedLineBridge(
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    progress: number,
+    dirX: -1 | 1,
+    projectileType: 'bolt' | 'arrow' | 'beam' | 'orb'
+  ): void {
+    ctx.save();
+    // Deep cobalt-navy horizontal speed backdrop matching BG.DAT[0..2] palette
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#04091a');
+    bg.addColorStop(0.22, '#0c1e46');
+    bg.addColorStop(0.5, '#173672');
+    bg.addColorStop(0.78, '#0c1e46');
+    bg.addColorStop(1, '#04091a');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Classic horizontal alternating speed bands (modernized BG.DAT[0..2] strips!)
+    const stripeCount = 26;
+    const stripeH = H / stripeCount;
+    for (let i = 0; i < stripeCount; i++) {
+      const y = i * stripeH;
+      const distFromMid = Math.abs(i - stripeCount * 0.5) / (stripeCount * 0.5);
+      const wave = Math.sin(i * 1.7 + progress * 22);
+      const bandAlpha = (0.14 + (1 - distFromMid) * 0.24) * (0.65 + 0.35 * wave);
+      ctx.fillStyle = i % 2 === 0 ? `rgba(56, 142, 232, ${bandAlpha})` : `rgba(8, 16, 44, ${bandAlpha * 1.4})`;
+      ctx.fillRect(0, y, W, stripeH * 0.86);
+    }
+
+    // High-speed parallax anime streak needles zipping opposite to bolt travel
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    for (let i = 0; i < 46; i++) {
+      const seed = (i * 197.3) % 1;
+      const y = ((i * 73.1) % H);
+      const len = 180 + (i % 7) * 95;
+      const speed = 1.6 + (i % 5) * 0.55;
+      const rawX = (seed * W + (-dirX) * progress * W * speed * 1.4) % (W + len * 2);
+      const x = rawX < -len ? rawX + W + len * 2 : rawX - len;
+      const thickness = i % 5 === 0 ? 4.2 : 1.8;
+      const isGold = i % 6 === 0 && Math.abs(y - H * 0.5) < H * 0.26;
+      const grad = ctx.createLinearGradient(x, y, x + len, y);
+      const col = isGold ? '253, 224, 71' : '147, 197, 253';
+      grad.addColorStop(0, `rgba(${col}, 0)`);
+      grad.addColorStop(0.5, `rgba(${col}, ${isGold ? 0.82 : 0.55})`);
+      grad.addColorStop(1, `rgba(${col}, 0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, y, len, thickness);
+    }
+    ctx.restore();
+
+    // Central glowing supersonic slipstream + large HD projectile tearing across the screen!
+    const startX = dirX < 0 ? W * 0.96 : W * 0.04;
+    const endX = dirX < 0 ? W * 0.04 : W * 0.96;
+    const projX = startX + (endX - startX) * progress;
+    const projY = H * 0.5 + Math.sin(progress * Math.PI * 4) * 4;
+
+    // Full-span luminous wake trail behind projectile
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const wakeLen = 580;
+    const tailX = projX - dirX * wakeLen;
+    const wakeGrad = ctx.createLinearGradient(projX, projY, tailX, projY);
+    wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    wakeGrad.addColorStop(0.25, 'rgba(253, 224, 71, 0.72)');
+    wakeGrad.addColorStop(0.65, 'rgba(56, 189, 248, 0.35)');
+    wakeGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.fillStyle = wakeGrad;
+    ctx.beginPath();
+    ctx.moveTo(projX + dirX * 35, projY);
+    ctx.lineTo(tailX, projY - 34);
+    ctx.lineTo(tailX, projY + 34);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    this.drawHdProjectile(ctx, projX, projY, dirX, projectileType, 1.85);
+
+    // Subtle dark vignette top & bottom framing like dramatic widescreen anime cutaway
+    const vig = ctx.createLinearGradient(0, 0, 0, H);
+    vig.addColorStop(0, 'rgba(2, 6, 18, 0.65)');
+    vig.addColorStop(0.18, 'rgba(2, 6, 18, 0)');
+    vig.addColorStop(0.82, 'rgba(2, 6, 18, 0)');
+    vig.addColorStop(1, 'rgba(2, 6, 18, 0.65)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  /** Draws a crisp HD painted crossbow bolt / arrow / beam with supersonic flare cone. */
+  private drawHdProjectile(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    dirX: -1 | 1,
+    projectileType: 'bolt' | 'arrow' | 'beam' | 'orb',
+    scale = 1.0
+  ): void {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(dirX * scale, scale);
+
+    // Glowing aerodynamic energy wake
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const aura = ctx.createLinearGradient(75, 0, -240, 0);
+    aura.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    aura.addColorStop(0.28, 'rgba(253, 224, 71, 0.78)');
+    aura.addColorStop(0.65, 'rgba(249, 115, 22, 0.35)');
+    aura.addColorStop(1, 'rgba(249, 115, 22, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.moveTo(86, 0);
+    ctx.lineTo(-240, -24);
+    ctx.lineTo(-240, 24);
+    ctx.closePath();
+    ctx.fill();
+
+    // Shock cone rings right behind tip
+    ctx.strokeStyle = 'rgba(254, 249, 195, 0.78)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(64, 0);
+    ctx.lineTo(14, -22);
+    ctx.moveTo(64, 0);
+    ctx.lineTo(14, 22);
+    ctx.stroke();
+    ctx.restore();
+
+    if (projectileType === 'beam') {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-180, -8, 250, 16);
+    } else {
+      // Dark mahogany & crimson-banded shaft
+      ctx.fillStyle = '#7c2d12';
+      ctx.fillRect(-88, -3.5, 134, 7);
+      ctx.fillStyle = '#fde68a';
+      ctx.fillRect(-88, -1.2, 134, 2.4);
+
+      // Fletching feathers at tail (crisp silver-white & crimson trim)
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.moveTo(-64, -3);
+      ctx.lineTo(-96, -15);
+      ctx.lineTo(-108, -13);
+      ctx.lineTo(-84, -3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-64, 3);
+      ctx.lineTo(-96, 15);
+      ctx.lineTo(-108, 13);
+      ctx.lineTo(-84, 3);
+      ctx.closePath();
+      ctx.fill();
+
+      // Gilded steel broadhead bolt tip
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath();
+      ctx.moveTo(76, 0);
+      ctx.lineTo(36, -11);
+      ctx.lineTo(44, 0);
+      ctx.lineTo(36, 11);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      // White-hot impact glare at tip
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const tipGlow = ctx.createRadialGradient(70, 0, 2, 70, 0, 34);
+      tipGlow.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      tipGlow.addColorStop(0.45, 'rgba(253, 224, 71, 0.85)');
+      tipGlow.addColorStop(1, 'rgba(253, 224, 71, 0)');
+      ctx.fillStyle = tipGlow;
+      ctx.beginPath();
+      ctx.arc(70, 0, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  /** Draws a rotating 3D perspective ground magic circle for Stage 1 Chant & Stage 2 Spell Seal. */
+  private drawMagicCastCircle(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    cy: number,
+    progress: number,
+    element: 'fire' | 'holy' | 'thunder' | 'ice' | 'arcane'
+  ): void {
+    const fade = progress < 0.15 ? progress / 0.15 : progress > 0.88 ? (1 - progress) / 0.12 : 1;
+    if (fade <= 0.01) return;
+
+    const primary =
+      element === 'holy'
+        ? '254, 240, 138'
+        : element === 'fire'
+          ? '249, 115, 22'
+          : element === 'ice'
+            ? '56, 189, 248'
+            : element === 'thunder'
+              ? '250, 204, 21'
+              : '168, 85, 247';
+    const secondary = element === 'holy' ? '125, 211, 252' : element === 'fire' ? '253, 224, 71' : '232, 121, 249';
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.translate(cx, cy);
+    ctx.scale(1, 0.3);
+
+    const rOuter = 230 + Math.sin(progress * Math.PI) * 35;
+    const rot = progress * Math.PI * 2.4;
+
+    // Radiant floor glow
+    const glow = ctx.createRadialGradient(0, 0, 20, 0, 0, rOuter * 1.25);
+    glow.addColorStop(0, `rgba(255, 255, 240, ${0.42 * fade})`);
+    glow.addColorStop(0.55, `rgba(${primary}, ${0.38 * fade})`);
+    glow.addColorStop(1, `rgba(${primary}, 0)`);
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, rOuter * 1.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer double concentric rings
+    ctx.strokeStyle = `rgba(${primary}, ${0.9 * fade})`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(0, 0, rOuter, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(${secondary}, ${0.8 * fade})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, rOuter * 0.84, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Rotating 6-point hexagram / arcane star
+    ctx.save();
+    ctx.rotate(rot);
+    ctx.strokeStyle = `rgba(255, 252, 230, ${0.85 * fade})`;
+    ctx.lineWidth = 3.5;
+    for (let tri = 0; tri < 2; tri++) {
+      ctx.beginPath();
+      for (let k = 0; k <= 3; k++) {
+        const a = (k * Math.PI * 2) / 3 + (tri * Math.PI) / 3;
+        const px = Math.cos(a) * rOuter * 0.84;
+        const py = Math.sin(a) * rOuter * 0.84;
+        if (k === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+    // Rune tick marks around perimeter
+    for (let k = 0; k < 18; k++) {
+      const a = (k * Math.PI * 2) / 18;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * rOuter * 0.86, Math.sin(a) * rOuter * 0.86);
+      ctx.lineTo(Math.cos(a) * rOuter * 0.98, Math.sin(a) * rOuter * 0.98);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  /** Draws Stage 2 Modern 2.5D Elemental Spell Shader (Fire Dragon Pillar / Holy Radiance / Arcane Nova). */
+  private drawModernSpellEffect(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    groundY: number,
+    progress: number,
+    element: 'fire' | 'holy' | 'thunder' | 'ice' | 'arcane'
+  ): void {
+    const fade = progress < 0.14 ? progress / 0.14 : progress > 0.78 ? (1 - progress) / 0.22 : 1;
+    if (fade <= 0.01) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+
+    if (element === 'holy') {
+      // Descending Celestial Cathedral Light Pillar + Golden Cross Starbursts (#010 Marin)
+      const pillarW = (175 + Math.sin(progress * Math.PI * 3) * 28) * fade;
+      const topY = -40;
+      const beamGrad = ctx.createLinearGradient(cx - pillarW, 0, cx + pillarW, 0);
+      beamGrad.addColorStop(0, 'rgba(125, 211, 252, 0)');
+      beamGrad.addColorStop(0.24, `rgba(253, 224, 71, ${0.48 * fade})`);
+      beamGrad.addColorStop(0.5, `rgba(255, 255, 245, ${0.95 * fade})`);
+      beamGrad.addColorStop(0.76, `rgba(253, 224, 71, ${0.48 * fade})`);
+      beamGrad.addColorStop(1, 'rgba(125, 211, 252, 0)');
+      ctx.fillStyle = beamGrad;
+      ctx.fillRect(cx - pillarW, topY, pillarW * 2, groundY - topY + 25);
+
+      // Celestial halo rings descending down the light beam
+      for (let r = 0; r < 3; r++) {
+        const rp = (progress * 1.8 + r * 0.33) % 1;
+        const ry = groundY - 460 * (1 - rp);
+        const rad = 120 + Math.sin(rp * Math.PI) * 75;
+        ctx.save();
+        ctx.translate(cx, ry);
+        ctx.scale(1, 0.28);
+        ctx.strokeStyle = `rgba(254, 249, 195, ${(1 - rp) * 0.9 * fade})`;
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.arc(0, 0, rad, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Radiant golden cross flare at torso impact
+      const crossY = groundY - 210;
+      const cSize = 180 * Math.sin(Math.min(1, progress * 1.3) * Math.PI) * fade;
+      ctx.strokeStyle = `rgba(255, 255, 240, ${0.92 * fade})`;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(cx - cSize, crossY);
+      ctx.lineTo(cx + cSize, crossY);
+      ctx.moveTo(cx, crossY - cSize * 1.25);
+      ctx.lineTo(cx, crossY + cSize * 1.05);
+      ctx.stroke();
+    } else {
+      // Spiraling Twin Flame Dragon / Arcane Inferno Pillar erupting skyward (#009 Uni)
+      const isFire = element === 'fire';
+      const cOuter = isFire ? '239, 68, 68' : '168, 85, 247';
+      const cMid = isFire ? '249, 115, 22' : '56, 189, 248';
+      const cCore = isFire ? '254, 240, 138' : '240, 249, 255';
+
+      const colH = 660 * Math.min(1, progress * 2.2);
+      const colW = (160 + Math.sin(progress * Math.PI * 6) * 26) * fade;
+      const pGrad = ctx.createLinearGradient(cx - colW, groundY, cx + colW, groundY);
+      pGrad.addColorStop(0, `rgba(${cOuter}, 0)`);
+      pGrad.addColorStop(0.22, `rgba(${cOuter}, ${0.55 * fade})`);
+      pGrad.addColorStop(0.42, `rgba(${cMid}, ${0.78 * fade})`);
+      pGrad.addColorStop(0.5, `rgba(255, 255, 240, ${0.95 * fade})`);
+      pGrad.addColorStop(0.58, `rgba(${cMid}, ${0.78 * fade})`);
+      pGrad.addColorStop(0.78, `rgba(${cOuter}, ${0.55 * fade})`);
+      pGrad.addColorStop(1, `rgba(${cOuter}, 0)`);
+      ctx.fillStyle = pGrad;
+      ctx.fillRect(cx - colW, groundY - colH, colW * 2, colH + 10);
+
+      // Twin helical flame ribbons coiling upward around the target!
+      for (let strand = 0; strand < 2; strand++) {
+        ctx.beginPath();
+        const segs = 28;
+        for (let i = 0; i <= segs; i++) {
+          const u = i / segs;
+          const y = groundY - u * colH;
+          const angle = u * Math.PI * 3.6 - progress * 14 + strand * Math.PI;
+          const x = cx + Math.cos(angle) * (105 + Math.sin(u * Math.PI) * 58);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = `rgba(${cCore}, ${0.92 * fade})`;
+        ctx.lineWidth = 22 * fade;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(${cOuter}, ${0.65 * fade})`;
+        ctx.lineWidth = 42 * fade;
+        ctx.stroke();
+      }
+
+      // Erupting ground fireball bloom
+      const bloomR = 230 * fade;
+      const bGrad = ctx.createRadialGradient(cx, groundY - 110, 12, cx, groundY - 110, bloomR);
+      bGrad.addColorStop(0, `rgba(255, 255, 245, ${0.95 * fade})`);
+      bGrad.addColorStop(0.4, `rgba(${cMid}, ${0.7 * fade})`);
+      bGrad.addColorStop(1, `rgba(${cOuter}, 0)`);
+      ctx.fillStyle = bGrad;
+      ctx.beginPath();
+      ctx.arc(cx, groundY - 110, bloomR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
   }
 
@@ -1710,17 +3120,39 @@ export class Modern25DCombatRenderer {
     ctx.restore();
   }
 
-  private drawForegroundLeaves(ctx: CanvasRenderingContext2D): void {
+  private drawForegroundLeaves(ctx: CanvasRenderingContext2D, bgId?: number): void {
     if (!this.config.enableParallaxAndGodRays) return;
+    const weather = getTerrainPreset(bgId ?? this.vfxAssets.enemyBgId).weather ?? 'leaves';
     for (const leaf of this.leaves) {
       ctx.save();
       ctx.translate(leaf.x, leaf.y);
       ctx.rotate(leaf.rot);
-      ctx.globalAlpha = leaf.depth > 1.15 ? 0.45 : 0.72;
-      ctx.fillStyle = `hsl(${leaf.hue}, 58%, ${leaf.depth > 1.15 ? 32 : 44}%)`;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, leaf.size * leaf.depth, leaf.size * 0.48 * leaf.depth, 0, 0, Math.PI * 2);
-      ctx.fill();
+      if (weather === 'snow') {
+        ctx.globalAlpha = leaf.depth > 1.15 ? 0.55 : 0.82;
+        ctx.fillStyle = '#e0f2fe';
+        ctx.beginPath();
+        ctx.arc(0, 0, leaf.size * 0.42 * leaf.depth, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (weather === 'embers') {
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = leaf.depth > 1.15 ? 0.55 : 0.85;
+        ctx.fillStyle = leaf.hue > 108 ? '#fde047' : '#f97316';
+        ctx.beginPath();
+        ctx.arc(0, 0, leaf.size * 0.36 * leaf.depth, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (weather === 'dust') {
+        ctx.globalAlpha = leaf.depth > 1.15 ? 0.22 : 0.36;
+        ctx.fillStyle = '#fef3c7';
+        ctx.beginPath();
+        ctx.arc(0, 0, leaf.size * 0.3 * leaf.depth, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.globalAlpha = leaf.depth > 1.15 ? 0.45 : 0.72;
+        ctx.fillStyle = `hsl(${leaf.hue}, 58%, ${leaf.depth > 1.15 ? 32 : 44}%)`;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, leaf.size * leaf.depth, leaf.size * 0.48 * leaf.depth, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
     }
   }
@@ -1949,37 +3381,39 @@ export class Modern25DCombatRenderer {
       '#38bdf8'
     );
 
-    // Top-Left: Active Animation Pipeline Indicator Badge
+    // Top-Left: Active Stage, Terrain & Combat Mode Indicator Badge
     ctx.save();
-    ctx.fillStyle = 'rgba(10, 14, 24, 0.86)';
+    ctx.fillStyle = 'rgba(10, 14, 24, 0.88)';
     ctx.strokeStyle =
-      this.config.animSource === 'omni_video'
-        ? '#fde047'
-        : this.config.animSource === 'nb2_6frame'
-          ? '#38bdf8'
-          : '#a855f7';
+      this.scenario === 'hero_magic'
+        ? '#c084fc'
+        : this.vfxAssets.rightUnit.isRemote
+          ? '#fbbf24'
+          : '#38bdf8';
     ctx.lineWidth = 1.5;
+    ctx.font = 'bold 14px monospace';
+    const fallbackLabel =
+      this.config.animSource === 'omni_video'
+        ? isEn
+          ? '🎬 Pipeline: Full Action Sequence (10–14F)'
+          : '🎬 當前管線：完整去背連段序列 (10–14 幀)'
+        : this.config.animSource === 'nb2_6frame'
+          ? isEn
+            ? '🖼️ Pipeline: 6-Frame Keyframes'
+            : '🖼️ 當前管線：6 幀關鍵序列'
+          : isEn
+            ? '🎨 Pipeline: 3-Pose Baseline'
+            : '🎨 當前管線：3 幀基準組';
+    const badgeText = this.activeStageBadge || fallbackLabel;
+    const badgeW = Math.max(460, Math.min(820, ctx.measureText(badgeText).width + 36));
     ctx.beginPath();
-    ctx.roundRect(38, 24, 490, 38, 8);
+    ctx.roundRect(38, 24, badgeW, 38, 8);
     ctx.fill();
     ctx.stroke();
 
     ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'left';
-    const modeLabel =
-      this.config.animSource === 'omni_video'
-        ? isEn
-          ? '🎬 Pipeline: Gemini Omni 1.2 Video + ffmpeg (10 Frames)'
-          : '🎬 當前管線：Gemini Omni 1.2 影片生成 + ffmpeg 抽幀 (10 幀序列)'
-        : this.config.animSource === 'nb2_6frame'
-          ? isEn
-            ? '🖼️ Pipeline: Nano Banana 2 + Original Strip (6 Frames)'
-            : '🖼️ 當前管線：Nano Banana 2 餵入原版連續圖 (6 幀序列)'
-          : isEn
-            ? '🎨 Pipeline: Nano Banana 2 Baseline (3 Poses + Blend)'
-            : '🎨 當前管線：Nano Banana 2 基礎三關鍵幀 + 補間';
-    ctx.fillText(modeLabel, 54, 48);
+    ctx.fillText(badgeText, 54, 48);
     ctx.restore();
   }
 }
@@ -2186,6 +3620,36 @@ export async function mountVfxLabInGallery(
         </div>
       </div>
 
+      <!-- INDEPENDENT TERRAIN SELECTORS (HERO TAI / STAGE 1 vs ENEMY BG / STAGE 3) -->
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 18px; background: rgba(12, 20, 34, 0.92); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 10px;">
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #86efac;">
+            <span>🗺️ ${tr('我方地形 (近戰TAI / 遠程攻方背景)：', '我方地形 (近战TAI / 远程攻方背景)：', 'Hero Tile (Melee TAI / Remote Stage 1):')}</span>
+            <select id="vfx-sel-hero-bg" style="background: #090d16; color: #f8fafc; border: 1px solid #22c55e; border-radius: 6px; padding: 4px 8px; font-size: 12.5px; font-weight: 600;">
+              ${HD_TERRAIN_PRESETS.map(
+                (tp) =>
+                  `<option value="${tp.id}" ${tp.id === vfxAssets.heroBgId ? 'selected' : ''}>#${String(tp.id).padStart(2, '0')} ${isEn ? tp.en : tp.zh}</option>`
+              ).join('')}
+            </select>
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #fca5a5;">
+            <span>🏞️ ${tr('敵方地形 (近戰全景BG / 遠程受擊背景)：', '敌方地形 (近战全景BG / 远程受击背景)：', 'Enemy Tile (Melee BG / Remote Target):')}</span>
+            <select id="vfx-sel-enemy-bg" style="background: #090d16; color: #f8fafc; border: 1px solid #f87171; border-radius: 6px; padding: 4px 8px; font-size: 12.5px; font-weight: 600;">
+              ${HD_TERRAIN_PRESETS.map(
+                (tp) =>
+                  `<option value="${tp.id}" ${tp.id === vfxAssets.enemyBgId ? 'selected' : ''}>#${String(tp.id).padStart(2, '0')} ${isEn ? tp.en : tp.zh}</option>`
+              ).join('')}
+            </select>
+          </label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <button class="gal-btn sm" data-terrain-preset="4,4" type="button">🌲 ${tr('同地形 (林地)', '同地形 (林地)', 'Same (Forest)')}</button>
+          <button class="gal-btn sm" data-terrain-preset="4,10" type="button">🌲vs🏘️ ${tr('異地 (林地→城鎮)', '异地 (林地→城镇)', 'Mixed (Forest→Town)')}</button>
+          <button class="gal-btn sm" data-terrain-preset="40,45" type="button">❄️vs🏰 ${tr('異地 (雪原→石橋)', '异地 (雪原→石桥)', 'Mixed (Snow→Bridge)')}</button>
+          <button class="gal-btn sm" data-terrain-preset="28,21" type="button">🌋vs🏰 ${tr('異地 (熔岩→城牆)', '异地 (熔岩→城墙)', 'Mixed (Lava→Wall)')}</button>
+        </div>
+      </div>
+
       <!-- LIVE 2.5D COMBAT STAGE CANVAS -->
       <div id="vfx-stage-container" style="position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 68vh; background: #05080f; border: 1px solid var(--border-subtle, #334155); border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; box-shadow: 0 18px 48px rgba(0,0,0,0.6);">
         <canvas id="vfx-lab-canvas" width="1600" height="900" style="width: 100%; height: 100%; object-fit: contain;"></canvas>
@@ -2224,6 +3688,9 @@ export async function mountVfxLabInGallery(
           </button>
           <button class="gal-btn" id="vfx-play-crit" type="button">
             🔥 ${tr('我方會心一擊 (頭像向左←)', '我方会心一击 (头像向左←)', 'Hero Crit (Cut-In ←)')}
+          </button>
+          <button class="gal-btn" id="vfx-play-magic" type="button" style="border-color: rgba(192, 132, 252, 0.7);">
+            ✨ ${tr('我方遠程法術 (2段切屏施法)', '我方远程法术 (2段切屏施法)', 'Hero Magic Cast (2-Stage Remote)')}
           </button>
           <button class="gal-btn" id="vfx-play-bandit-crit" type="button">
             💥 ${tr('敵方會心一擊 (頭像向右→)', '敌方会心一击 (头像向右→)', 'Enemy Crit (Cut-In →)')}
@@ -2345,10 +3812,13 @@ export async function mountVfxLabInGallery(
   const btnThorFirst = container.querySelector('#vfx-play-thor-first') as HTMLButtonElement;
   const btnBanditFirst = container.querySelector('#vfx-play-bandit-first') as HTMLButtonElement;
   const btnCrit = container.querySelector('#vfx-play-crit') as HTMLButtonElement;
+  const btnMagic = container.querySelector('#vfx-play-magic') as HTMLButtonElement;
   const btnBanditCrit = container.querySelector('#vfx-play-bandit-crit') as HTMLButtonElement;
 
   const selRightUnit = container.querySelector('#vfx-sel-right-unit') as HTMLSelectElement;
   const selLeftUnit = container.querySelector('#vfx-sel-left-unit') as HTMLSelectElement;
+  const selHeroBg = container.querySelector('#vfx-sel-hero-bg') as HTMLSelectElement;
+  const selEnemyBg = container.querySelector('#vfx-sel-enemy-bg') as HTMLSelectElement;
   const selMasterUnit = container.querySelector('#vfx-sel-master-unit') as HTMLSelectElement;
   const masterCounter = container.querySelector('#vfx-master-counter') as HTMLSpanElement;
   const titleBanner = container.querySelector('#vfx-title-banner') as HTMLSpanElement;
@@ -2362,6 +3832,7 @@ export async function mountVfxLabInGallery(
     btnThorFirst.classList.toggle('active', scen === 'thor_first_duel');
     btnBanditFirst.classList.toggle('active', scen === 'bandit_first_duel');
     btnCrit.classList.toggle('active', scen === 'thor_crit');
+    btnMagic.classList.toggle('active', scen === 'hero_magic');
     btnBanditCrit.classList.toggle('active', scen === 'bandit_crit');
     renderer.startScenario(scen);
   };
@@ -2384,7 +3855,15 @@ export async function mountVfxLabInGallery(
               ? '#f87171'
               : '#334155';
         const bgCol = isFocused ? 'rgba(234, 179, 8, 0.16)' : '#090d16';
-        const sideBadge = u.side === 'player' ? '🛡️↖' : '⚔️↘';
+        const modeTag = u.isRemote
+          ? isEn ? '🏹 Ranged' : '🏹 遠程3段'
+          : u.hasMagic
+            ? isEn ? '✨ Melee+Magic' : '✨ 近戰+法術'
+            : (u.hitFrames?.length ?? 0) > 1
+              ? isEn ? `⚔️ ${u.hitFrames!.length}-Hit` : `⚔️ ${u.hitFrames!.length}連擊`
+              : u.side === 'player'
+                ? '🛡️↖'
+                : '⚔️↘';
         const titleStr = isEn ? `${u.nameEn}` : `${u.nameZh} (${u.nameEn})`;
         const clsStr = isEn ? u.classEn : `${u.classNameZh} · ${u.classEn}`;
         return `
@@ -2397,7 +3876,7 @@ export async function mountVfxLabInGallery(
             <div style="min-width: 0; flex: 1;">
               <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 12px; font-weight: 700;">
                 <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">#${String(u.uid).padStart(3, '0')} ${titleStr}</span>
-                <span style="font-size: 11px; flex-shrink: 0;">${sideBadge}</span>
+                <span style="font-size: 10.5px; color: ${u.isRemote ? '#fbbf24' : u.hasMagic ? '#c084fc' : '#94a3b8'}; flex-shrink: 0;">${modeTag}</span>
               </div>
               <div style="font-size: 11px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                 ${clsStr}
@@ -2530,6 +4009,35 @@ export async function mountVfxLabInGallery(
     const lu = vfxAssets.leftUnit;
     selRightUnit.value = String(ru.uid);
     selLeftUnit.value = String(lu.uid);
+    selHeroBg.value = String(vfxAssets.heroBgId);
+    selEnemyBg.value = String(vfxAssets.enemyBgId);
+
+    // Update Crit & Magic scenario button labels dynamically for Ranged (#008 Celia) & Dual-Form Casters (#009 Uni, #010 Marin)!
+    if (ru.isRemote) {
+      btnCrit.textContent = `🏹 ${tr(
+        `${ru.nameZh} 3段遠程射擊 (速度線過場)`,
+        `${ru.nameZh} 3段远程射击 (速度线过场)`,
+        `${ru.nameEn} 3-Stage Ranged Shot (Speed-Lines)`
+      )}`;
+    } else {
+      btnCrit.textContent = `🔥 ${tr('我方會心一擊 (物理攻擊 ←)', '我方会心一击 (物理攻击 ←)', 'Hero Physical Crit (Cut-In ←)')}`;
+    }
+    if (ru.hasMagic) {
+      const spZh = ru.magicNameZh ?? '元素法術';
+      const spEn = ru.magicNameEn ?? 'Spell';
+      btnMagic.textContent = `✨ ${tr(
+        `${ru.nameZh} 遠程法術：${spZh} (2段切屏)`,
+        `${ru.nameZh} 远程法术：${spZh} (2段切屏)`,
+        `${ru.nameEn} Remote Magic: ${spEn} (2-Stage)`
+      )}`;
+      btnMagic.style.borderColor = '#c084fc';
+      btnMagic.style.boxShadow = '0 0 12px rgba(192, 132, 252, 0.35)';
+    } else {
+      btnMagic.textContent = `✨ ${tr('我方遠程法術切屏預覽 (2段切屏)', '我方远程法术切屏预览 (2段切屏)', 'Preview Remote Magic (2-Stage)')}`;
+      btnMagic.style.borderColor = 'rgba(148, 163, 184, 0.45)';
+      btnMagic.style.boxShadow = 'none';
+    }
+
     titleBanner.textContent = `⚡ ${tr(
       `2026 現代 2.5D 戰鬥動畫精修檢視 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
       `2026 现代 2.5D 战斗动画精修检视 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
@@ -2688,7 +4196,30 @@ export async function mountVfxLabInGallery(
   btnThorFirst.addEventListener('click', () => updateScenarioBtns('thor_first_duel'));
   btnBanditFirst.addEventListener('click', () => updateScenarioBtns('bandit_first_duel'));
   btnCrit.addEventListener('click', () => updateScenarioBtns('thor_crit'));
+  btnMagic.addEventListener('click', () => updateScenarioBtns('hero_magic'));
   btnBanditCrit.addEventListener('click', () => updateScenarioBtns('bandit_crit'));
+
+  // Independent Hero & Enemy Terrain Selectors + Quick Presets
+  selHeroBg.addEventListener('change', async () => {
+    await loadTerrainBgIntoVfxAssets(vfxAssets, 'hero', Number(selHeroBg.value));
+    renderer.startScenario(activeScenario);
+  });
+  selEnemyBg.addEventListener('change', async () => {
+    await loadTerrainBgIntoVfxAssets(vfxAssets, 'enemy', Number(selEnemyBg.value));
+    renderer.startScenario(activeScenario);
+  });
+  container.querySelectorAll<HTMLButtonElement>('[data-terrain-preset]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const [hId, eId] = (btn.dataset.terrainPreset || '4,10').split(',').map(Number);
+      await Promise.all([
+        loadTerrainBgIntoVfxAssets(vfxAssets, 'hero', hId),
+        loadTerrainBgIntoVfxAssets(vfxAssets, 'enemy', eId),
+      ]);
+      selHeroBg.value = String(hId);
+      selEnemyBg.value = String(eId);
+      renderer.startScenario(activeScenario);
+    });
+  });
 
   const bindToggle = (selector: string, key: Exclude<keyof ModernVfxConfig, 'animSource'>) => {
     const el = container.querySelector(selector) as HTMLInputElement;
