@@ -39,6 +39,7 @@ class MappingGalleryApp {
   private assets = new AssetManager();
   private sound = new SoundEngine();
   private dex!: CharacterDexData;
+  private refactoredVfxUids = new Set<number>([0, 96]);
 
   // Top-level Navigation (Combined Battle Duel + Catalog + Chapters)
   private activeTab: GalleryTab = 'duel';
@@ -101,13 +102,19 @@ class MappingGalleryApp {
     `;
 
     const msgEl = document.getElementById('gal-loading-msg');
-    const [, dexRes] = await Promise.all([
+    const [, dexRes, vfxManifestRes] = await Promise.all([
       this.assets.init((msg) => {
         if (msgEl) msgEl.textContent = msg;
       }),
       fetch('assets/character_dex.json').then((r) => r.json() as Promise<CharacterDexData>),
+      fetch(`assets/vfx_lab/units_manifest.json?t=${Date.now()}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
     ]);
     this.dex = dexRes;
+    if (Array.isArray(vfxManifestRes?.units)) {
+      this.refactoredVfxUids = new Set(vfxManifestRes.units.map((u: { uid: number }) => Number(u.uid)));
+    }
     this.sound.setSfxBanks(this.assets.sfxBanks);
 
     // Support URL deep-links (`?hero=9&tier=41&enemy=90&init=hero&move=magic&spell=2&lang=en`)
@@ -1169,7 +1176,7 @@ class MappingGalleryApp {
         </div>
 
         ${
-          entry.figani?.attack
+          entry.figani?.attack && this.refactoredVfxUids.has(entry.id)
             ? `
               <div style="margin-top:8px; padding:10px; border-radius:8px; background:rgba(15, 23, 42, 0.92); border:1px solid rgba(56, 189, 248, 0.4); display:flex; flex-direction:column; gap:8px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -1177,30 +1184,24 @@ class MappingGalleryApp {
                     ⚡ ${tr(`2026 HD 戰鬥動畫與會心特寫 (#${String(entry.id).padStart(3, '0')})`, `2026 HD 战斗动画与会心特写 (#${String(entry.id).padStart(3, '0')})`, `2026 HD Combat VFX & Crit Cut-In (#${String(entry.id).padStart(3, '0')})`)}
                   </span>
                   <button class="gal-btn sm gold" data-vfx-inspect="${entry.id}" type="button" style="padding:3px 8px; font-size:11.5px;">
-                    🔍 ${tr('在 2.5D 舞台放大逐幀檢視 →', '在 2.5D 舞台放大逐帧检视 →', 'Inspect 10F/6F in 2.5D Stage →')}
+                    🔍 ${tr('在 2.5D 舞台放大逐幀檢視 →', '在 2.5D 舞台放大逐帧检视 →', 'Inspect in 2.5D Stage →')}
                   </button>
                 </div>
-                <img
-                  src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/cutin.jpg?v=12"
-                  alt="${entry.nameZh} Cut-In"
-                  style="width:100%; aspect-ratio:2/1; object-fit:cover; border-radius:6px; border:1px solid #334155; background:#05080f;"
-                />
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
                   <div>
-                    <div class="mono-tag" style="font-size:10px; color:#fde047; margin-bottom:2px;">🎬 Option B (Omni 1.2 MP4)</div>
-                    <video
-                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/omni_1p2.mp4?v=12"
-                      autoplay
-                      loop
-                      muted
-                      playsinline
-                      style="width:100%; aspect-ratio:16/9; object-fit:contain; border-radius:5px; background:#ffffff; border:1px solid #334155;"
-                    ></video>
+                    <div class="mono-tag" style="font-size:10px; color:#fde047; margin-bottom:2px;">💥 Crit Cut-In</div>
+                    <img
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/cutin.jpg?v=21"
+                      loading="lazy"
+                      alt="${entry.nameZh} Cut-In"
+                      style="width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:5px; border:1px solid #334155; background:#05080f;"
+                    />
                   </div>
                   <div>
-                    <div class="mono-tag" style="font-size:10px; color:#7dd3fc; margin-bottom:2px;">🖼️ Option A (NB2 6-Frame)</div>
+                    <div class="mono-tag" style="font-size:10px; color:#7dd3fc; margin-bottom:2px;">🖼️ HD 6-Frame Sheet</div>
                     <img
-                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/nb6_sheet.jpg?v=12"
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/nb6_sheet.jpg?v=21"
+                      loading="lazy"
                       alt="${entry.nameZh} 6-Frame Sheet"
                       style="width:100%; aspect-ratio:16/9; object-fit:contain; border-radius:5px; background:#ffffff; border:1px solid #334155;"
                     />

@@ -26,3 +26,6 @@ dist-ssr
 # Python cache
 __pycache__/
 *.py[cod]
+
+# Local backups of draft / un-refactored VFX assets (excluded from Git & GitHub Pages)
+local_draft_backup/

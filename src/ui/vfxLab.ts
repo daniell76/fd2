@@ -163,18 +163,20 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
+const VFX_ASSET_VERSION = '?v=21';
+
 export async function loadUnitSlotIntoVfxAssets(
   assets: AssetManager,
   target: VfxLabAssets,
   side: 'player' | 'enemy',
   entry: VfxManifestUnitEntry
 ): Promise<void> {
-  const cb = '?v=20';
+  const cb = VFX_ASSET_VERSION;
   const omniCount = Math.max(10, entry.omniFrameCount ?? 10);
   const omniIndices = Array.from({ length: omniCount }, (_, i) => i);
   const [nb6, omni, cutIn, cIdle, cAtk] = await Promise.all([
-    Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/nb6_${i}.png${cb}`))),
-    Promise.all(omniIndices.map((i) => loadImg(`${entry.dir}/omni_${i}.png${cb}`))),
+    Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/nb6_${i}.webp${cb}`))),
+    Promise.all(omniIndices.map((i) => loadImg(`${entry.dir}/omni_${i}.webp${cb}`))),
     loadImg(`${entry.dir}/cutin.jpg${cb}`).catch(() => null),
     assets.loadUnitFigAni(entry.uid, 'idle').catch(() => null),
     assets.loadUnitFigAni(entry.uid, 'attack').catch(() => null),
@@ -200,8 +202,7 @@ export async function loadUnitSlotIntoVfxAssets(
 }
 
 export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAssets> {
-  const cacheBust = '?v=20';
-  // Always refresh manifest so newly generated batch units appear immediately
+  // Always refresh manifest so newly refactored batch units appear immediately
   try {
     const resp = await fetch(`assets/vfx_lab/units_manifest.json?t=${Date.now()}`);
     if (resp.ok) {
@@ -217,60 +218,23 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
   if (vfxAssetsCache.loaded) {
     return vfxAssetsCache;
   }
-  const [
-    t0,
-    t1,
-    t2,
-    b0,
-    b1,
-    b2,
-    thorNb6,
-    banditNb6,
-    thorOmni,
-    banditOmni,
-    tRaw,
-    bRaw,
-    clashImg,
-    forestBg,
-    cThorIdle,
-    cThorAtk,
-    cBanditIdle,
-    cBanditAtk,
-  ] = await Promise.all([
-    loadImg(`assets/vfx_lab/thor_pose_0.png${cacheBust}`),
-    loadImg(`assets/vfx_lab/thor_pose_1.png${cacheBust}`),
-    loadImg(`assets/vfx_lab/thor_pose_2.png${cacheBust}`),
-    loadImg(`assets/vfx_lab/bandit_pose_0.png${cacheBust}`),
-    loadImg(`assets/vfx_lab/bandit_pose_1.png${cacheBust}`),
-    loadImg(`assets/vfx_lab/bandit_pose_2.png${cacheBust}`),
-    Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`assets/vfx_lab/thor_nb6_${i}.png${cacheBust}`))),
-    Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`assets/vfx_lab/bandit_nb6_${i}.png${cacheBust}`))),
-    Promise.all([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => loadImg(`assets/vfx_lab/thor_omni_${i}.png${cacheBust}`))),
-    Promise.all([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => loadImg(`assets/vfx_lab/bandit_omni_${i}.png${cacheBust}`))),
-    loadImg(`assets/vfx_lab/thor_sheet_raw.png${cacheBust}`),
-    loadImg(`assets/vfx_lab/bandit_sheet_raw.png${cacheBust}`),
-    loadImg(`assets/vfx_lab/clash_keyart.jpg${cacheBust}`),
+
+  const defaultRight =
+    vfxAssetsCache.manifestUnits.find((u) => u.uid === 0) ||
+    vfxAssetsCache.manifestUnits.find((u) => u.side === 'player') ||
+    DEFAULT_RIGHT_UNIT;
+  const defaultLeft =
+    vfxAssetsCache.manifestUnits.find((u) => u.uid === 96) ||
+    vfxAssetsCache.manifestUnits.find((u) => u.side === 'enemy') ||
+    DEFAULT_LEFT_UNIT;
+
+  const [forestBg] = await Promise.all([
     loadImg('assets/hd_bgs/bg_4.png').catch(() => loadImg('assets/bgs/bg_4.png')),
-    assets.loadUnitFigAni(0, 'idle'),
-    assets.loadUnitFigAni(0, 'attack'),
-    assets.loadUnitFigAni(96, 'idle'),
-    assets.loadUnitFigAni(96, 'attack'),
+    loadUnitSlotIntoVfxAssets(assets, vfxAssetsCache, 'player', defaultRight),
+    loadUnitSlotIntoVfxAssets(assets, vfxAssetsCache, 'enemy', defaultLeft),
   ]);
 
-  vfxAssetsCache.thorPoses = [t0, t1, t2];
-  vfxAssetsCache.banditPoses = [b0, b1, b2];
-  vfxAssetsCache.thorNb6Poses = thorNb6;
-  vfxAssetsCache.banditNb6Poses = banditNb6;
-  vfxAssetsCache.thorOmniPoses = thorOmni;
-  vfxAssetsCache.banditOmniPoses = banditOmni;
-  vfxAssetsCache.thorSheetRaw = tRaw;
-  vfxAssetsCache.banditSheetRaw = bRaw;
-  vfxAssetsCache.clashKeyArt = clashImg;
   vfxAssetsCache.forestBg = forestBg;
-  vfxAssetsCache.classicThorIdle = cThorIdle;
-  vfxAssetsCache.classicThorAtk = cThorAtk;
-  vfxAssetsCache.classicBanditIdle = cBanditIdle;
-  vfxAssetsCache.classicBanditAtk = cBanditAtk;
   vfxAssetsCache.loaded = true;
   return vfxAssetsCache;
 }
@@ -1768,9 +1732,8 @@ export class Modern25DCombatRenderer {
     }
 
     const customCutIn = isBandit ? this.vfxAssets.leftCutIn : this.vfxAssets.rightCutIn;
-    const isCustomUnit = isBandit ? this.vfxAssets.leftUnit.uid !== 96 : this.vfxAssets.rightUnit.uid !== 0;
 
-    if (isCustomUnit && customCutIn && customCutIn.complete && customCutIn.naturalWidth > 0) {
+    if (customCutIn && customCutIn.complete && customCutIn.naturalWidth > 0) {
       const slideX = isBandit ? (progress - 0.5) * 70 : (0.5 - progress) * 70;
       ctx.drawImage(
         customCutIn,
@@ -1783,19 +1746,6 @@ export class Modern25DCombatRenderer {
         500,
         bannerH * 1.06
       );
-    } else {
-      const faceImg = this.vfxAssets.clashKeyArt;
-      if (faceImg && faceImg.complete && faceImg.naturalWidth > 0) {
-        if (isBandit) {
-          // Bandit close-up crop from clash_keyart.jpg (265, 185, 330, 165) — facing RIGHT (→), sliding slightly right
-          const slideX = (progress - 0.5) * 70;
-          ctx.drawImage(faceImg, 265, 185, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
-        } else {
-          // Thor close-up crop from clash_keyart.jpg (800, 175, 330, 165) — facing LEFT (←), sliding slightly left
-          const slideX = (0.5 - progress) * 70;
-          ctx.drawImage(faceImg, 800, 175, 330, 165, -250 + slideX, -bannerH * 0.52, 500, bannerH * 1.06);
-        }
-      }
     }
 
     ctx.shadowBlur = 0;
@@ -2101,9 +2051,9 @@ export async function mountVfxLabInGallery(
           </span>
           <span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(34, 197, 94, 0.14); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.35);">
             ✅ ${tr(
-              `全戰鬥角色已生成：${allUnits.length} / 121 (KP1..KP7 100% 驗證通過)`,
-              `全战斗角色已生成：${allUnits.length} / 121 (KP1..KP7 100% 验证通过)`,
-              `All Combat Units Ready: ${allUnits.length} / 121 (100% KP1..KP7 Verified)`
+              `已精修重製角色：${allUnits.length} / 121 (WebP 高速載入)`,
+              `已精修重制角色：${allUnits.length} / 121 (WebP 高速加载)`,
+              `Refactored HD Units: ${allUnits.length} / 121 (Fast WebP)`
             )}
           </span>
         </div>
@@ -2111,15 +2061,15 @@ export async function mountVfxLabInGallery(
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <button class="gal-btn active" id="vfx-tab-stage" type="button">🎬 ${tr('2.5D 現代演武舞台', '2.5D 现代演武舞台', 'Live 2.5D Combat Stage')}</button>
           <button class="gal-btn" id="vfx-tab-split" type="button">🔀 ${tr('1995 原版 vs 2026 分割畫面對照', '1995 原版 vs 2026 分割画面对照', '1995 DOS vs 2026 Split-Screen')}</button>
-          <button class="gal-btn" id="vfx-tab-art" type="button">🎨 ${tr('雙人對戰原始影片與關鍵幀原稿', '双人对战原始视频与关键帧原稿', 'Matchup Raw Videos & Sheets')}</button>
+          <button class="gal-btn" id="vfx-tab-art" type="button">🎨 ${tr('雙人對戰關鍵幀原稿與特寫', '双人对战关键帧原稿与特写', 'Matchup Sheets & Cut-Ins')}</button>
         </div>
       </div>
 
-      <!-- MASTER ONE-BY-ONE 121-CHARACTER STEPPER BAR -->
+      <!-- MASTER ONE-BY-ONE STEPPER BAR -->
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; background: linear-gradient(90deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96)); border: 1.5px solid #eab308; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.35);">
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span style="font-size: 13.5px; font-weight: 800; color: #fde047;">
-            🔍 ${tr('逐一檢視全部 121 角色 (One-by-One)：', '逐一检视全部 121 角色 (One-by-One)：', 'Inspect All 121 Units One-by-One:')}
+            🔍 ${tr(`逐一檢視已精修角色 (${allUnits.length})：`, `逐一检视已精修角色 (${allUnits.length})：`, `Inspect Refactored Units (${allUnits.length}):`)}
           </span>
           <button class="gal-btn gold" id="vfx-btn-master-prev" type="button" title="Shortcut: [">
             ◀ ${tr('上一位 (Prev)', '上一位 (Prev)', 'Prev Unit')}
@@ -2142,7 +2092,7 @@ export async function mountVfxLabInGallery(
 
         <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
           <span class="mono-tag" style="color: #94a3b8; font-size: 11.5px;">
-            💡 ${tr('切換角色時自動播放該角色「會心一擊特寫 + 完整攻擊動畫」並同步下方逐幀拆解面板 (快捷鍵 [ / ])', '切换角色时自动播放该角色「会心一击特写 + 完整攻击动画」并同步下方逐帧拆解面板 (快捷键 [ / ])', 'Stepping auto-plays that unit’s Critical Cut-In + Attack and updates the 10F/6F frame strip below (Keys: [ / ])')}
+            💡 ${tr('切換角色時自動播放「會心一擊特寫 + 完整攻擊動畫」並同步下方逐幀面板 (快捷鍵 [ / ])', '切换角色时自动播放「会心一击特写 + 完整攻击动画」并同步下方逐帧面板 (快捷键 [ / ])', 'Stepping auto-plays Critical Cut-In + Attack and updates the frame strip below (Keys: [ / ])')}
           </span>
         </div>
       </div>
@@ -2151,7 +2101,7 @@ export async function mountVfxLabInGallery(
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(56, 189, 248, 0.38); border-radius: 10px;">
         <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
           <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #38bdf8;">
-            <span>🛡️ ${tr('我方/友軍 (69位 右下↖)：', '我方/友军 (69位 右下↖)：', 'Hero/Ally (69 ↖):')}</span>
+            <span>🛡️ ${tr(`我方/友軍 (${playerUnits.length}位 右下↖)：`, `我方/友军 (${playerUnits.length}位 右下↖)：`, `Hero/Ally (${playerUnits.length} ↖):`)}</span>
             <button class="gal-btn sm" id="vfx-btn-right-prev" type="button" title="Previous Hero/Ally">◀</button>
             <select id="vfx-sel-right-unit" style="background: #0f172a; color: #f8fafc; border: 1px solid #38bdf8; border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 600;">
               ${playerUnits
@@ -2164,7 +2114,7 @@ export async function mountVfxLabInGallery(
             <button class="gal-btn sm" id="vfx-btn-right-next" type="button" title="Next Hero/Ally">▶</button>
           </div>
           <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #f87171;">
-            <span>⚔️ ${tr('敵軍/頭目 (52位 左上↘)：', '敌军/头目 (52位 左上↘)：', 'Enemy/Boss (52 ↘):')}</span>
+            <span>⚔️ ${tr(`敵軍/頭目 (${enemyUnits.length}位 左上↘)：`, `敌军/头目 (${enemyUnits.length}位 左上↘)：`, `Enemy/Boss (${enemyUnits.length} ↘):`)}</span>
             <button class="gal-btn sm" id="vfx-btn-left-prev" type="button" title="Previous Enemy/Boss">◀</button>
             <select id="vfx-sel-left-unit" style="background: #0f172a; color: #f8fafc; border: 1px solid #f87171; border-radius: 6px; padding: 4px 10px; font-size: 13px; font-weight: 600;">
               ${enemyUnits
@@ -2183,10 +2133,10 @@ export async function mountVfxLabInGallery(
             🔬 ${tr('管線：', '管线：', 'Pipeline:')}
           </span>
           <button class="gal-btn active" id="vfx-src-omni" type="button">
-            🎬 ${tr('方案 B：Gemini Omni 1.2 (10 幀)', '方案 B：Gemini Omni 1.2 (10 帧)', 'Option B: Gemini Omni 1.2 (10F)')}
+            🎬 ${tr('完整連段序列 (10–14 幀)', '完整连段序列 (10–14 帧)', 'Full Action Sequence (10–14F)')}
           </button>
           <button class="gal-btn" id="vfx-src-nb6" type="button">
-            🖼️ ${tr('方案 A：Nano Banana 2 (6 幀)', '方案 A：Nano Banana 2 (6 帧)', 'Option A: Nano Banana 2 (6F)')}
+            🖼️ ${tr('關鍵幀 (6 幀)', '关键帧 (6 帧)', 'Keyframes (6F)')}
           </button>
           <button class="gal-btn" id="vfx-src-nb3" type="button">
             🎨 ${tr('基準組 (3 幀)', '基准组 (3 帧)', 'Baseline (3F)')}
@@ -2199,32 +2149,24 @@ export async function mountVfxLabInGallery(
         <canvas id="vfx-lab-canvas" width="1600" height="900" style="width: 100%; height: 100%; object-fit: contain;"></canvas>
       </div>
 
-      <!-- DUAL MATCHUP RAW VIDEOS & SHEETS VIEW -->
+      <!-- DUAL MATCHUP SHEETS & CUT-INS VIEW (LAZY-LOADED ONLY WHEN OPENED) -->
       <div id="vfx-art-container" style="display: none; padding: 20px; background: var(--bg-panel, #090d16); border: 1px solid var(--border-subtle, #334155); border-radius: 12px;">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px;">
-          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
-            <h4 id="vfx-art-title-b1" style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B1: #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh} Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
-            <video id="vfx-art-vid-b1" src="${vfxAssets.rightUnit.dir}/omni_1p2.mp4?v=13" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
-          </div>
-          <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #eab308;">
-            <h4 id="vfx-art-title-b2" style="margin: 0 0 8px 0; color: #fde047;">🎬 Option B2: #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh} Gemini Omni 1.2 Raw Video (24fps MP4)</h4>
-            <video id="vfx-art-vid-b2" src="${vfxAssets.leftUnit.dir}/omni_1p2.mp4?v=13" controls autoplay loop muted playsinline style="width: 100%; border-radius: 8px; background: #fff;"></video>
-          </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #38bdf8;">
-            <h4 id="vfx-art-title-a1" style="margin: 0 0 8px 0; color: #38bdf8;">🖼️ Option A1: #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh} Nano Banana 2 6-Frame Sheet</h4>
-            <img id="vfx-art-img-a1" src="${vfxAssets.rightUnit.dir}/nb6_sheet.jpg?v=13" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <h4 id="vfx-art-title-a1" style="margin: 0 0 8px 0; color: #38bdf8;">🖼️ #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh} 6-Frame Sheet</h4>
+            <img id="vfx-art-img-a1" loading="lazy" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #f87171;">
-            <h4 id="vfx-art-title-a2" style="margin: 0 0 8px 0; color: #f87171;">🖼️ Option A2: #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh} Nano Banana 2 6-Frame Sheet</h4>
-            <img id="vfx-art-img-a2" src="${vfxAssets.leftUnit.dir}/nb6_sheet.jpg?v=13" style="width: 100%; border-radius: 8px; background: #fff;" />
+            <h4 id="vfx-art-title-a2" style="margin: 0 0 8px 0; color: #f87171;">🖼️ #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh} 6-Frame Sheet</h4>
+            <img id="vfx-art-img-a2" loading="lazy" style="width: 100%; border-radius: 8px; background: #fff;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #38bdf8;">
             <h4 id="vfx-art-title-c1" style="margin: 0 0 8px 0; color: #7dd3fc;">🔥 Crit Cut-In (←): #${vfxAssets.rightUnit.uid} ${vfxAssets.rightUnit.nameZh}</h4>
-            <img id="vfx-art-img-c1" src="${vfxAssets.rightUnit.dir}/cutin.jpg?v=13" style="width: 100%; border-radius: 8px; background: #0f172a;" />
+            <img id="vfx-art-img-c1" loading="lazy" style="width: 100%; border-radius: 8px; background: #0f172a;" />
           </div>
           <div style="background: #1e293b; padding: 14px; border-radius: 10px; border: 1px solid #f87171;">
             <h4 id="vfx-art-title-c2" style="margin: 0 0 8px 0; color: #fca5a5;">💥 Crit Cut-In (→): #${vfxAssets.leftUnit.uid} ${vfxAssets.leftUnit.nameZh}</h4>
-            <img id="vfx-art-img-c2" src="${vfxAssets.leftUnit.dir}/cutin.jpg?v=13" style="width: 100%; border-radius: 8px; background: #0f172a;" />
+            <img id="vfx-art-img-c2" loading="lazy" style="width: 100%; border-radius: 8px; background: #0f172a;" />
           </div>
         </div>
       </div>
@@ -2281,63 +2223,57 @@ export async function mountVfxLabInGallery(
           </div>
         </div>
 
-        <!-- 4-Card Primary Deliverables Row: Cut-In + Option B Video + Option A 6F Sheet + 1995 DOS Reference -->
+        <!-- 3-Card Primary Deliverables Row: Cut-In + 6F Sheet + 1995 DOS Reference (No Heavy MP4!) -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px;">
           <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
             <div style="font-size: 12.5px; font-weight: 700; color: #fde047; margin-bottom: 6px;">
               💥 ${tr('會心一擊專屬頭像橫幅 (cutin.jpg · 無文字)', '会心一击专属头像横幅 (cutin.jpg · 无文字)', 'Critical-Only Avatar Cut-In Strip (cutin.jpg)')}
             </div>
-            <img id="vfx-focus-cutin" src="" style="width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; border: 1px solid #475569; background: #05080f;" />
-          </div>
-          <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
-            <div style="font-size: 12.5px; font-weight: 700; color: #38bdf8; margin-bottom: 6px;">
-              🎬 ${tr('方案 B：Gemini Omni 1.2 原始生成影片 (omni_1p2.mp4)', '方案 B：Gemini Omni 1.2 原始生成视频 (omni_1p2.mp4)', 'Option B: Gemini Omni 1.2 Raw Video (omni_1p2.mp4)')}
-            </div>
-            <video id="vfx-focus-video" src="" controls autoplay loop muted playsinline style="width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #ffffff;"></video>
+            <img id="vfx-focus-cutin" src="" loading="lazy" style="width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 6px; border: 1px solid #475569; background: #05080f;" />
           </div>
           <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
             <div style="font-size: 12.5px; font-weight: 700; color: #a855f7; margin-bottom: 6px;">
-              🖼️ ${tr('方案 A：Nano Banana 2 六幀分解原稿 (nb6_sheet.jpg)', '方案 A：Nano Banana 2 六帧分解原稿 (nb6_sheet.jpg)', 'Option A: Nano Banana 2 6-Frame Sheet (nb6_sheet.jpg)')}
+              🖼️ ${tr('精修重製六幀分解原稿 (nb6_sheet.jpg)', '精修重制六帧分解原稿 (nb6_sheet.jpg)', 'Refactored HD 6-Frame Sheet (nb6_sheet.jpg)')}
             </div>
-            <img id="vfx-focus-nb6sheet" src="" style="width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #ffffff;" />
+            <img id="vfx-focus-nb6sheet" src="" loading="lazy" style="width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #ffffff;" />
           </div>
           <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
             <div style="font-size: 12.5px; font-weight: 700; color: #94a3b8; margin-bottom: 6px;">
               🕹️ ${tr('1995 DOS 原版 FIGHT.DAT 六幀基準圖 (dos_ref.jpg)', '1995 DOS 原版 FIGHT.DAT 六帧基准图 (dos_ref.jpg)', '1995 DOS Original 6-Frame Reference (dos_ref.jpg)')}
             </div>
-            <img id="vfx-focus-dosref" src="" style="width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #0f172a;" />
+            <img id="vfx-focus-dosref" src="" loading="lazy" style="width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #0f172a;" />
           </div>
         </div>
 
-        <!-- 10-Frame Alpha-Matted Option B Strip (omni_0..9.png) -->
+        <!-- Dynamic Full Sequence Strip (omni_0..N-1.webp) -->
         <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
-          <div style="font-size: 12.5px; font-weight: 700; color: #fde047; margin-bottom: 8px;">
-            🎞️ ${tr('方案 B 去背 10 幀序列逐幀檢視 (omni_0.png .. omni_9.png · 零殘影對齊)', '方案 B 去背 10 帧序列逐帧检视 (omni_0.png .. omni_9.png · 零残影对齐)', 'Option B Alpha-Matted 10-Frame Sequence (omni_0.png .. omni_9.png)')}
+          <div id="vfx-focus-omni-title" style="font-size: 12.5px; font-weight: 700; color: #fde047; margin-bottom: 8px;">
+            🎞️ ${tr('完整去背連段序列逐幀檢視 (omni_*.webp)', '完整去背连段序列逐帧检视 (omni_*.webp)', 'Alpha-Matted Full Action Sequence (omni_*.webp)')}
           </div>
-          <div id="vfx-focus-omni-strip" style="display: grid; grid-template-columns: repeat(10, minmax(90px, 1fr)); gap: 8px; overflow-x: auto;"></div>
+          <div id="vfx-focus-omni-strip" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; overflow-x: auto;"></div>
         </div>
 
-        <!-- 6-Frame Alpha-Matted Option A Strip (nb6_0..5.png) -->
+        <!-- 6-Frame Alpha-Matted Keyframe Strip (nb6_0..5.webp) -->
         <div style="background: #090d16; padding: 12px; border-radius: 10px; border: 1px solid #334155;">
           <div style="font-size: 12.5px; font-weight: 700; color: #38bdf8; margin-bottom: 8px;">
-            🧩 ${tr('方案 A 去背 6 幀序列逐幀檢視 (nb6_0.png .. nb6_5.png)', '方案 A 去背 6 帧序列逐帧检视 (nb6_0.png .. nb6_5.png)', 'Option A Alpha-Matted 6-Frame Sequence (nb6_0.png .. nb6_5.png)')}
+            🧩 ${tr('去背 6 幀關鍵序列逐幀檢視 (nb6_0..5.webp)', '去背 6 帧关键序列逐帧检视 (nb6_0..5.webp)', 'Alpha-Matted 6-Frame Keyframes (nb6_0..5.webp)')}
           </div>
           <div id="vfx-focus-nb6-strip" style="display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 8px; overflow-x: auto;"></div>
         </div>
       </div>
 
-      <!-- ALL-121-UNITS QUICK-JUMP VISUAL ROSTER GRID -->
+      <!-- REFACTORED UNITS QUICK-JUMP VISUAL ROSTER GRID -->
       <div style="padding: 18px; background: var(--bg-panel, #0f172a); border: 1px solid var(--border-subtle, #334155); border-radius: 12px; display: flex; flex-direction: column; gap: 12px;">
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <span style="font-size: 15px; font-weight: 800; color: #f8fafc;">
-              📋 ${tr('全 121 戰鬥角色一覽表 (點擊任一角色卡片立即載入並播放)', '全 121 战斗角色一览表 (点击任一角色卡片立即载入并播放)', 'All 121 Combat Units Directory (Click Any Unit to Inspect & Play)')}
+              📋 ${tr(`已精修戰鬥角色一覽表 (${allUnits.length} 位 · 點擊立即播放)`, `已精修战斗角色一览表 (${allUnits.length} 位 · 点击立即播放)`, `Refactored Combat Units (${allUnits.length} Ready — Click to Play)`)}
             </span>
-            <button class="gal-btn sm active" data-rcat="all" type="button">${tr('全部 (121)', '全部 (121)', 'All (121)')}</button>
-            <button class="gal-btn sm" data-rcat="hero" type="button">${tr('32 基礎英雄 (#0..#31)', '32 基础英雄 (#0..#31)', '32 Base Heroes')}</button>
-            <button class="gal-btn sm" data-rcat="promo" type="button">${tr('31 轉職職業 (#32..#65)', '31 转职职业 (#32..#65)', '31 Promoted (T2/T3)')}</button>
-            <button class="gal-btn sm" data-rcat="ally" type="button">${tr('6 戰場友軍 (#68..#73)', '6 战场友军 (#68..#73)', '6 Allied NPCs')}</button>
-            <button class="gal-btn sm" data-rcat="enemy" type="button">${tr('52 敵軍與Boss (#76..#127)', '52 敌军与Boss (#76..#127)', '52 Enemies & Bosses')}</button>
+            <button class="gal-btn sm active" data-rcat="all" type="button">${tr(`全部 (${allUnits.length})`, `全部 (${allUnits.length})`, `All (${allUnits.length})`)}</button>
+            <button class="gal-btn sm" data-rcat="hero" type="button">${tr('基礎英雄', '基础英雄', 'Base Heroes')}</button>
+            <button class="gal-btn sm" data-rcat="promo" type="button">${tr('轉職職業', '转职职业', 'Promoted')}</button>
+            <button class="gal-btn sm" data-rcat="ally" type="button">${tr('戰場友軍', '战场友军', 'Allied NPCs')}</button>
+            <button class="gal-btn sm" data-rcat="enemy" type="button">${tr('敵軍與Boss', '敌军与Boss', 'Enemies & Bosses')}</button>
           </div>
           <input
             type="search"
@@ -2415,7 +2351,7 @@ export async function mountVfxLabInGallery(
             data-jump-uid="${u.uid}"
             style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: ${bgCol}; border: ${isFocused ? '2px' : '1px'} solid ${borderCol}; color: #f8fafc; text-align: left; cursor: pointer; transition: transform 0.1s;"
           >
-            <img src="${u.dir}/cutin.jpg?v=13" loading="lazy" style="width: 68px; height: 34px; object-fit: cover; border-radius: 4px; border: 1px solid #475569; flex-shrink: 0;" />
+            <img src="${u.dir}/cutin.jpg${VFX_ASSET_VERSION}" loading="lazy" style="width: 68px; height: 34px; object-fit: cover; border-radius: 4px; border: 1px solid #475569; flex-shrink: 0;" />
             <div style="min-width: 0; flex: 1;">
               <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 12px; font-weight: 700;">
                 <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">#${String(u.uid).padStart(3, '0')} ${titleStr}</span>
@@ -2458,28 +2394,39 @@ export async function mountVfxLabInGallery(
     btnFocusRight?.classList.toggle('active', u.uid === vfxAssets.rightUnit.uid);
     btnFocusLeft?.classList.toggle('active', u.uid === vfxAssets.leftUnit.uid);
 
-    const cb = '?v=17';
+    const cb = VFX_ASSET_VERSION;
     const cutinImg = container.querySelector('#vfx-focus-cutin') as HTMLImageElement | null;
-    const vidEl = container.querySelector('#vfx-focus-video') as HTMLVideoElement | null;
     const nb6Img = container.querySelector('#vfx-focus-nb6sheet') as HTMLImageElement | null;
     const dosImg = container.querySelector('#vfx-focus-dosref') as HTMLImageElement | null;
     if (cutinImg) cutinImg.src = `${u.dir}/cutin.jpg${cb}`;
-    if (vidEl) vidEl.src = `${u.dir}/omni_1p2.mp4${cb}`;
     if (nb6Img) nb6Img.src = `${u.dir}/nb6_sheet.jpg${cb}`;
     if (dosImg) dosImg.src = `${u.dir}/dos_ref.jpg${cb}`;
 
+    const omniCount = Math.max(10, u.omniFrameCount ?? 10);
+    const hitFrameSet = new Set((u.hitFrames ?? []).map((h) => h.frame));
+    const omniTitle = container.querySelector('#vfx-focus-omni-title') as HTMLDivElement | null;
+    if (omniTitle) {
+      omniTitle.textContent = `🎞️ ${tr(
+        `完整去背連段序列逐幀檢視 (${omniCount} 幀 · omni_0..${omniCount - 1}.webp)`,
+        `完整去背连段序列逐帧检视 (${omniCount} 帧 · omni_0..${omniCount - 1}.webp)`,
+        `Alpha-Matted Full Sequence (${omniCount}F · omni_0..${omniCount - 1}.webp)`
+      )}`;
+    }
     const omniStrip = container.querySelector('#vfx-focus-omni-strip') as HTMLDivElement | null;
     if (omniStrip) {
-      const omniLabels = ['F0 Ready', 'F1 Step', 'F2 Wind1', 'F3 Wind2', 'F4 Pre-Hit', 'F5 Impact', 'F6 Bloom', 'F7 Follow1', 'F8 Fade', 'F9 Finish'];
-      omniStrip.innerHTML = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-        .map(
-          (i) => `
-            <div style="background: #141c2e; border: 1px solid #334155; border-radius: 6px; padding: 6px; text-align: center;">
-              <img src="${u.dir}/omni_${i}.png${cb}" style="width: 100%; height: 78px; object-fit: contain; display: block;" />
-              <div class="mono-tag" style="font-size: 10.5px; color: #cbd5e1; margin-top: 4px;">${omniLabels[i]}</div>
+      const defaultLabels = ['F0 Ready', 'F1 Step', 'F2 Wind1', 'F3 Wind2', 'F4 Pre-Hit', 'F5 Impact', 'F6 Bloom', 'F7 Follow1', 'F8 Fade', 'F9 Finish'];
+      const indices = Array.from({ length: omniCount }, (_, i) => i);
+      omniStrip.innerHTML = indices
+        .map((i) => {
+          const isHit = hitFrameSet.has(i);
+          const lbl = isHit ? `F${i} HIT!` : (defaultLabels[i] ?? `F${i}`);
+          return `
+            <div style="background: #141c2e; border: 1px solid ${isHit ? '#eab308' : '#334155'}; border-radius: 6px; padding: 6px; text-align: center;">
+              <img src="${u.dir}/omni_${i}.webp${cb}" loading="lazy" style="width: 100%; height: 78px; object-fit: contain; display: block;" />
+              <div class="mono-tag" style="font-size: 10.5px; color: ${isHit ? '#fde047' : '#cbd5e1'}; margin-top: 4px;">${lbl}</div>
             </div>
-          `
-        )
+          `;
+        })
         .join('');
     }
 
@@ -2490,7 +2437,7 @@ export async function mountVfxLabInGallery(
         .map(
           (i) => `
             <div style="background: #141c2e; border: 1px solid #334155; border-radius: 6px; padding: 6px; text-align: center;">
-              <img src="${u.dir}/nb6_${i}.png${cb}" style="width: 100%; height: 84px; object-fit: contain; display: block;" />
+              <img src="${u.dir}/nb6_${i}.webp${cb}" loading="lazy" style="width: 100%; height: 84px; object-fit: contain; display: block;" />
               <div class="mono-tag" style="font-size: 10.5px; color: #cbd5e1; margin-top: 4px;">${nb6Labels[i]}</div>
             </div>
           `
@@ -2501,42 +2448,23 @@ export async function mountVfxLabInGallery(
     renderAll121Grid();
   };
 
-  const refreshMatchupLabelsAndArt = () => {
+  let isArtTabOpen = false;
+  const populateArtTabImages = () => {
     const ru = vfxAssets.rightUnit;
     const lu = vfxAssets.leftUnit;
-    selRightUnit.value = String(ru.uid);
-    selLeftUnit.value = String(lu.uid);
-    titleBanner.textContent = `⚡ ${tr(
-      `2026 現代 2.5D 戰鬥動畫全角色檢視 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
-      `2026 现代 2.5D 战斗动画全角色检视 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
-      `2026 Modern 2.5D All-121 Inspector — ${ru.nameEn} (#${ru.uid} ↖) vs. ${lu.nameEn} (#${lu.uid} ↘)`
-    )}`;
-
-    const cb = '?v=17';
+    const cb = VFX_ASSET_VERSION;
     const setEl = <T extends HTMLElement>(id: string, fn: (el: T) => void) => {
       const el = container.querySelector(id) as T | null;
       if (el) fn(el);
     };
-    setEl<HTMLHeadingElement>('#vfx-art-title-b1', (el) => {
-      el.textContent = `🎬 Option B1: #${ru.uid} ${ru.nameZh} (${ru.nameEn}) Gemini Omni 1.2 Raw Video`;
-    });
-    setEl<HTMLVideoElement>('#vfx-art-vid-b1', (el) => {
-      el.src = `${ru.dir}/omni_1p2.mp4${cb}`;
-    });
-    setEl<HTMLHeadingElement>('#vfx-art-title-b2', (el) => {
-      el.textContent = `🎬 Option B2: #${lu.uid} ${lu.nameZh} (${lu.nameEn}) Gemini Omni 1.2 Raw Video`;
-    });
-    setEl<HTMLVideoElement>('#vfx-art-vid-b2', (el) => {
-      el.src = `${lu.dir}/omni_1p2.mp4${cb}`;
-    });
     setEl<HTMLHeadingElement>('#vfx-art-title-a1', (el) => {
-      el.textContent = `🖼️ Option A1: #${ru.uid} ${ru.nameZh} (${ru.nameEn}) Nano Banana 2 6-Frame Sheet`;
+      el.textContent = `🖼️ #${ru.uid} ${ru.nameZh} (${ru.nameEn}) 6-Frame Sheet`;
     });
     setEl<HTMLImageElement>('#vfx-art-img-a1', (el) => {
       el.src = `${ru.dir}/nb6_sheet.jpg${cb}`;
     });
     setEl<HTMLHeadingElement>('#vfx-art-title-a2', (el) => {
-      el.textContent = `🖼️ Option A2: #${lu.uid} ${lu.nameZh} (${lu.nameEn}) Nano Banana 2 6-Frame Sheet`;
+      el.textContent = `🖼️ #${lu.uid} ${lu.nameZh} (${lu.nameEn}) 6-Frame Sheet`;
     });
     setEl<HTMLImageElement>('#vfx-art-img-a2', (el) => {
       el.src = `${lu.dir}/nb6_sheet.jpg${cb}`;
@@ -2553,6 +2481,22 @@ export async function mountVfxLabInGallery(
     setEl<HTMLImageElement>('#vfx-art-img-c2', (el) => {
       el.src = `${lu.dir}/cutin.jpg${cb}`;
     });
+  };
+
+  const refreshMatchupLabelsAndArt = () => {
+    const ru = vfxAssets.rightUnit;
+    const lu = vfxAssets.leftUnit;
+    selRightUnit.value = String(ru.uid);
+    selLeftUnit.value = String(lu.uid);
+    titleBanner.textContent = `⚡ ${tr(
+      `2026 現代 2.5D 戰鬥動畫精修檢視 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
+      `2026 现代 2.5D 战斗动画精修检视 — ${ru.nameZh} (#${ru.uid} 右下↖) vs ${lu.nameZh} (#${lu.uid} 左上↘)`,
+      `2026 Modern 2.5D HD Inspector — ${ru.nameEn} (#${ru.uid} ↖) vs. ${lu.nameEn} (#${lu.uid} ↘)`
+    )}`;
+
+    if (isArtTabOpen) {
+      populateArtTabImages();
+    }
 
     refreshSingleUnitInspector();
     opts?.onMatchupChange?.(ru.uid, lu.uid, focusedUnit.uid);
@@ -2689,6 +2633,10 @@ export async function mountVfxLabInGallery(
     stageContainer.style.display = mode === 'art' ? 'none' : 'flex';
     artContainer.style.display = mode === 'art' ? 'block' : 'none';
     splitCompare = mode === 'split';
+    isArtTabOpen = mode === 'art';
+    if (isArtTabOpen) {
+      populateArtTabImages();
+    }
   };
 
   tabStage.addEventListener('click', () => updateViewMode('stage'));
