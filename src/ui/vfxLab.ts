@@ -287,6 +287,11 @@ export class Modern25DCombatRenderer {
   private thorStrikeDmg = 22;
   private banditStrikeDmg = 7;
 
+  // Reusable offscreen scratch canvas so hit-flash & afterimage tinting only affects
+  // the character sprite's own alpha silhouette (never painting a square over the background).
+  private spriteTintCanvas: HTMLCanvasElement | null = null;
+  private spriteTintCtx: CanvasRenderingContext2D | null = null;
+
   constructor(
     private vfxAssets: VfxLabAssets,
     private sound: SoundEngine,
@@ -1293,14 +1298,17 @@ export class Modern25DCombatRenderer {
           spec.scaleX,
           spec.scaleY,
           spec.rot,
-          0.2 * (1 - g / (spec.afterimages + 1)),
+          0.24 * (1 - g / (spec.afterimages + 1)),
           displaySize,
-          afterimageColor
+          afterimageColor,
+          0.72
         );
       }
     }
 
-    const tint = spec.flashWhite > 0.15 ? '#ffffff' : undefined;
+    const flashStrength = Math.max(0, Math.min(1, spec.flashWhite));
+    const tint = flashStrength > 0.04 ? '#ffffff' : undefined;
+    const tintAlpha = flashStrength * 0.82;
     if (spec.secondaryIdx !== undefined && spec.blend !== undefined && spec.blend > 0.02) {
       const img2 = poses[spec.secondaryIdx] || img1;
       const b = Math.max(0, Math.min(1, spec.blend));
@@ -1314,7 +1322,8 @@ export class Modern25DCombatRenderer {
         spec.rot * (1 - b),
         1 - b * 0.75,
         displaySize,
-        tint
+        tint,
+        tintAlpha
       );
       this.drawCharacterSprite(
         ctx,
@@ -1326,7 +1335,8 @@ export class Modern25DCombatRenderer {
         spec.rot * b,
         b,
         displaySize,
-        tint
+        tint,
+        tintAlpha
       );
     } else {
       this.drawCharacterSprite(
@@ -1339,7 +1349,8 @@ export class Modern25DCombatRenderer {
         spec.rot,
         1.0,
         displaySize,
-        tint
+        tint,
+        tintAlpha
       );
     }
   }
@@ -1457,6 +1468,38 @@ export class Modern25DCombatRenderer {
     ctx.restore();
   }
 
+  private getTintedSpriteCanvas(
+    img: HTMLImageElement,
+    tintColor: string,
+    tintAlpha: number
+  ): HTMLCanvasElement | null {
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    if (!w || !h) return null;
+    if (!this.spriteTintCanvas) {
+      this.spriteTintCanvas = document.createElement('canvas');
+      this.spriteTintCtx = this.spriteTintCanvas.getContext('2d');
+    }
+    const canvas = this.spriteTintCanvas;
+    const tctx = this.spriteTintCtx;
+    if (!tctx) return null;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    tctx.globalCompositeOperation = 'source-over';
+    tctx.globalAlpha = 1;
+    tctx.clearRect(0, 0, w, h);
+    tctx.drawImage(img, 0, 0, w, h);
+    tctx.globalCompositeOperation = 'source-atop';
+    tctx.fillStyle = tintColor;
+    tctx.globalAlpha = Math.max(0, Math.min(1, tintAlpha));
+    tctx.fillRect(0, 0, w, h);
+    tctx.globalCompositeOperation = 'source-over';
+    tctx.globalAlpha = 1;
+    return canvas;
+  }
+
   private drawCharacterSprite(
     ctx: CanvasRenderingContext2D,
     img: HTMLImageElement,
@@ -1467,7 +1510,8 @@ export class Modern25DCombatRenderer {
     rotation: number,
     alpha: number,
     displaySize: number,
-    tintColor?: string
+    tintColor?: string,
+    tintAlpha = 0.65
   ): void {
     if (!img || !img.complete || img.naturalWidth === 0) return;
     const anchorRatioX = 0.5;
@@ -1482,13 +1526,11 @@ export class Modern25DCombatRenderer {
     const dx = -displaySize * anchorRatioX;
     const dy = -displaySize * anchorRatioY;
 
-    ctx.drawImage(img, dx, dy, displaySize, displaySize);
-
-    if (tintColor) {
-      ctx.globalCompositeOperation = 'source-atop';
-      ctx.fillStyle = tintColor;
-      ctx.globalAlpha = alpha * 0.55;
-      ctx.fillRect(dx, dy, displaySize, displaySize);
+    if (tintColor && tintAlpha > 0.01) {
+      const tinted = this.getTintedSpriteCanvas(img, tintColor, tintAlpha);
+      ctx.drawImage(tinted ?? img, dx, dy, displaySize, displaySize);
+    } else {
+      ctx.drawImage(img, dx, dy, displaySize, displaySize);
     }
     ctx.restore();
   }
