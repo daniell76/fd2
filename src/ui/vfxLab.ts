@@ -49,6 +49,7 @@ export interface ModernVfxConfig {
   enableVolumetricSlash: boolean;
   enableAnimeCutIn: boolean;
   enableHitStopAndSparks: boolean;
+  enableDynamicGroundMerge: boolean;
   slowMotion: boolean;
 }
 
@@ -415,8 +416,8 @@ export class Modern25DCombatRenderer {
   // the character sprite's own alpha silhouette (never painting a square over the background).
   private spriteTintCanvas: HTMLCanvasElement | null = null;
   private spriteTintCtx: CanvasRenderingContext2D | null = null;
-  private taiScratchCanvas: HTMLCanvasElement | null = null;
-  private taiScratchCtx: CanvasRenderingContext2D | null = null;
+  // Cache for dynamically merged melee ground backdrops (`enemyBgId_heroBgId` -> 960x540 canvas)
+  private mergedBgCache = new Map<string, HTMLCanvasElement>();
   private activeStageBadge = '';
 
   constructor(
@@ -429,6 +430,7 @@ export class Modern25DCombatRenderer {
       enableVolumetricSlash: true,
       enableAnimeCutIn: true,
       enableHitStopAndSparks: true,
+      enableDynamicGroundMerge: true,
       slowMotion: false,
     }
   ) {
@@ -926,14 +928,19 @@ export class Modern25DCombatRenderer {
     const isEn = getLocale() === 'en';
     const heroTerrain = getTerrainPreset(this.vfxAssets.heroBgId);
     const enemyTerrain = getTerrainPreset(this.vfxAssets.enemyBgId);
-    if (this.vfxAssets.heroBgId === this.vfxAssets.enemyBgId) {
+    const useDynamicMerge =
+      this.config.enableDynamicGroundMerge &&
+      this.vfxAssets.heroBgId !== this.vfxAssets.enemyBgId &&
+      !this.vfxAssets.rightUnit.isFlying &&
+      heroTerrain.hasTai;
+    if (useDynamicMerge) {
       this.activeStageBadge = isEn
-        ? `⚔️ Melee Shared Stage · ${enemyTerrain.en} (#${enemyTerrain.id})`
-        : `⚔️ 近戰同屏舞台 · ${enemyTerrain.zh} (#${enemyTerrain.id})`;
+        ? `⚔️ Melee Dynamic Ground Merge · ${enemyTerrain.en} ⇄ ${heroTerrain.en}`
+        : `⚔️ 近戰動態地面融合 · 敵: ${enemyTerrain.zh} ⇄ 我: ${heroTerrain.zh}`;
     } else {
       this.activeStageBadge = isEn
-        ? `⚔️ Melee Mixed Tiles · BG: ${enemyTerrain.en} / Hero TAI: ${heroTerrain.en}`
-        : `⚔️ 近戰異地地形 · 敵BG: ${enemyTerrain.zh} / 我方TAI: ${heroTerrain.zh}`;
+        ? `⚔️ Melee Unified Ground · ${enemyTerrain.en} (#${enemyTerrain.id})`
+        : `⚔️ 近戰統一場景 · ${enemyTerrain.zh} (#${enemyTerrain.id})`;
     }
 
     // -------------------------------------------------------------------------
@@ -1476,18 +1483,15 @@ export class Modern25DCombatRenderer {
     ctx.rotate(camTilt);
     ctx.translate(-W * 0.5 - camX, -H * 0.5 - camY);
 
-    this.drawTerrainBackdrop(ctx, W, H, this.vfxAssets.enemyBgId, camX, camY, thorHomeY);
-
-    // Draw Foreground Elevated TAI Terrain Platform at Bottom-Right (under Hero)
-    // When heroBgId !== enemyBgId, renders harmonized HD TAI[heroBgId]; when identical, blends seamlessly!
-    this.drawHeroTaiPlatform(
+    this.drawTerrainBackdrop(
       ctx,
-      this.vfxAssets.heroBgId,
+      W,
+      H,
       this.vfxAssets.enemyBgId,
-      thorHomeX,
+      camX,
+      camY,
       thorHomeY,
-      Boolean(this.vfxAssets.rightUnit.isFlying),
-      false
+      useDynamicMerge ? this.vfxAssets.heroBgId : undefined
     );
 
     this.drawGroundShadow(ctx, banditSpec.x, banditSpec.y, 195);
@@ -1716,9 +1720,6 @@ export class Modern25DCombatRenderer {
       ctx.translate(-W * 0.5 - camX, -H * 0.5 - camY);
 
       this.drawTerrainBackdrop(ctx, W, H, actorBgId, camX, camY, actorSpec.y);
-      if (isHeroAtk) {
-        this.drawHeroTaiPlatform(ctx, actorBgId, actorBgId, thorHomeX, thorHomeY, Boolean(actorUnit.isFlying), false);
-      }
       this.drawGroundShadow(ctx, actorSpec.x, actorSpec.y, isHeroAtk ? 225 : 195);
       this.renderCombatantWithBlend(
         ctx,
@@ -1847,9 +1848,6 @@ export class Modern25DCombatRenderer {
     ctx.translate(-W * 0.5, -H * 0.5);
 
     this.drawTerrainBackdrop(ctx, W, H, targetBgId, 0, 0, targetHomeY);
-    if (!isHeroAtk) {
-      this.drawHeroTaiPlatform(ctx, targetBgId, targetBgId, targetHomeX, targetHomeY, Boolean(targetUnit.isFlying), false);
-    }
     this.drawGroundShadow(ctx, targetSpec.x, targetSpec.y, isHeroAtk ? 210 : 225);
 
     if (shockwaveProgress >= 0 && shockwaveProgress <= 1 && this.config.enableHitStopAndSparks) {
@@ -1994,7 +1992,6 @@ export class Modern25DCombatRenderer {
       ctx.translate(-W * 0.5 - camX, -H * 0.5 - camY);
 
       this.drawTerrainBackdrop(ctx, W, H, heroBgId, camX, camY, casterHomeY);
-      this.drawHeroTaiPlatform(ctx, heroBgId, heroBgId, casterHomeX, casterHomeY, Boolean(caster.isFlying), false);
 
       // Rotating 3D Perspective Arcane/Holy/Fire Magic Circle beneath Caster!
       this.drawMagicCastCircle(ctx, casterHomeX, casterHomeY - 12, p, element);
@@ -2254,130 +2251,109 @@ export class Modern25DCombatRenderer {
   }
 
   /**
-   * Draws the Hero's foreground TAI ground platform when Hero & Enemy stand on DIFFERENT tile types
-   * (or blends seamlessly when both share the same terrain). Flying units suppress TAI per FD2 `fn_61827`.
+   * Dynamically merges two adjacent HD terrain backgrounds (`enemyBgId` panorama + `heroBgId` foreground ground plane)
+   * using a feathered organic S-curve diagonal boundary strictly below the horizon (`y >= 71%`), ambient tone harmonization,
+   * and a subtle depth seam — completely eliminating the floating 1995 `TAI` disc!
+   * Cached once per `(enemyBgId, heroBgId)` pair for 0.0ms per-frame rendering at 60fps.
    */
-  private drawHeroTaiPlatform(
-    ctx: CanvasRenderingContext2D,
-    heroBgId: number,
-    activeBgId: number,
-    cx: number,
-    cy: number,
-    isFlying: boolean,
-    forceShow: boolean
-  ): void {
-    if (isFlying) {
-      // Flying units float above terrain with only a soft distant shadow (faithful to FD2 `fn_61827`)
-      ctx.save();
-      ctx.translate(cx + 10, cy + 22);
-      ctx.scale(1, 0.24);
-      const grad = ctx.createRadialGradient(0, 0, 20, 0, 0, 210);
-      grad.addColorStop(0, 'rgba(5, 8, 12, 0.36)');
-      grad.addColorStop(1, 'rgba(5, 8, 12, 0)');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(0, 0, 210, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      return;
+  private getOrBuildMergedTerrainCanvas(enemyBgId: number, heroBgId: number): HTMLCanvasElement | null {
+    const key = `${enemyBgId}_${heroBgId}`;
+    const cached = this.mergedBgCache.get(key);
+    if (cached) return cached;
+
+    const eImg = this.vfxAssets.bgImages.get(enemyBgId);
+    const hImg = this.vfxAssets.bgImages.get(heroBgId);
+    if (!eImg || !hImg || !eImg.complete || !hImg.complete || !eImg.naturalWidth || !hImg.naturalWidth) {
+      return null;
     }
 
-    const showDistinctTai = forceShow || heroBgId !== activeBgId;
-    if (!showDistinctTai) {
-      // Same tile type: soft organic ground blend so both combatants share one unified scenic stage!
-      ctx.save();
-      ctx.translate(cx + 25, cy + 4);
-      ctx.scale(1, 0.32);
-      const grad = ctx.createRadialGradient(0, 0, 40, 0, 0, 390);
-      grad.addColorStop(0, 'rgba(32, 46, 28, 0.42)');
-      grad.addColorStop(0.6, 'rgba(20, 30, 18, 0.22)');
-      grad.addColorStop(1, 'rgba(12, 18, 12, 0)');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(0, 0, 390, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      return;
+    const MW = 960;
+    const MH = 540;
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = MW;
+    outCanvas.height = MH;
+    const octx = outCanvas.getContext('2d');
+    if (!octx) return null;
+
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = 'high';
+    octx.drawImage(eImg, 0, 0, MW, MH);
+
+    // Sample ONLY the pure foreground ground strip (lower 26% of hero BG, avoiding edge props/walls)
+    const hCanvas = document.createElement('canvas');
+    hCanvas.width = MW;
+    hCanvas.height = MH;
+    const hctx = hCanvas.getContext('2d');
+    if (!hctx) return outCanvas;
+
+    const hw = hImg.naturalWidth;
+    const hh = hImg.naturalHeight;
+    const groundH = Math.round(MH * 0.32);
+    hctx.imageSmoothingEnabled = true;
+    hctx.imageSmoothingQuality = 'high';
+    hctx.drawImage(
+      hImg,
+      Math.round(hw * 0.05),
+      Math.round(hh * 0.74),
+      Math.round(hw * 0.78),
+      Math.round(hh * 0.26),
+      0,
+      MH - groundH,
+      MW,
+      groundH
+    );
+
+    const startY = Math.floor(MH * 0.69);
+    const bandH = MH - startY;
+    const eData = octx.getImageData(0, startY, MW, bandH);
+    const hData = hctx.getImageData(0, startY, MW, bandH);
+    const ed = eData.data;
+    const hd = hData.data;
+
+    // Ambient tone harmonization: nudge hero ground 16% toward enemy ground's color temperature/luminance
+    let eR = 0, eG = 0, eB = 0;
+    let hR = 0, hG = 0, hB = 0;
+    for (let i = 0; i < ed.length; i += 16) {
+      eR += ed[i]; eG += ed[i + 1]; eB += ed[i + 2];
+      hR += hd[i]; hG += hd[i + 1]; hB += hd[i + 2];
+    }
+    const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+    const toneR = 0.84 + 0.16 * clamp((eR + 1) / (hR + 1), 0.8, 1.22);
+    const toneG = 0.84 + 0.16 * clamp((eG + 1) / (hG + 1), 0.8, 1.22);
+    const toneB = 0.84 + 0.16 * clamp((eB + 1) / (hB + 1), 0.8, 1.22);
+
+    // Precompute gentle organic wave along X so border reads like natural terrain (grass/snow/stone edge)
+    const waveX = new Float32Array(MW);
+    for (let x = 0; x < MW; x++) {
+      const xn = x / MW;
+      waveX[x] = 0.018 * Math.sin(xn * 17.0 + 0.5) + 0.01 * Math.sin(xn * 37.0 - 1.1);
     }
 
-    // Mixed tile types (e.g., Hero on Forest/Snowfield vs Enemy on Town Street/Castle):
-    // Render the authentic 4x HD TAI.DAT[heroBgId] platform as a harmonized foreground 2.5D terrain ledge!
-    const platW = 730;
-    const platH = 198;
-    const dx = cx - platW * 0.47;
-    const dy = cy - platH * 0.56;
-
-    // 1. Grounded ambient cast shadow underneath the foreground terrain platform
-    ctx.save();
-    ctx.translate(cx + 16, cy + 28);
-    ctx.scale(1, 0.27);
-    const shGrad = ctx.createRadialGradient(0, 0, 90, 0, 0, 415);
-    shGrad.addColorStop(0, 'rgba(4, 7, 10, 0.85)');
-    shGrad.addColorStop(0.68, 'rgba(4, 7, 10, 0.48)');
-    shGrad.addColorStop(1, 'rgba(4, 7, 10, 0)');
-    ctx.fillStyle = shGrad;
-    ctx.beginPath();
-    ctx.arc(0, 0, 415, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    // 2. Render 4x HD TAI.DAT[heroBgId] onto reusable scratch canvas with soft lighting harmonization
-    const am = this.vfxAssets.assetManager;
-    let drewRealTai = false;
-    if (am) {
-      if (!this.taiScratchCanvas) {
-        this.taiScratchCanvas = document.createElement('canvas');
-        this.taiScratchCanvas.width = 640;
-        this.taiScratchCanvas.height = 176;
-        this.taiScratchCtx = this.taiScratchCanvas.getContext('2d');
-      }
-      const tctx = this.taiScratchCtx;
-      if (tctx && this.taiScratchCanvas) {
-        tctx.globalCompositeOperation = 'source-over';
-        tctx.globalAlpha = 1;
-        tctx.clearRect(0, 0, 640, 176);
-        drewRealTai = am.drawTaiPlatformScaled(tctx, heroBgId, 0, 0, 640, 176);
-        if (drewRealTai) {
-          // Harmonize top-lit sheen & bottom rim shading directly onto the TAI silhouette
-          tctx.globalCompositeOperation = 'source-atop';
-          const lit = tctx.createLinearGradient(0, 0, 0, 176);
-          lit.addColorStop(0, 'rgba(255, 250, 232, 0.14)');
-          lit.addColorStop(0.55, 'rgba(0, 0, 0, 0)');
-          lit.addColorStop(1, 'rgba(6, 10, 16, 0.34)');
-          tctx.fillStyle = lit;
-          tctx.fillRect(0, 0, 640, 176);
-          tctx.globalCompositeOperation = 'source-over';
-
-          ctx.save();
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(this.taiScratchCanvas, dx, dy, platW, platH);
-
-          // Subtle rim highlight along top edge of terrain ledge so it reads cleanly in 2.5D
-          ctx.strokeStyle = 'rgba(255, 248, 220, 0.22)';
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          ctx.ellipse(cx + 18, cy - 6, platW * 0.45, platH * 0.36, 0, Math.PI * 1.08, Math.PI * 1.92);
-          ctx.stroke();
-          ctx.restore();
-        }
+    for (let by = 0; by < bandH; by++) {
+      const yn = (startY + by) / MH;
+      const groundClip = clamp((yn - 0.71) / 0.13, 0, 1);
+      if (groundClip <= 0.001) continue;
+      const yDiag = (yn - 0.7) * 1.35;
+      const rowOff = by * MW * 4;
+      for (let x = 0; x < MW; x++) {
+        const xn = x / MW;
+        const diag = (xn - 0.36) * 0.58 + yDiag + waveX[x];
+        const raw = clamp((diag - 0.25) / 0.22, 0, 1) * groundClip;
+        if (raw <= 0.001) continue;
+        const m = raw * raw * (3 - 2 * raw); // smoothstep
+        const invM = 1 - m;
+        // Subtle 12% ground shadow right along the transition ridge for 2.5D depth
+        const seam = 1.0 - 0.12 * (4.0 * m * invM);
+        const idx = rowOff + x * 4;
+        ed[idx] = Math.min(255, (ed[idx] * invM + Math.min(255, hd[idx] * toneR) * m) * seam);
+        ed[idx + 1] = Math.min(255, (ed[idx + 1] * invM + Math.min(255, hd[idx + 1] * toneG) * m) * seam);
+        ed[idx + 2] = Math.min(255, (ed[idx + 2] * invM + Math.min(255, hd[idx + 2] * toneB) * m) * seam);
       }
     }
 
-    if (!drewRealTai) {
-      // Fallback soft ground rim for sky/void slots without a TAI texture
-      ctx.save();
-      ctx.translate(cx + 16, cy + 4);
-      ctx.scale(1, 0.28);
-      const grad = ctx.createRadialGradient(0, 0, 40, 0, 0, 360);
-      grad.addColorStop(0, 'rgba(72, 92, 118, 0.45)');
-      grad.addColorStop(1, 'rgba(18, 28, 38, 0)');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(0, 0, 360, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
+    octx.putImageData(eData, 0, startY);
+    this.mergedBgCache.set(key, outCanvas);
+    return outCanvas;
   }
 
   private drawTerrainBackdrop(
@@ -2387,7 +2363,8 @@ export class Modern25DCombatRenderer {
     bgId: number,
     camX: number,
     camY: number,
-    groundY: number
+    groundY: number,
+    mergeHeroBgId?: number
   ): void {
     const preset = getTerrainPreset(bgId);
     const pFactor = this.config.enableParallaxAndGodRays ? 0.35 : 0;
@@ -2396,8 +2373,14 @@ export class Modern25DCombatRenderer {
     const bgW = W * 1.12;
     const bgH = H * 1.12;
 
+    const mergedCanvas =
+      mergeHeroBgId !== undefined && mergeHeroBgId !== bgId
+        ? this.getOrBuildMergedTerrainCanvas(bgId, mergeHeroBgId)
+        : null;
     const bgImg = this.vfxAssets.bgImages.get(bgId) ?? this.vfxAssets.forestBg;
-    if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+    if (mergedCanvas) {
+      ctx.drawImage(mergedCanvas, bgX, bgY, bgW, bgH);
+    } else if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
       ctx.drawImage(bgImg, bgX, bgY, bgW, bgH);
     } else {
       const sky = ctx.createLinearGradient(0, 0, 0, H);
@@ -3620,11 +3603,11 @@ export async function mountVfxLabInGallery(
         </div>
       </div>
 
-      <!-- INDEPENDENT TERRAIN SELECTORS (HERO TAI / STAGE 1 vs ENEMY BG / STAGE 3) -->
+      <!-- INDEPENDENT TERRAIN SELECTORS (DYNAMIC GROUND MERGE IN MELEE / SEPARATE SCREENS IN RANGED & MAGIC) -->
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 18px; background: rgba(12, 20, 34, 0.92); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 10px;">
         <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
           <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #86efac;">
-            <span>🗺️ ${tr('我方地形 (近戰TAI / 遠程攻方背景)：', '我方地形 (近战TAI / 远程攻方背景)：', 'Hero Tile (Melee TAI / Remote Stage 1):')}</span>
+            <span>🗺️ ${tr('我方地形 (近戰動態地面 / 遠程攻方背景)：', '我方地形 (近战动态地面 / 远程攻方背景)：', 'Hero Tile (Melee Ground Blend / Remote Stage 1):')}</span>
             <select id="vfx-sel-hero-bg" style="background: #090d16; color: #f8fafc; border: 1px solid #22c55e; border-radius: 6px; padding: 4px 8px; font-size: 12.5px; font-weight: 600;">
               ${HD_TERRAIN_PRESETS.map(
                 (tp) =>
@@ -3633,13 +3616,17 @@ export async function mountVfxLabInGallery(
             </select>
           </label>
           <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #fca5a5;">
-            <span>🏞️ ${tr('敵方地形 (近戰全景BG / 遠程受擊背景)：', '敌方地形 (近战全景BG / 远程受击背景)：', 'Enemy Tile (Melee BG / Remote Target):')}</span>
+            <span>🏞️ ${tr('敵方地形 (近戰主場景 / 遠程受擊背景)：', '敌方地形 (近战主场景 / 远程受击背景)：', 'Enemy Tile (Melee Base BG / Remote Target):')}</span>
             <select id="vfx-sel-enemy-bg" style="background: #090d16; color: #f8fafc; border: 1px solid #f87171; border-radius: 6px; padding: 4px 8px; font-size: 12.5px; font-weight: 600;">
               ${HD_TERRAIN_PRESETS.map(
                 (tp) =>
                   `<option value="${tp.id}" ${tp.id === vfxAssets.enemyBgId ? 'selected' : ''}>#${String(tp.id).padStart(2, '0')} ${isEn ? tp.en : tp.zh}</option>`
               ).join('')}
             </select>
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #fde047; cursor: pointer;" title="${tr('近戰異地時將我方地面無縫斜向融合進右下前景（取消勾選則統一使用敵方地面，徹底棄用浮空TAI圓盤）', '近战异地时将我方地面无缝斜向融合进右下前景（取消勾选则统一使用敌方地面，彻底弃用浮空TAI圆盘）', 'Dynamically blend Hero ground plane seamlessly into bottom-right foreground in mixed-tile melee (uncheck to use Enemy ground only; no floating TAI disc)')}">
+            <input type="checkbox" id="vfx-chk-ground-merge" checked />
+            🌿 ${tr('近戰動態融合雙方地面 (無TAI)', '近战动态融合双方地面 (无TAI)', 'Dynamic Ground Merge (No TAI)')}
           </label>
         </div>
         <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
@@ -4228,6 +4215,7 @@ export async function mountVfxLabInGallery(
     });
   };
   bindToggle('#vfx-chk-slowmo', 'slowMotion');
+  bindToggle('#vfx-chk-ground-merge', 'enableDynamicGroundMerge');
   bindToggle('#vfx-chk-parallax', 'enableParallaxAndGodRays');
   bindToggle('#vfx-chk-cutin', 'enableAnimeCutIn');
   bindToggle('#vfx-chk-slash', 'enableVolumetricSlash');
