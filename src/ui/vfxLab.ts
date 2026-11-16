@@ -169,7 +169,7 @@ export async function loadUnitSlotIntoVfxAssets(
   side: 'player' | 'enemy',
   entry: VfxManifestUnitEntry
 ): Promise<void> {
-  const cb = '?v=19';
+  const cb = '?v=20';
   const omniCount = Math.max(10, entry.omniFrameCount ?? 10);
   const omniIndices = Array.from({ length: omniCount }, (_, i) => i);
   const [nb6, omni, cutIn, cIdle, cAtk] = await Promise.all([
@@ -200,7 +200,7 @@ export async function loadUnitSlotIntoVfxAssets(
 }
 
 export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAssets> {
-  const cacheBust = '?v=19';
+  const cacheBust = '?v=20';
   // Always refresh manifest so newly generated batch units appear immediately
   try {
     const resp = await fetch(`assets/vfx_lab/units_manifest.json?t=${Date.now()}`);
