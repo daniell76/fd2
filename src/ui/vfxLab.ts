@@ -57,6 +57,13 @@ interface ClassicFigBundle {
   strip: FigAniStrip;
 }
 
+export interface VfxHitFrameSpec {
+  frame: number;
+  weight: number;
+  sfx?: 'slash' | 'crit';
+  color?: 'gold' | 'azure';
+}
+
 export interface VfxManifestUnitEntry {
   uid: number;
   nameZh: string;
@@ -68,6 +75,8 @@ export interface VfxManifestUnitEntry {
   cameraOrientation: 'up_left' | 'down_right';
   cutinFacing: 'left' | 'right';
   dir: string;
+  omniFrameCount?: number;
+  hitFrames?: VfxHitFrameSpec[];
   overallPass?: boolean;
 }
 
@@ -160,10 +169,12 @@ export async function loadUnitSlotIntoVfxAssets(
   side: 'player' | 'enemy',
   entry: VfxManifestUnitEntry
 ): Promise<void> {
-  const cb = '?v=17';
+  const cb = '?v=18';
+  const omniCount = Math.max(10, entry.omniFrameCount ?? 10);
+  const omniIndices = Array.from({ length: omniCount }, (_, i) => i);
   const [nb6, omni, cutIn, cIdle, cAtk] = await Promise.all([
     Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/nb6_${i}.png${cb}`))),
-    Promise.all([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => loadImg(`${entry.dir}/omni_${i}.png${cb}`))),
+    Promise.all(omniIndices.map((i) => loadImg(`${entry.dir}/omni_${i}.png${cb}`))),
     loadImg(`${entry.dir}/cutin.jpg${cb}`).catch(() => null),
     assets.loadUnitFigAni(entry.uid, 'idle').catch(() => null),
     assets.loadUnitFigAni(entry.uid, 'attack').catch(() => null),
@@ -189,7 +200,7 @@ export async function loadUnitSlotIntoVfxAssets(
 }
 
 export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAssets> {
-  const cacheBust = '?v=17';
+  const cacheBust = '?v=18';
   // Always refresh manifest so newly generated batch units appear immediately
   try {
     const resp = await fetch(`assets/vfx_lab/units_manifest.json?t=${Date.now()}`);
@@ -724,12 +735,165 @@ export class Modern25DCombatRenderer {
     const thorDrawsInFront = true;
 
     // -------------------------------------------------------------------------
-    // Thor Diagonal Up-Left (↖) Strike Sequence
+    // Hero Diagonal Up-Left (↖) Strike Sequence (supports both 1-hit & Multi-Hit units!)
     // -------------------------------------------------------------------------
     const srcMode = this.config.animSource;
+    const rightHitFrames = this.vfxAssets.rightUnit.hitFrames;
+    const isRightMultiHit =
+      srcMode === 'omni_video' &&
+      Array.isArray(rightHitFrames) &&
+      rightHitFrames.length > 1 &&
+      this.vfxAssets.thorOmniPoses.length > 10;
+    const rightOmniMax = Math.max(1, this.vfxAssets.thorOmniPoses.length - 1);
+
     if (thorStart >= 0 && t >= thorStart && t < thorStart + 1830) {
       const localT = t - thorStart;
-      if (localT < 460) {
+      if (isRightMultiHit && rightHitFrames) {
+        // Multi-Hit Combo Sequence (e.g., #007 Lancelot: 3 Spear Thrusts + Rising Azure Crescent Finisher!)
+        const firstHitFrame = rightHitFrames[0].frame;
+        if (localT < 260) {
+          const p = localT / 260;
+          const ease = 1 - Math.pow(1 - p, 3);
+          this.setContinuousFrame(thorSpec, p * Math.max(1, firstHitFrame - 0.8), rightOmniMax);
+          thorSpec.x = thorHomeX + ease * 20;
+          thorSpec.y = thorHomeY + ease * 8;
+          camZoom = 1.0 + ease * 0.11;
+          camX = ease * W * 0.06;
+          camY = ease * H * 0.04;
+          camTilt = -ease * 0.012;
+          this.fireOnce('thor_windup_sfx', () => {
+            this.sound.playSfx('step_foot');
+            this.spawnDustPlume(thorSpec.x, thorSpec.y, 1, 0.4, 8);
+          });
+        } else if (localT < 460) {
+          const p = (localT - 260) / 200;
+          if (this.config.enableAnimeCutIn && this.scenario === 'thor_crit') {
+            cutInProgress = p;
+            cutInUnit = 'thor';
+          }
+          const dashEase = 1 - Math.pow(1 - p, 3);
+          thorSpec.x = thorHomeX + 20 - dashEase * (W * 0.28);
+          thorSpec.y = thorHomeY + 8 - dashEase * (H * 0.17);
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 4 : 0;
+          this.setContinuousFrame(
+            thorSpec,
+            Math.max(1, firstHitFrame - 0.8) + dashEase * 0.8,
+            rightOmniMax
+          );
+          camZoom = 1.11 + dashEase * 0.1;
+          camX = W * 0.06 - dashEase * (W * 0.16);
+          camY = H * 0.04 - dashEase * (H * 0.1);
+          camTilt = -0.012 + dashEase * 0.026;
+          this.fireOnce('thor_dash_sfx', () => {
+            this.sound.playSfx('slash');
+            this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.5, 14);
+          });
+        } else if (localT < 1520) {
+          // Full multi-hit combo playback across frames [firstHitFrame .. rightOmniMax]
+          const p = (localT - 460) / 1060;
+          const curFrame = firstHitFrame + p * (rightOmniMax - firstHitFrame);
+          // Snap crisply near hit frames so every thrust & finisher pops cleanly without muddy blending
+          const nearestHit = rightHitFrames.find((h) => Math.abs(curFrame - h.frame) < 0.35);
+          if (nearestHit) {
+            thorSpec.primaryIdx = Math.min(rightOmniMax, Math.max(0, nearestHit.frame));
+            thorSpec.secondaryIdx = undefined;
+            thorSpec.blend = 0;
+          } else {
+            this.setContinuousFrame(thorSpec, curFrame, rightOmniMax);
+          }
+
+          thorSpec.x = thorHomeX + 20 - W * 0.28 - Math.min(1, p * 2.5) * 20;
+          thorSpec.y = thorHomeY + 8 - H * 0.17 - Math.min(1, p * 2.5) * 10;
+
+          let activeRecoil = 0;
+          let activeFlash = 0;
+          let activeShake = 0;
+
+          for (let hi = 0; hi < rightHitFrames.length; hi++) {
+            const hit = rightHitFrames[hi];
+            const isFinisher = hi === rightHitFrames.length - 1;
+            const deltaF = curFrame - hit.frame;
+            if (deltaF >= 0) {
+              this.fireOnce(`thor_multihit_${hi}`, () => {
+                this.sound.playSfx(hit.sfx === 'crit' ? 'crit' : 'slash');
+                if (this.config.enableHitStopAndSparks) {
+                  this.hitStopRemainingMs = isFinisher ? 95 : 30;
+                }
+                const palette =
+                  hit.color === 'azure'
+                    ? ['#ffffff', '#bae6fd', '#38bdf8', '#0ea5e9', '#fde047']
+                    : ['#ffffff', '#fde047', '#f59e0b', '#fbbf24'];
+                const yOff = isFinisher ? -195 : hi === 0 ? -245 : hi === 1 ? -195 : -145;
+                this.spawnImpactSparks(
+                  banditHomeX + 45,
+                  banditHomeY + yOff,
+                  banditHomeY,
+                  isFinisher ? 85 : 34,
+                  palette,
+                  -1,
+                  -0.45
+                );
+                this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.35, isFinisher ? 16 : 6);
+                const hitDmg = isFinisher
+                  ? Math.max(1, this.thorStrikeDmg - rightHitFrames.slice(0, -1).reduce((s, x) => s + Math.max(1, Math.round(this.thorStrikeDmg * x.weight)), 0))
+                  : Math.max(1, Math.round(this.thorStrikeDmg * hit.weight));
+                this.banditTargetHp = Math.max(0, this.banditTargetHp - hitDmg);
+              });
+
+              const hitSpan = isFinisher ? 2.4 : 1.15;
+              if (deltaF < hitSpan) {
+                const hp = deltaF / hitSpan;
+                const rVal = Math.sin(Math.min(1, hp * 1.4) * Math.PI) * (isFinisher ? 1.0 : 0.45);
+                activeRecoil = Math.max(activeRecoil, rVal);
+                activeFlash = Math.max(activeFlash, Math.max(0, 1 - hp * 3.0) * (isFinisher ? 1.0 : 0.65));
+                activeShake = Math.max(
+                  activeShake,
+                  this.config.enableHitStopAndSparks ? Math.max(0, (1 - hp * 2.0) * (isFinisher ? 26 : 11)) : 0
+                );
+                if (isFinisher) {
+                  slashArcProgress = Math.min(1, hp * 1.8);
+                  shockwaveProgress = Math.min(1, hp * 1.6);
+                  shockwaveCenter = { x: banditHomeX + 45, y: banditHomeY - 195 };
+                  shockwaveGroundY = banditHomeY;
+                }
+              }
+            }
+          }
+
+          banditSpec.x = banditHomeX - activeRecoil * 54;
+          banditSpec.y = banditHomeY - activeRecoil * 26;
+          banditSpec.rot = -activeRecoil * 0.1;
+          banditSpec.scaleX = 1.0 - activeRecoil * 0.07;
+          banditSpec.scaleY = 1.0 + activeRecoil * 0.05;
+          banditSpec.flashWhite = activeFlash;
+          impactFlashAlpha = activeFlash * 0.85;
+          camZoom = 1.21 - p * 0.1;
+          camX = -W * 0.1 * (1 - p * 0.45);
+          camY = -H * 0.06 * (1 - p * 0.45);
+          camTilt = 0.014 * (1 - p);
+          camShake = activeShake;
+        } else {
+          const p = (localT - 1520) / 310;
+          const ease = 1 - Math.pow(1 - p, 2);
+          if (p < 0.45) {
+            thorSpec.primaryIdx = rightOmniMax;
+            thorSpec.secondaryIdx = 0;
+            thorSpec.blend = p / 0.45;
+          } else {
+            thorSpec.primaryIdx = 0;
+          }
+          const startX = thorHomeX + 20 - W * 0.28 - 20;
+          const startY = thorHomeY + 8 - H * 0.17 - 10;
+          thorSpec.x = startX + ease * (thorHomeX - startX);
+          thorSpec.y = startY + ease * (thorHomeY - startY);
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.65 ? 2 : 0;
+          thorSpec.dashDirX = 1;
+          thorSpec.dashDirY = 0.48;
+          camZoom = 1.11 - ease * 0.11;
+          camX = -W * 0.055 * (1 - ease);
+          camY = -H * 0.033 * (1 - ease);
+        }
+      } else if (localT < 460) {
         // 1. Coiled Wind-Up at Bottom-Right
         const p = localT / 460;
         const ease = 1 - Math.pow(1 - p, 3);
