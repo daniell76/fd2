@@ -79,6 +79,10 @@ export interface VfxManifestUnitEntry {
   hitFrames?: VfxHitFrameSpec[];
   isRemote?: boolean;
   projectileType?: 'bolt' | 'arrow' | 'beam' | 'orb';
+  /** Normalized [0..1] sprite-space coordinates (680x680 frame) where the missile/bolt leaves the weapon on Stage 1. */
+  muzzleAnchor?: { x: number; y: number };
+  /** Exact firing frame index when the projectile releases on Stage 1. */
+  rangedFireFrame?: { nb6: number; omni: number };
   hasMagic?: boolean;
   magicElement?: 'fire' | 'holy' | 'thunder' | 'ice' | 'arcane';
   magicNameZh?: string;
@@ -1636,23 +1640,25 @@ export class Modern25DCombatRenderer {
         dashDirY: 0,
       };
 
-      // Map launch progress cleanly through Ready -> Cock -> Kneel Aim -> Fire Recoil -> Hold!
-      // Fire release happens at p = 0.56 (NB6 frame 3 / Omni frame 5)
+      // Map launch progress cleanly through Ready -> Wind-Up/Aim -> Exact Firing Frame -> Recoil Hold!
+      // Fire release happens at p = 0.56, synced to per-unit `rangedFireFrame` (e.g., Celia nb6=4, omni=5).
+      const fireOmni = actorUnit.rangedFireFrame?.omni ?? Math.min(actorMaxIdx, 5);
+      const fireNb6 = actorUnit.rangedFireFrame?.nb6 ?? 3;
       if (srcMode === 'omni_video') {
         if (p < 0.54) {
-          this.setContinuousFrame(actorSpec, (p / 0.54) * Math.min(4.2, actorMaxIdx * 0.46), actorMaxIdx);
+          this.setContinuousFrame(actorSpec, (p / 0.54) * Math.max(1, fireOmni - 0.6), actorMaxIdx);
         } else if (p < 0.84) {
           const fp = (p - 0.54) / 0.3;
-          this.setContinuousFrame(actorSpec, Math.min(actorMaxIdx, 4.8 + fp * (actorMaxIdx - 4.8)), actorMaxIdx);
+          this.setContinuousFrame(actorSpec, Math.min(actorMaxIdx, fireOmni + fp * (actorMaxIdx - fireOmni)), actorMaxIdx);
         } else {
           actorSpec.primaryIdx = actorMaxIdx;
         }
       } else if (srcMode === 'nb2_6frame') {
         if (p < 0.54) {
-          this.setContinuousFrame(actorSpec, (p / 0.54) * 2.4, 5);
+          this.setContinuousFrame(actorSpec, (p / 0.54) * Math.max(1, fireNb6 - 0.6), 5);
         } else if (p < 0.84) {
           const fp = (p - 0.54) / 0.3;
-          this.setContinuousFrame(actorSpec, 3.0 + fp * 2.0, 5);
+          this.setContinuousFrame(actorSpec, Math.min(5, fireNb6 + fp * (5 - fireNb6)), 5);
         } else {
           actorSpec.primaryIdx = 5;
         }
@@ -1660,15 +1666,29 @@ export class Modern25DCombatRenderer {
         actorSpec.primaryIdx = p < 0.25 ? 0 : p < 0.54 ? 1 : 2;
       }
 
+      // Per-unit normalized muzzle anchor in 680x680 sprite space (matches drawCharacterSprite anchorRatioY = 648/680)
+      const actorDispSize = isHeroAtk ? 720 : 510;
+      const muzzleAnchor =
+        actorUnit.muzzleAnchor ?? (isHeroAtk ? { x: 0.22, y: 0.54 } : { x: 0.78, y: 0.54 });
+      const getMuzzlePos = () => ({
+        x: actorSpec.x + (muzzleAnchor.x - 0.5) * actorDispSize * actorSpec.scaleX,
+        y: actorSpec.y + (muzzleAnchor.y - 648 / 680) * actorDispSize * actorSpec.scaleY,
+      });
+
       // Slight recoil kickback on release at p = 0.56
       let camShake = 0;
       if (p >= 0.56) {
+        const rp = Math.min(1, (p - 0.56) / 0.22);
+        const kick = Math.sin(rp * Math.PI) * 18;
+        actorSpec.x += isHeroAtk ? kick : -kick;
+        camShake = (1 - rp) * 7;
+        const mPos = getMuzzlePos();
         this.fireOnce(`ranged_fire_sfx_${attackerSide}`, () => {
           this.sound.playSfx('slash');
           this.spawnDustPlume(actorSpec.x, actorSpec.y, isHeroAtk ? 1 : -1, 0.2, 12);
           this.spawnImpactSparks(
-            actorSpec.x + (isHeroAtk ? -175 : 155),
-            actorSpec.y - (isHeroAtk ? 210 : 190),
+            mPos.x,
+            mPos.y,
             actorSpec.y,
             24,
             ['#ffffff', '#fde047', '#f59e0b', '#fb923c'],
@@ -1676,10 +1696,6 @@ export class Modern25DCombatRenderer {
             0
           );
         });
-        const rp = Math.min(1, (p - 0.56) / 0.22);
-        const kick = Math.sin(rp * Math.PI) * 18;
-        actorSpec.x += isHeroAtk ? kick : -kick;
-        camShake = (1 - rp) * 7;
       }
 
       const camZoom = 1.02 + Math.min(1, p * 1.4) * 0.11;
@@ -1702,14 +1718,15 @@ export class Modern25DCombatRenderer {
         actorPoses,
         actorSpec,
         isHeroAtk ? '#38bdf8' : '#ef4444',
-        isHeroAtk ? 720 : 510
+        actorDispSize
       );
 
-      // Blazing crossbow bolt / arrow streaks out from weapon tip off screen edge!
+      // Blazing crossbow bolt / arrow streaks out from per-unit `muzzleAnchor` off screen edge!
       if (p >= 0.56 && p <= 0.94) {
         const boltP = Math.min(1, (p - 0.56) / 0.22);
-        const muzzleX = actorSpec.x + (isHeroAtk ? -175 : 155);
-        const muzzleY = actorSpec.y - (isHeroAtk ? 215 : 190);
+        const mPos = getMuzzlePos();
+        const muzzleX = mPos.x;
+        const muzzleY = mPos.y;
         const endX = isHeroAtk ? -160 : W + 160;
         const bx = muzzleX + (endX - muzzleX) * boltP;
         this.drawHdProjectile(ctx, bx, muzzleY, isHeroAtk ? -1 : 1, projectileType, 1.15);

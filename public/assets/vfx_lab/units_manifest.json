@@ -147,6 +147,14 @@
       "dir": "assets/vfx_lab/units/u_008",
       "isRemote": true,
       "projectileType": "bolt",
+      "muzzleAnchor": {
+        "x": 0.182,
+        "y": 0.565
+      },
+      "rangedFireFrame": {
+        "nb6": 4,
+        "omni": 5
+      },
       "overallPass": true
     },
     {
