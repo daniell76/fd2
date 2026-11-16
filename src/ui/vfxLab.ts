@@ -163,7 +163,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=22';
+const VFX_ASSET_VERSION = '?v=23';
 
 export async function loadUnitSlotIntoVfxAssets(
   assets: AssetManager,
