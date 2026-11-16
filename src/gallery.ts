@@ -1191,7 +1191,7 @@ class MappingGalleryApp {
                   <div>
                     <div class="mono-tag" style="font-size:10px; color:#fde047; margin-bottom:2px;">💥 Crit Cut-In</div>
                     <img
-                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/cutin.jpg?v=30"
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/cutin.jpg?v=31"
                       loading="lazy"
                       alt="${entry.nameZh} Cut-In"
                       style="width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:5px; border:1px solid #334155; background:#05080f;"
@@ -1200,7 +1200,7 @@ class MappingGalleryApp {
                   <div>
                     <div class="mono-tag" style="font-size:10px; color:#7dd3fc; margin-bottom:2px;">🖼️ HD 6-Frame Sheet</div>
                     <img
-                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/nb6_sheet.jpg?v=30"
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/nb6_sheet.jpg?v=31"
                       loading="lazy"
                       alt="${entry.nameZh} 6-Frame Sheet"
                       style="width:100%; aspect-ratio:16/9; object-fit:contain; border-radius:5px; background:#ffffff; border:1px solid #334155;"

@@ -251,8 +251,8 @@
       "projectileType": "beam",
       "rangedBurstCount": 3,
       "muzzleAnchor": {
-        "x": 0.285,
-        "y": 0.521
+        "x": 0.204,
+        "y": 0.566
       },
       "rangedFireFrame": {
         "nb6": 2,
