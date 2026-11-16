@@ -1,7 +1,22 @@
-import type { SoundEngine } from '../audio/soundEngine';
+import type { SfxKind, SoundEngine } from '../audio/soundEngine';
 import type { AssetManager } from '../engine/assets';
 import { getLocale, tr } from '../i18n';
 import type { FigAniStrip } from '../types';
+
+// Authentic FD2.EXE `fn_113818` (`GLOBAL_2_9686 = [48, 49, 50, 51, 52, 53, 51]`):
+// Maps `FIGANI.DAT` chunk_header[4] (`sfxBankCode = 1..7`) to `FDOTHER.DAT[48..53]`.
+const FIGANI_SFX_BANK_TABLE = [48, 49, 50, 51, 52, 53, 51];
+
+export interface UnitSfxProfile {
+  bankChunk: number;
+  stepSfx: SfxKind;
+  /** Non-hit windup/launch SFX (e.g., Celia bowstring `bank:50:2`, Beckwith crossbow `bank:51:4`, Mech gun `bank:51:1`, Ares/Lorna spin `bank:49:2`). */
+  launchSfx: SfxKind | null;
+  /** Ordered per-hit impact SFX from `FIGANI.DAT` (e.g., Celia `['bank:50:1']`, Uni/Marin `['bank:53:1']`, Lancelot `['bank:52:1','bank:52:1','bank:52:1','bank:52:4']`). */
+  hitSfxList: SfxKind[];
+  magicChantSfx: SfxKind;
+  magicHitSfx: SfxKind[];
+}
 
 interface VfxSpark {
   x: number;
@@ -88,6 +103,7 @@ export interface VfxManifestUnitEntry {
   magicNameZh?: string;
   magicNameEn?: string;
   isFlying?: boolean;
+  sfxProfile?: UnitSfxProfile;
   overallPass?: boolean;
 }
 
@@ -257,6 +273,63 @@ function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifest
           ((dex.raceId === 4 || dex.raceId === 5) && entry.uid !== 28))
     );
   const projectileType = entry.projectileType ?? (isRemote ? 'bolt' : undefined);
+
+  // Derive authentic FD2.EXE per-unit audio profile directly from `gamedata.json` (`FIGANI.DAT` bank + frame headers)!
+  const atkStrip = dex?.figani?.attack;
+  const bc = atkStrip?.sfxBankCode ?? 0;
+  const bankChunk =
+    atkStrip?.sfxBankChunk && atkStrip.sfxBankChunk > 0
+      ? atkStrip.sfxBankChunk
+      : bc >= 1 && bc <= FIGANI_SFX_BANK_TABLE.length
+        ? FIGANI_SFX_BANK_TABLE[bc - 1]
+        : 0;
+  const frames = atkStrip?.frames ?? [];
+  let launchSfx: SfxKind | null = null;
+  const hitSfxList: SfxKind[] = [];
+  if (bankChunk > 0) {
+    for (const fr of frames) {
+      const subIdx = fr.hitFlag ?? 0;
+      const isImpact = Boolean(fr.sfx && fr.sfx !== 0);
+      if (isImpact) {
+        if (subIdx > 0) {
+          hitSfxList.push(`bank:${bankChunk}:${subIdx}` as SfxKind);
+        }
+      } else if (subIdx > 0 && !launchSfx) {
+        launchSfx = `bank:${bankChunk}:${subIdx}` as SfxKind;
+      }
+    }
+  }
+  const isMounted = Boolean(
+    dex?.classNameZh?.includes('騎士') || entry.classEn.toLowerCase().includes('knight')
+  );
+  const stepSfx: SfxKind = isFlying ? 'step_wing' : isMounted ? 'step_horse' : 'step_foot';
+
+  // Elemental spell banks (`FDOTHER.DAT[82..94]`): Fire Dragon `83`, Holy Seraphim `91`, Thunder `85`, Ice `87`, Arcane `88`
+  let magicChantSfx: SfxKind = 'bank:83:0';
+  let magicHitSfx: SfxKind[] = ['bank:83:3', 'bank:83:1', 'bank:83:2'];
+  if (magicElement === 'holy') {
+    magicChantSfx = 'bank:91:0';
+    magicHitSfx = ['bank:91:1', 'bank:91:1'];
+  } else if (magicElement === 'thunder') {
+    magicChantSfx = 'bank:85:0';
+    magicHitSfx = ['bank:85:1', 'bank:86:1', 'bank:87:3'];
+  } else if (magicElement === 'ice') {
+    magicChantSfx = 'bank:87:0';
+    magicHitSfx = ['bank:87:2', 'bank:87:3'];
+  } else if (magicElement === 'arcane') {
+    magicChantSfx = 'bank:88:0';
+    magicHitSfx = ['bank:88:1', 'bank:89:1'];
+  }
+
+  const sfxProfile: UnitSfxProfile = {
+    bankChunk,
+    stepSfx,
+    launchSfx,
+    hitSfxList,
+    magicChantSfx,
+    magicHitSfx,
+  };
+
   return {
     ...entry,
     isRemote,
@@ -264,6 +337,7 @@ function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifest
     hasMagic,
     magicElement,
     isFlying,
+    sfxProfile,
   };
 }
 
@@ -1013,7 +1087,7 @@ export class Modern25DCombatRenderer {
           camY = ease * H * 0.04;
           camTilt = -ease * 0.012;
           this.fireOnce('thor_windup_sfx', () => {
-            this.sound.playSfx('step_foot');
+            this.sound.playSfx(this.vfxAssets.rightUnit.sfxProfile?.stepSfx ?? 'step_foot');
             this.spawnDustPlume(thorSpec.x, thorSpec.y, 1, 0.4, 8);
           });
         } else if (localT < 460) {
@@ -1036,7 +1110,10 @@ export class Modern25DCombatRenderer {
           camY = H * 0.04 - dashEase * (H * 0.1);
           camTilt = -0.012 + dashEase * 0.026;
           this.fireOnce('thor_dash_sfx', () => {
-            this.sound.playSfx('slash');
+            const launch = this.vfxAssets.rightUnit.sfxProfile?.launchSfx;
+            if (launch) {
+              this.sound.playSfx(launch);
+            }
             this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.5, 14);
           });
         } else if (localT < 1520) {
@@ -1066,7 +1143,10 @@ export class Modern25DCombatRenderer {
             const deltaF = curFrame - hit.frame;
             if (deltaF >= 0) {
               this.fireOnce(`thor_multihit_${hi}`, () => {
-                this.sound.playSfx(hit.sfx === 'crit' ? 'crit' : 'slash');
+                const hitList = this.vfxAssets.rightUnit.sfxProfile?.hitSfxList ?? [];
+                const hitSfx: SfxKind =
+                  hitList[hi] ?? hitList[hitList.length - 1] ?? (hit.sfx === 'crit' ? 'crit' : 'slash');
+                this.sound.playSfx(hitSfx);
                 if (this.config.enableHitStopAndSparks) {
                   this.hitStopRemainingMs = isFinisher ? 95 : 30;
                 }
@@ -1167,7 +1247,8 @@ export class Modern25DCombatRenderer {
         camY = ease * H * 0.05;
         camTilt = -ease * 0.016;
         this.fireOnce('thor_windup_sfx', () => {
-          this.sound.playSfx('step_foot');
+          const prof = this.vfxAssets.rightUnit.sfxProfile;
+          this.sound.playSfx(prof?.stepSfx ?? 'step_foot');
           this.spawnDustPlume(thorSpec.x, thorSpec.y, 1, 0.4, 8);
         });
       } else if (localT < 820) {
@@ -1206,7 +1287,14 @@ export class Modern25DCombatRenderer {
         camY = H * 0.05 - dashEase * (H * 0.11);
         camTilt = -0.016 + dashEase * 0.032;
         this.fireOnce('thor_dash_sfx', () => {
-          this.sound.playSfx('slash');
+          const prof = this.vfxAssets.rightUnit.sfxProfile;
+          // Play unit-specific launch/spin SFX if present (e.g., Ares/Lorna spear spin, Raiden poleaxe);
+          // avoid playing a generic sword slash for mages/clerics/warriors whose authentic SFX is on impact!
+          if (prof?.launchSfx) {
+            this.sound.playSfx(prof.launchSfx);
+          } else {
+            this.sound.playSfx(prof?.stepSfx ?? 'step_foot');
+          }
           this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.5, 14);
         });
       } else if (localT < 1400) {
@@ -1242,7 +1330,9 @@ export class Modern25DCombatRenderer {
         shockwaveGroundY = banditHomeY;
 
         this.fireOnce('thor_impact', () => {
-          this.sound.playSfx('crit');
+          const hitList = this.vfxAssets.rightUnit.sfxProfile?.hitSfxList ?? [];
+          const impactSfx: SfxKind = hitList[0] ?? (this.scenario === 'thor_crit' ? 'crit' : 'hit');
+          this.sound.playSfx(impactSfx);
           if (this.config.enableHitStopAndSparks) {
             this.hitStopRemainingMs = 95;
           }
@@ -1326,7 +1416,8 @@ export class Modern25DCombatRenderer {
         camY = -ease * H * 0.05;
         camTilt = ease * 0.015;
         this.fireOnce('bandit_windup', () => {
-          this.sound.playSfx('step_foot');
+          const prof = this.vfxAssets.leftUnit.sfxProfile;
+          this.sound.playSfx(prof?.stepSfx ?? 'step_foot');
           this.spawnDustPlume(banditSpec.x, banditSpec.y, -1, -0.4, 8);
         });
       } else if (localB < 820) {
@@ -1365,7 +1456,12 @@ export class Modern25DCombatRenderer {
         camX = -W * 0.08 + ease * (W * 0.16);
         camY = -H * 0.05 + ease * (H * 0.1);
         this.fireOnce('bandit_dash', () => {
-          this.sound.playSfx('slash');
+          const prof = this.vfxAssets.leftUnit.sfxProfile;
+          if (prof?.launchSfx) {
+            this.sound.playSfx(prof.launchSfx);
+          } else {
+            this.sound.playSfx(prof?.stepSfx ?? 'step_foot');
+          }
           this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.4, 12);
         });
       } else if (localB < 1400) {
@@ -1402,7 +1498,9 @@ export class Modern25DCombatRenderer {
 
         this.fireOnce('bandit_impact', () => {
           const isBanditCrit = this.scenario === 'bandit_crit';
-          this.sound.playSfx(isBanditCrit ? 'crit' : 'hit');
+          const hitList = this.vfxAssets.leftUnit.sfxProfile?.hitSfxList ?? [];
+          const impactSfx: SfxKind = hitList[0] ?? (isBanditCrit ? 'crit' : 'hit');
+          this.sound.playSfx(impactSfx);
           if (this.config.enableHitStopAndSparks) {
             this.hitStopRemainingMs = isBanditCrit ? 95 : 75;
           }
@@ -1605,9 +1703,7 @@ export class Modern25DCombatRenderer {
       this.activeStageBadge = isEn
         ? `[2/3 Ranged Transit] Speed-Line Bridge (${actorTerrain.en} → ${targetTerrain.en})`
         : `[2/3 遠程飛行過場] 水平速度線 (${actorTerrain.zh} → ${targetTerrain.zh})`;
-      this.fireOnce(`ranged_bridge_sfx_${attackerSide}`, () => {
-        this.sound.playSfx('slash');
-      });
+      // Authentic FD2: Stage 2 speed-line transit is a clean visual cut between bow/gun fire (Stage 1) and arrow/bolt hit (Stage 3)!
       this.drawRangedSpeedLineBridge(ctx, W, H, bp, isHeroAtk ? -1 : 1, projectileType);
       this.drawModernDualHud(ctx, W, H);
       return;
@@ -1684,7 +1780,9 @@ export class Modern25DCombatRenderer {
         camShake = (1 - rp) * 7;
         const mPos = getMuzzlePos();
         this.fireOnce(`ranged_fire_sfx_${attackerSide}`, () => {
-          this.sound.playSfx('slash');
+          // Authentic FD2 ranged launch SFX from unit's FIGANI bank (e.g., Celia bowstring `bank:50:2`, Beckwith `bank:51:4`, Mech gun `bank:51:1`)!
+          const launchSfx: SfxKind = actorUnit.sfxProfile?.launchSfx ?? 'bank:50:2';
+          this.sound.playSfx(launchSfx);
           this.spawnDustPlume(actorSpec.x, actorSpec.y, isHeroAtk ? 1 : -1, 0.2, 12);
           this.spawnImpactSparks(
             mPos.x,
@@ -1795,7 +1893,10 @@ export class Modern25DCombatRenderer {
     if (p3 >= hitAt) {
       const hp = (p3 - hitAt) / (1 - hitAt);
       this.fireOnce(`ranged_impact_${attackerSide}`, () => {
-        this.sound.playSfx(isCrit ? 'crit' : 'hit');
+        // Authentic FD2 ranged impact SFX from unit's FIGANI bank (e.g., Celia arrow pierce `bank:50:1`, Sniper/Mech `bank:51:2`)!
+        const hitList = actorUnit.sfxProfile?.hitSfxList ?? [];
+        const hitSfx: SfxKind = hitList[0] ?? 'bank:50:1';
+        this.sound.playSfx(hitSfx);
         if (this.config.enableHitStopAndSparks) {
           this.hitStopRemainingMs = isCrit ? 95 : 70;
         }
@@ -1950,7 +2051,7 @@ export class Modern25DCombatRenderer {
 
       if (p >= 0.48) {
         this.fireOnce('magic_chant_sfx', () => {
-          this.sound.playSfx('magic');
+          this.sound.playSfx(caster.sfxProfile?.magicChantSfx ?? 'bank:83:0');
           this.thorMp = Math.max(0, this.thorMp - 4);
           this.spawnImpactSparks(
             casterHomeX - 45,
@@ -2072,7 +2173,9 @@ export class Modern25DCombatRenderer {
       if (s2 >= ht) {
         const isLast = hi === hitTimes.length - 1;
         this.fireOnce(`magic_hit_${hi}`, () => {
-          this.sound.playSfx(isLast ? 'crit' : 'hit');
+          const mHits = caster.sfxProfile?.magicHitSfx ?? ['bank:83:1'];
+          const mSfx: SfxKind = mHits[hi] ?? mHits[mHits.length - 1] ?? 'bank:83:1';
+          this.sound.playSfx(mSfx);
           if (this.config.enableHitStopAndSparks && isLast) {
             this.hitStopRemainingMs = 75;
           }
