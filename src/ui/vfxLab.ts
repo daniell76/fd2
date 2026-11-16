@@ -49,7 +49,6 @@ export interface ModernVfxConfig {
   enableVolumetricSlash: boolean;
   enableAnimeCutIn: boolean;
   enableHitStopAndSparks: boolean;
-  enableDynamicGroundMerge: boolean;
   slowMotion: boolean;
 }
 
@@ -205,7 +204,7 @@ const vfxAssetsCache: VfxLabAssets = {
   clashKeyArt: new Image(),
   forestBg: null,
   heroBgId: 4,
-  enemyBgId: 10,
+  enemyBgId: 4,
   bgImages: new Map<number, HTMLImageElement>(),
   classicThorIdle: null,
   classicThorAtk: null,
@@ -416,8 +415,6 @@ export class Modern25DCombatRenderer {
   // the character sprite's own alpha silhouette (never painting a square over the background).
   private spriteTintCanvas: HTMLCanvasElement | null = null;
   private spriteTintCtx: CanvasRenderingContext2D | null = null;
-  // Cache for dynamically merged melee ground backdrops (`enemyBgId_heroBgId` -> 960x540 canvas)
-  private mergedBgCache = new Map<string, HTMLCanvasElement>();
   private activeStageBadge = '';
 
   constructor(
@@ -430,7 +427,6 @@ export class Modern25DCombatRenderer {
       enableVolumetricSlash: true,
       enableAnimeCutIn: true,
       enableHitStopAndSparks: true,
-      enableDynamicGroundMerge: true,
       slowMotion: false,
     }
   ) {
@@ -926,22 +922,10 @@ export class Modern25DCombatRenderer {
     }
 
     const isEn = getLocale() === 'en';
-    const heroTerrain = getTerrainPreset(this.vfxAssets.heroBgId);
     const enemyTerrain = getTerrainPreset(this.vfxAssets.enemyBgId);
-    const useDynamicMerge =
-      this.config.enableDynamicGroundMerge &&
-      this.vfxAssets.heroBgId !== this.vfxAssets.enemyBgId &&
-      !this.vfxAssets.rightUnit.isFlying &&
-      heroTerrain.hasTai;
-    if (useDynamicMerge) {
-      this.activeStageBadge = isEn
-        ? `⚔️ Melee Dynamic Ground Merge · ${enemyTerrain.en} ⇄ ${heroTerrain.en}`
-        : `⚔️ 近戰動態地面融合 · 敵: ${enemyTerrain.zh} ⇄ 我: ${heroTerrain.zh}`;
-    } else {
-      this.activeStageBadge = isEn
-        ? `⚔️ Melee Unified Ground · ${enemyTerrain.en} (#${enemyTerrain.id})`
-        : `⚔️ 近戰統一場景 · ${enemyTerrain.zh} (#${enemyTerrain.id})`;
-    }
+    this.activeStageBadge = isEn
+      ? `⚔️ Melee Unified Stage · ${enemyTerrain.en} (#${enemyTerrain.id})`
+      : `⚔️ 近戰統一場景 · ${enemyTerrain.zh} (#${enemyTerrain.id})`;
 
     // -------------------------------------------------------------------------
     // Authentic Flame Dragon II Diagonal Isometric Battle Geometry:
@@ -1483,16 +1467,8 @@ export class Modern25DCombatRenderer {
     ctx.rotate(camTilt);
     ctx.translate(-W * 0.5 - camX, -H * 0.5 - camY);
 
-    this.drawTerrainBackdrop(
-      ctx,
-      W,
-      H,
-      this.vfxAssets.enemyBgId,
-      camX,
-      camY,
-      thorHomeY,
-      useDynamicMerge ? this.vfxAssets.heroBgId : undefined
-    );
+    // Unified single terrain backdrop for melee (uses Enemy's tile, no floating TAI disc)
+    this.drawTerrainBackdrop(ctx, W, H, this.vfxAssets.enemyBgId, camX, camY, thorHomeY);
 
     this.drawGroundShadow(ctx, banditSpec.x, banditSpec.y, 195);
     this.drawGroundShadow(ctx, thorSpec.x, thorSpec.y, 215);
@@ -2250,112 +2226,6 @@ export class Modern25DCombatRenderer {
     }
   }
 
-  /**
-   * Dynamically merges two adjacent HD terrain backgrounds (`enemyBgId` panorama + `heroBgId` foreground ground plane)
-   * using a feathered organic S-curve diagonal boundary strictly below the horizon (`y >= 71%`), ambient tone harmonization,
-   * and a subtle depth seam — completely eliminating the floating 1995 `TAI` disc!
-   * Cached once per `(enemyBgId, heroBgId)` pair for 0.0ms per-frame rendering at 60fps.
-   */
-  private getOrBuildMergedTerrainCanvas(enemyBgId: number, heroBgId: number): HTMLCanvasElement | null {
-    const key = `${enemyBgId}_${heroBgId}`;
-    const cached = this.mergedBgCache.get(key);
-    if (cached) return cached;
-
-    const eImg = this.vfxAssets.bgImages.get(enemyBgId);
-    const hImg = this.vfxAssets.bgImages.get(heroBgId);
-    if (!eImg || !hImg || !eImg.complete || !hImg.complete || !eImg.naturalWidth || !hImg.naturalWidth) {
-      return null;
-    }
-
-    const MW = 960;
-    const MH = 540;
-    const outCanvas = document.createElement('canvas');
-    outCanvas.width = MW;
-    outCanvas.height = MH;
-    const octx = outCanvas.getContext('2d');
-    if (!octx) return null;
-
-    octx.imageSmoothingEnabled = true;
-    octx.imageSmoothingQuality = 'high';
-    octx.drawImage(eImg, 0, 0, MW, MH);
-
-    // Sample ONLY the pure foreground ground strip (lower 26% of hero BG, avoiding edge props/walls)
-    const hCanvas = document.createElement('canvas');
-    hCanvas.width = MW;
-    hCanvas.height = MH;
-    const hctx = hCanvas.getContext('2d');
-    if (!hctx) return outCanvas;
-
-    const hw = hImg.naturalWidth;
-    const hh = hImg.naturalHeight;
-    const groundH = Math.round(MH * 0.32);
-    hctx.imageSmoothingEnabled = true;
-    hctx.imageSmoothingQuality = 'high';
-    hctx.drawImage(
-      hImg,
-      Math.round(hw * 0.05),
-      Math.round(hh * 0.74),
-      Math.round(hw * 0.78),
-      Math.round(hh * 0.26),
-      0,
-      MH - groundH,
-      MW,
-      groundH
-    );
-
-    const startY = Math.floor(MH * 0.69);
-    const bandH = MH - startY;
-    const eData = octx.getImageData(0, startY, MW, bandH);
-    const hData = hctx.getImageData(0, startY, MW, bandH);
-    const ed = eData.data;
-    const hd = hData.data;
-
-    // Ambient tone harmonization: nudge hero ground 16% toward enemy ground's color temperature/luminance
-    let eR = 0, eG = 0, eB = 0;
-    let hR = 0, hG = 0, hB = 0;
-    for (let i = 0; i < ed.length; i += 16) {
-      eR += ed[i]; eG += ed[i + 1]; eB += ed[i + 2];
-      hR += hd[i]; hG += hd[i + 1]; hB += hd[i + 2];
-    }
-    const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
-    const toneR = 0.84 + 0.16 * clamp((eR + 1) / (hR + 1), 0.8, 1.22);
-    const toneG = 0.84 + 0.16 * clamp((eG + 1) / (hG + 1), 0.8, 1.22);
-    const toneB = 0.84 + 0.16 * clamp((eB + 1) / (hB + 1), 0.8, 1.22);
-
-    // Precompute gentle organic wave along X so border reads like natural terrain (grass/snow/stone edge)
-    const waveX = new Float32Array(MW);
-    for (let x = 0; x < MW; x++) {
-      const xn = x / MW;
-      waveX[x] = 0.018 * Math.sin(xn * 17.0 + 0.5) + 0.01 * Math.sin(xn * 37.0 - 1.1);
-    }
-
-    for (let by = 0; by < bandH; by++) {
-      const yn = (startY + by) / MH;
-      const groundClip = clamp((yn - 0.71) / 0.13, 0, 1);
-      if (groundClip <= 0.001) continue;
-      const yDiag = (yn - 0.7) * 1.35;
-      const rowOff = by * MW * 4;
-      for (let x = 0; x < MW; x++) {
-        const xn = x / MW;
-        const diag = (xn - 0.36) * 0.58 + yDiag + waveX[x];
-        const raw = clamp((diag - 0.25) / 0.22, 0, 1) * groundClip;
-        if (raw <= 0.001) continue;
-        const m = raw * raw * (3 - 2 * raw); // smoothstep
-        const invM = 1 - m;
-        // Subtle 12% ground shadow right along the transition ridge for 2.5D depth
-        const seam = 1.0 - 0.12 * (4.0 * m * invM);
-        const idx = rowOff + x * 4;
-        ed[idx] = Math.min(255, (ed[idx] * invM + Math.min(255, hd[idx] * toneR) * m) * seam);
-        ed[idx + 1] = Math.min(255, (ed[idx + 1] * invM + Math.min(255, hd[idx + 1] * toneG) * m) * seam);
-        ed[idx + 2] = Math.min(255, (ed[idx + 2] * invM + Math.min(255, hd[idx + 2] * toneB) * m) * seam);
-      }
-    }
-
-    octx.putImageData(eData, 0, startY);
-    this.mergedBgCache.set(key, outCanvas);
-    return outCanvas;
-  }
-
   private drawTerrainBackdrop(
     ctx: CanvasRenderingContext2D,
     W: number,
@@ -2363,8 +2233,7 @@ export class Modern25DCombatRenderer {
     bgId: number,
     camX: number,
     camY: number,
-    groundY: number,
-    mergeHeroBgId?: number
+    groundY: number
   ): void {
     const preset = getTerrainPreset(bgId);
     const pFactor = this.config.enableParallaxAndGodRays ? 0.35 : 0;
@@ -2373,14 +2242,8 @@ export class Modern25DCombatRenderer {
     const bgW = W * 1.12;
     const bgH = H * 1.12;
 
-    const mergedCanvas =
-      mergeHeroBgId !== undefined && mergeHeroBgId !== bgId
-        ? this.getOrBuildMergedTerrainCanvas(bgId, mergeHeroBgId)
-        : null;
     const bgImg = this.vfxAssets.bgImages.get(bgId) ?? this.vfxAssets.forestBg;
-    if (mergedCanvas) {
-      ctx.drawImage(mergedCanvas, bgX, bgY, bgW, bgH);
-    } else if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+    if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
       ctx.drawImage(bgImg, bgX, bgY, bgW, bgH);
     } else {
       const sky = ctx.createLinearGradient(0, 0, 0, H);
@@ -3603,11 +3466,11 @@ export async function mountVfxLabInGallery(
         </div>
       </div>
 
-      <!-- INDEPENDENT TERRAIN SELECTORS (DYNAMIC GROUND MERGE IN MELEE / SEPARATE SCREENS IN RANGED & MAGIC) -->
+      <!-- INDEPENDENT TERRAIN SELECTORS (UNIFIED ENEMY BG IN MELEE / SEPARATE SCREENS IN RANGED & MAGIC) -->
       <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 18px; background: rgba(12, 20, 34, 0.92); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 10px;">
         <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
           <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #86efac;">
-            <span>🗺️ ${tr('我方地形 (近戰動態地面 / 遠程攻方背景)：', '我方地形 (近战动态地面 / 远程攻方背景)：', 'Hero Tile (Melee Ground Blend / Remote Stage 1):')}</span>
+            <span>🗺️ ${tr('我方地形 (遠程/法術 攻方獨屏)：', '我方地形 (远程/法术 攻方独屏)：', 'Hero Tile (Ranged/Magic Stage 1):')}</span>
             <select id="vfx-sel-hero-bg" style="background: #090d16; color: #f8fafc; border: 1px solid #22c55e; border-radius: 6px; padding: 4px 8px; font-size: 12.5px; font-weight: 600;">
               ${HD_TERRAIN_PRESETS.map(
                 (tp) =>
@@ -3616,7 +3479,7 @@ export async function mountVfxLabInGallery(
             </select>
           </label>
           <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #fca5a5;">
-            <span>🏞️ ${tr('敵方地形 (近戰主場景 / 遠程受擊背景)：', '敌方地形 (近战主场景 / 远程受击背景)：', 'Enemy Tile (Melee Base BG / Remote Target):')}</span>
+            <span>🏞️ ${tr('敵方地形 (近戰統一背景 / 遠程受擊背景)：', '敌方地形 (近战统一背景 / 远程受击背景)：', 'Enemy Tile (Unified Melee BG / Remote Target):')}</span>
             <select id="vfx-sel-enemy-bg" style="background: #090d16; color: #f8fafc; border: 1px solid #f87171; border-radius: 6px; padding: 4px 8px; font-size: 12.5px; font-weight: 600;">
               ${HD_TERRAIN_PRESETS.map(
                 (tp) =>
@@ -3624,16 +3487,12 @@ export async function mountVfxLabInGallery(
               ).join('')}
             </select>
           </label>
-          <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #fde047; cursor: pointer;" title="${tr('近戰異地時將我方地面無縫斜向融合進右下前景（取消勾選則統一使用敵方地面，徹底棄用浮空TAI圓盤）', '近战异地时将我方地面无缝斜向融合进右下前景（取消勾选则统一使用敌方地面，彻底弃用浮空TAI圆盘）', 'Dynamically blend Hero ground plane seamlessly into bottom-right foreground in mixed-tile melee (uncheck to use Enemy ground only; no floating TAI disc)')}">
-            <input type="checkbox" id="vfx-chk-ground-merge" checked />
-            🌿 ${tr('近戰動態融合雙方地面 (無TAI)', '近战动态融合双方地面 (无TAI)', 'Dynamic Ground Merge (No TAI)')}
-          </label>
         </div>
         <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-          <button class="gal-btn sm" data-terrain-preset="4,4" type="button">🌲 ${tr('同地形 (林地)', '同地形 (林地)', 'Same (Forest)')}</button>
-          <button class="gal-btn sm" data-terrain-preset="4,10" type="button">🌲vs🏘️ ${tr('異地 (林地→城鎮)', '异地 (林地→城镇)', 'Mixed (Forest→Town)')}</button>
-          <button class="gal-btn sm" data-terrain-preset="40,45" type="button">❄️vs🏰 ${tr('異地 (雪原→石橋)', '异地 (雪原→石桥)', 'Mixed (Snow→Bridge)')}</button>
-          <button class="gal-btn sm" data-terrain-preset="28,21" type="button">🌋vs🏰 ${tr('異地 (熔岩→城牆)', '异地 (熔岩→城墙)', 'Mixed (Lava→Wall)')}</button>
+          <button class="gal-btn sm" data-terrain-preset="4,4" type="button">🌲 ${tr('林地 (Forest)', '林地 (Forest)', 'Forest')}</button>
+          <button class="gal-btn sm" data-terrain-preset="4,45" type="button">🌲→🏰 ${tr('遠程異地 (林地→石橋)', '远程异地 (林地→石桥)', 'Remote (Forest→Bridge)')}</button>
+          <button class="gal-btn sm" data-terrain-preset="40,21" type="button">❄️→🏰 ${tr('遠程異地 (雪原→城牆)', '远程异地 (雪原→城墙)', 'Remote (Snow→Wall)')}</button>
+          <button class="gal-btn sm" data-terrain-preset="28,33" type="button">🌋→🏛️ ${tr('遠程異地 (熔岩→神殿)', '远程异地 (熔岩→神殿)', 'Remote (Lava→Temple)')}</button>
         </div>
       </div>
 
@@ -4215,7 +4074,6 @@ export async function mountVfxLabInGallery(
     });
   };
   bindToggle('#vfx-chk-slowmo', 'slowMotion');
-  bindToggle('#vfx-chk-ground-merge', 'enableDynamicGroundMerge');
   bindToggle('#vfx-chk-parallax', 'enableParallaxAndGodRays');
   bindToggle('#vfx-chk-cutin', 'enableAnimeCutIn');
   bindToggle('#vfx-chk-slash', 'enableVolumetricSlash');
