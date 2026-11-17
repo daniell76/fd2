@@ -253,7 +253,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=36';
+const VFX_ASSET_VERSION = '?v=37';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
