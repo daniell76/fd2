@@ -302,6 +302,7 @@
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_016",
       "isFlying": true,
+      "flightPattern": "dash_past",
       "overallPass": true
     },
     {
@@ -316,6 +317,7 @@
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_017",
       "isFlying": true,
+      "flightPattern": "hover_swoop",
       "overallPass": true
     },
     {
@@ -373,6 +375,7 @@
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_020",
       "isFlying": true,
+      "flightPattern": "climb_dive",
       "overallPass": true
     },
     {

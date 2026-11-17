@@ -79,6 +79,8 @@ export interface VfxHitFrameSpec {
   color?: 'gold' | 'azure';
 }
 
+export type FlightPattern = 'climb_dive' | 'dip_rise' | 'dash_past' | 'hover_swoop';
+
 export interface VfxManifestUnitEntry {
   uid: number;
   nameZh: string;
@@ -105,6 +107,8 @@ export interface VfxManifestUnitEntry {
   magicNameZh?: string;
   magicNameEn?: string;
   isFlying?: boolean;
+  /** Authentic 1995 DOS FIGANI.DAT aerial prelude trajectory for Dragon Knights & Dragonkin. */
+  flightPattern?: FlightPattern;
   sfxProfile?: UnitSfxProfile;
   overallPass?: boolean;
 }
@@ -243,7 +247,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=32';
+const VFX_ASSET_VERSION = '?v=33';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -332,6 +336,40 @@ function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifest
     magicHitSfx,
   };
 
+  // Auto-derive authentic 1995 DOS FIGANI.DAT aerial prelude pattern from per-frame (ox, oy, w, h, delay, sfx)!
+  let flightPattern: FlightPattern | undefined = entry.flightPattern;
+  if (!flightPattern && isFlying && frames.length >= 4) {
+    const firstHitIdx = frames.findIndex((fr) => Boolean(fr.sfx && fr.sfx !== 0));
+    const preEnd = firstHitIdx > 0 ? firstHitIdx : frames.length;
+    const pre = frames.slice(0, preEnd);
+    const realPre = pre.filter((fr) => !(fr.w >= 316 && fr.h >= 196 && !fr.sfx));
+    const init = realPre[0] ?? frames[0];
+    const initBot = init.oy + init.h;
+    const minPreBot = realPre.reduce((m, fr) => Math.min(m, fr.oy + fr.h), initBot);
+    const maxPreOy = realPre.reduce((m, fr) => Math.max(m, fr.oy), init.oy);
+    const minPreOx = realPre.reduce((m, fr) => Math.min(m, fr.ox), init.ox);
+    const maxPreDelay = pre.reduce((m, fr) => Math.max(m, fr.delay ?? 0), 0);
+    const hitFrame = firstHitIdx >= 0 ? frames[firstHitIdx] : null;
+    const post = firstHitIdx >= 0 ? frames.slice(firstHitIdx + 1) : [];
+    const minPostBot = post
+      .filter((fr) => !(fr.w >= 316 && fr.h >= 196))
+      .reduce((m, fr) => Math.min(m, fr.oy + fr.h), 200);
+
+    if (maxPreOy - init.oy >= 45 && (!hitFrame || hitFrame.oy <= 10) && minPostBot <= 80) {
+      // Low ground-skim dip -> soaring skyward upward slash (e.g., #055 Lorna Dragon Knight!)
+      flightPattern = 'dip_rise';
+    } else if (init.ox >= 100 && minPreOx <= 10 && maxPreDelay >= 4 && initBot - minPreBot < 140) {
+      // Low horizontal wing-dash past screen edge -> brief blur -> cross-slash return (#016 Kailas, #026!)
+      flightPattern = 'dash_past';
+    } else if (initBot - minPreBot >= 35) {
+      // High climbing wing-flap prelude -> steep diagonal dive-bomb (#020 Sara, #054, #056, #027, #049!)
+      flightPattern = 'climb_dive';
+    } else {
+      // Buoyant hover bob -> crisp horizontal aerial swoop (#017 Miasdod, #073, #086!)
+      flightPattern = 'hover_swoop';
+    }
+  }
+
   return {
     ...entry,
     isRemote,
@@ -339,6 +377,7 @@ function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifest
     hasMagic,
     magicElement,
     isFlying,
+    flightPattern,
     sfxProfile,
   };
 }
@@ -458,6 +497,7 @@ interface PoseRenderSpec {
   afterimages: number;
   dashDirX: number;
   dashDirY: number;
+  opacity?: number;
 }
 
 /**
@@ -580,10 +620,17 @@ export class Modern25DCombatRenderer {
     this.activeStageBadge = '';
   }
 
+  private hasLongFlyPrelude(unit: VfxManifestUnitEntry): boolean {
+    if (!unit.isFlying || unit.isRemote) return false;
+    const p = unit.flightPattern;
+    return p === 'climb_dive' || p === 'dip_rise' || p === 'dash_past';
+  }
+
   public getTotalDurationMs(): number {
     if (this.scenario === 'hero_magic') return 3150;
+    const heroFlyExtra = this.hasLongFlyPrelude(this.vfxAssets.rightUnit) ? 330 : 0;
     if (this.scenario === 'thor_crit') {
-      return this.vfxAssets.rightUnit.isRemote ? 2850 : 2600;
+      return this.vfxAssets.rightUnit.isRemote ? 2850 : 2600 + heroFlyExtra;
     }
     if (this.scenario === 'bandit_crit') {
       return this.vfxAssets.leftUnit.isRemote ? 2850 : 2600;
@@ -591,7 +638,7 @@ export class Modern25DCombatRenderer {
     if (this.vfxAssets.rightUnit.isRemote || this.vfxAssets.leftUnit.isRemote) {
       return 4850;
     }
-    return 4400;
+    return 4400 + heroFlyExtra;
   }
 
   public isFinished(): boolean {
@@ -646,6 +693,24 @@ export class Modern25DCombatRenderer {
         growRate: 45 + Math.random() * 55,
         alpha: 0.52 + Math.random() * 0.25,
         color: i % 2 === 0 ? 'rgba(218, 202, 168, 1)' : 'rgba(175, 162, 134, 1)',
+      });
+    }
+  }
+
+  /** Cool swirling pale-sky/white wing-beat wind gusts for airborne Dragon Knights & Dragonkin! */
+  private spawnAirGustPlume(x: number, y: number, dirX: number, dirY: number, count = 10): void {
+    if (!this.config.enableHitStopAndSparks) return;
+    for (let i = 0; i < count; i++) {
+      const spread = (Math.random() - 0.5) * 2.0;
+      this.dust.push({
+        x: x + (Math.random() - 0.5) * 95,
+        y: y + (Math.random() - 0.5) * 34,
+        vx: dirX * (90 + Math.random() * 210) + spread * 120,
+        vy: dirY * (70 + Math.random() * 140) + 45 + Math.random() * 65,
+        radius: 14 + Math.random() * 26,
+        growRate: 62 + Math.random() * 75,
+        alpha: 0.42 + Math.random() * 0.22,
+        color: i % 2 === 0 ? 'rgba(224, 242, 254, 1)' : 'rgba(241, 245, 249, 1)',
       });
     }
   }
@@ -760,7 +825,11 @@ export class Modern25DCombatRenderer {
   }
 
   private getPhaseStartTimes(): { thorStart: number; banditStart: number; thorDur: number; banditDur: number } {
-    const thorDur = this.vfxAssets.rightUnit.isRemote ? 2450 : 1830;
+    const thorDur = this.vfxAssets.rightUnit.isRemote
+      ? 2450
+      : this.hasLongFlyPrelude(this.vfxAssets.rightUnit)
+        ? 2160
+        : 1830;
     const banditDur = this.vfxAssets.leftUnit.isRemote ? 2450 : 1850;
     if (this.scenario === 'hero_magic') {
       return { thorStart: 120, banditStart: -1, thorDur: 2950, banditDur: 0 };
@@ -1018,31 +1087,40 @@ export class Modern25DCombatRenderer {
     const thorHomeY = H * 0.91;
 
     const breath = this.config.enableAfterimagesAndSpring ? Math.sin(t * 0.0055) * 0.014 : 0;
+    const rightIsFlying = Boolean(this.vfxAssets.rightUnit.isFlying);
+    const leftIsFlying = Boolean(this.vfxAssets.leftUnit.isFlying);
+    const rightFlyPattern: FlightPattern | null = rightIsFlying
+      ? (this.vfxAssets.rightUnit.flightPattern ?? 'hover_swoop')
+      : null;
+    const rightHoverBob = rightIsFlying ? -22 + Math.sin(t * 0.0046) * 14 : 0;
+    const leftHoverBob = leftIsFlying ? -18 + Math.sin(t * 0.0048 + 1.2) * 12 : 0;
 
     const thorSpec: PoseRenderSpec = {
       primaryIdx: 0,
       x: thorHomeX,
-      y: thorHomeY,
+      y: thorHomeY + rightHoverBob,
       scaleX: 1.0 - breath * 0.5,
       scaleY: 1.0 + breath,
-      rot: 0,
+      rot: rightIsFlying ? Math.sin(t * 0.0046) * 0.014 : 0,
       flashWhite: 0,
       afterimages: 0,
       dashDirX: -1,
       dashDirY: -0.48,
+      opacity: 1,
     };
 
     const banditSpec: PoseRenderSpec = {
       primaryIdx: 0,
       x: banditHomeX,
-      y: banditHomeY,
+      y: banditHomeY + leftHoverBob,
       scaleX: 1.0,
       scaleY: 1.0 + Math.sin(t * 0.005 + 1.4) * (this.config.enableAfterimagesAndSpring ? 0.014 : 0),
-      rot: 0,
+      rot: leftIsFlying ? Math.sin(t * 0.0048 + 1.2) * 0.014 : 0,
       flashWhite: 0,
       afterimages: 0,
       dashDirX: 1,
       dashDirY: 0.48,
+      opacity: 1,
     };
 
     let camX = 0;
@@ -1059,10 +1137,13 @@ export class Modern25DCombatRenderer {
     let shockwaveProgress = -1;
     let shockwaveCenter = { x: banditHomeX + 40, y: banditHomeY - 180 };
     let shockwaveGroundY = banditHomeY;
+    let aerialSpeedLinesIntensity = 0;
+    let aerialSpeedLinesAngle = 0;
+    let aerialSpeedLinesRgb = '254, 240, 138';
     const thorDrawsInFront = true;
 
     // -------------------------------------------------------------------------
-    // Hero Diagonal Up-Left (↖) Strike Sequence (supports both 1-hit & Multi-Hit units!)
+    // Hero Diagonal Up-Left (↖) Strike Sequence (supports Ground, Multi-Hit & Authentic 1995 DOS Flying Preludes!)
     // -------------------------------------------------------------------------
     const srcMode = this.config.animSource;
     const rightHitFrames = this.vfxAssets.rightUnit.hitFrames;
@@ -1073,7 +1154,7 @@ export class Modern25DCombatRenderer {
       this.vfxAssets.thorOmniPoses.length > 10;
     const rightOmniMax = Math.max(1, this.vfxAssets.thorOmniPoses.length - 1);
 
-    if (thorStart >= 0 && t >= thorStart && t < thorStart + 1830) {
+    if (thorStart >= 0 && t >= thorStart && t < thorStart + thorDur) {
       const localT = t - thorStart;
       if (isRightMultiHit && rightHitFrames) {
         // Multi-Hit Combo Sequence (e.g., #007 Lancelot: 3 Spear Thrusts + Rising Azure Crescent Finisher!)
@@ -1225,6 +1306,412 @@ export class Modern25DCombatRenderer {
           camZoom = 1.11 - ease * 0.11;
           camX = -W * 0.055 * (1 - ease);
           camY = -H * 0.033 * (1 - ease);
+        }
+      } else if (rightFlyPattern) {
+        // =====================================================================
+        // Authentic 1995 FD2 Flying Prelude Choreography (`climb_dive`, `dip_rise`, `dash_past`, `hover_swoop`)!
+        // Repeats wing-flap frames (`0 ↔ 1`) while quickly shifting altitude / horizontal position,
+        // faithfully recreating Dragon Knight & Dragonkin aerial preludes from `FIGANI.DAT`!
+        // =====================================================================
+        const isLongFly =
+          rightFlyPattern === 'climb_dive' || rightFlyPattern === 'dip_rise' || rightFlyPattern === 'dash_past';
+        const tPreludeEnd = isLongFly ? 660 : 460;
+        const tStrikeStart = isLongFly ? 1040 : 820;
+        const tImpactEnd = isLongFly ? 1640 : 1400;
+        const tEnd = isLongFly ? 2160 : 1830;
+
+        const baseFlyY = thorHomeY - 22;
+        const setWingFlapCycle = (cycles: number, progress: number, lockAimEnd = true) => {
+          const coilThreshold = lockAimEnd ? 0.8 : 1.01;
+          if (progress >= coilThreshold && srcMode !== 'nb2_3pose') {
+            const cp = (progress - coilThreshold) / (1 - coilThreshold);
+            if (srcMode === 'omni_video') {
+              this.setContinuousFrame(thorSpec, 1.0 + cp * 1.6, 9);
+            } else {
+              this.setContinuousFrame(thorSpec, 1.0 + cp * 1.0, 5);
+            }
+            return;
+          }
+          const flapWave = 0.5 - 0.5 * Math.cos(progress * Math.PI * 2 * cycles);
+          if (srcMode === 'nb2_3pose') {
+            thorSpec.primaryIdx = flapWave > 0.5 ? 1 : 0;
+          } else {
+            this.setContinuousFrame(thorSpec, flapWave, 1);
+          }
+        };
+
+        const setReturnFlapFrame = (progress: number) => {
+          const endIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
+          if (progress < 0.24) {
+            thorSpec.primaryIdx = endIdx;
+            thorSpec.secondaryIdx = 1;
+            thorSpec.blend = progress / 0.24;
+          } else if (srcMode !== 'nb2_3pose') {
+            const fp = (progress - 0.24) / 0.76;
+            const wave = 0.5 + 0.5 * Math.cos(fp * Math.PI * 3); // 1 -> 0 -> 1 -> 0 flapping glide home!
+            this.setContinuousFrame(thorSpec, fp > 0.85 ? 0 : wave, 1);
+          } else {
+            thorSpec.primaryIdx = 0;
+          }
+        };
+
+        const patternBadgeZh =
+          rightFlyPattern === 'climb_dive'
+            ? '🐉 飛行前搖 · 高空盤旋俯衝 (龍騎士)'
+            : rightFlyPattern === 'dip_rise'
+              ? '🐉 飛行前搖 · 低空掠地升龍斬 (龍騎士)'
+              : rightFlyPattern === 'dash_past'
+                ? '🐉 飛行前搖 · 疾風橫掠居合斬 (龍劍士)'
+                : '🐉 飛行前搖 · 浮空振翅疾襲 (龍人)';
+        const patternBadgeEn =
+          rightFlyPattern === 'climb_dive'
+            ? '🐉 Aerial Prelude · High Climb & Dive-Bomb'
+            : rightFlyPattern === 'dip_rise'
+              ? '🐉 Aerial Prelude · Low Dip & Rising Slash'
+              : rightFlyPattern === 'dash_past'
+                ? '🐉 Aerial Prelude · Low Dash & Cross-Slash'
+                : '🐉 Aerial Prelude · Hover Bob & Swoop';
+        this.activeStageBadge = isEn
+          ? `${patternBadgeEn} · ${enemyTerrain.en}`
+          : `${patternBadgeZh} · ${enemyTerrain.zh}`;
+
+        if (localT < tPreludeEnd) {
+          // PHASE 1: Iconic FD2 Wing-Flap Vertical/Horizontal Reposition Prelude!
+          const p = localT / tPreludeEnd;
+          const ease = 1 - Math.pow(1 - p, 2.4);
+          this.fireOnce('thor_fly_flap_1', () => {
+            this.sound.playSfx('step_wing');
+            this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 40, 0.3, 1.0, 12);
+          });
+          if (isLongFly && localT >= 270) {
+            this.fireOnce('thor_fly_flap_2', () => {
+              this.sound.playSfx('step_wing');
+              this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 40, 0.4, 1.0, 12);
+            });
+          }
+
+          if (rightFlyPattern === 'climb_dive') {
+            // #020 Sara / #054 Ares / #056 Raiden / #027 / #049: Repeated wing-flaps climbing HIGH UP-RIGHT!
+            setWingFlapCycle(2.2, p, true);
+            const heave = Math.sin(p * Math.PI * 4.4) * 12;
+            thorSpec.x = thorHomeX + ease * (W * 0.05) + Math.sin(p * Math.PI * 2.2) * 16;
+            thorSpec.y = baseFlyY - ease * (H * 0.185) + heave;
+            thorSpec.rot = 0.05 * Math.sin(p * Math.PI) - 0.04 * (p > 0.78 ? (p - 0.78) / 0.22 : 0);
+            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p > 0.22 ? 2 : 0;
+            thorSpec.dashDirX = 0.35;
+            thorSpec.dashDirY = -0.94;
+            camZoom = 1.0 + ease * 0.03;
+            camX = ease * W * 0.035;
+            camY = -ease * H * 0.095;
+            camTilt = -ease * 0.014;
+          } else if (rightFlyPattern === 'dip_rise') {
+            // #055 Lorna: Repeated wing-flaps dipping LOW skimming the battlefield ground!
+            setWingFlapCycle(2.2, p, true);
+            const heave = Math.sin(p * Math.PI * 4.4) * 10;
+            thorSpec.x = thorHomeX - ease * (W * 0.045);
+            thorSpec.y = baseFlyY + ease * (H * 0.105) + heave;
+            thorSpec.rot = -0.08 * ease;
+            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p > 0.25 ? 2 : 0;
+            thorSpec.dashDirX = -0.4;
+            thorSpec.dashDirY = 0.9;
+            camZoom = 1.0 + ease * 0.07;
+            camX = ease * W * 0.03;
+            camY = ease * H * 0.045;
+            if (p > 0.55) {
+              this.fireOnce('thor_fly_ground_skim', () => {
+                this.spawnDustPlume(thorSpec.x, thorHomeY, 1, 0.2, 12);
+              });
+            }
+          } else if (rightFlyPattern === 'dash_past') {
+            // #016 Kailas / #026: Fast wing-tuck sweeping horizontally LEFT & low across foreground!
+            setWingFlapCycle(2.0, p, true);
+            thorSpec.x = thorHomeX - Math.pow(p, 1.35) * (W * 0.26);
+            thorSpec.y = baseFlyY + ease * (H * 0.055) + Math.sin(p * Math.PI * 4) * 8;
+            thorSpec.rot = -0.11 * ease;
+            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p > 0.14 ? 4 : 0;
+            thorSpec.dashDirX = -0.98;
+            thorSpec.dashDirY = 0.18;
+            camZoom = 1.0 + ease * 0.09;
+            camX = -ease * W * 0.06;
+            camY = ease * H * 0.025;
+            camTilt = -ease * 0.018;
+          } else {
+            // #017 Miasdod (`hover_swoop`): Buoyant hover bob dip -> rise lifting wings wide!
+            setWingFlapCycle(1.4, p, true);
+            const bobOffset = p < 0.45 ? Math.sin((p / 0.45) * Math.PI) * (H * 0.035) : -((p - 0.45) / 0.55) * (H * 0.08);
+            thorSpec.x = thorHomeX + ease * (W * 0.02);
+            thorSpec.y = baseFlyY + bobOffset;
+            thorSpec.rot = p > 0.5 ? -0.05 * ((p - 0.5) / 0.5) : 0.04 * Math.sin(p * Math.PI * 2);
+            camZoom = 1.0 + ease * 0.1;
+            camX = ease * W * 0.05;
+            camY = -ease * H * 0.03;
+            camTilt = -ease * 0.012;
+          }
+        } else if (localT < tStrikeStart) {
+          // PHASE 2: Explosive Aerial Dive-Bomb / Rising Slash / Iaido Cross-Slash Surge + Crit Cut-In!
+          const p = (localT - tPreludeEnd) / (tStrikeStart - tPreludeEnd);
+          if (this.config.enableAnimeCutIn && this.scenario === 'thor_crit') {
+            cutInProgress = p;
+            cutInUnit = 'thor';
+          }
+          const launchSfxCheck = () => {
+            this.fireOnce('thor_dash_sfx', () => {
+              const prof = this.vfxAssets.rightUnit.sfxProfile;
+              this.sound.playSfx(prof?.launchSfx ?? prof?.stepSfx ?? 'step_wing');
+              this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 80, 0.85, -0.35, 16);
+            });
+          };
+
+          if (rightFlyPattern === 'climb_dive') {
+            const dashP = Math.max(0, (p - 0.14) / 0.86);
+            const dashEase = Math.pow(dashP, 0.72); // snappy fast dive acceleration!
+            const startX = thorHomeX + W * 0.05;
+            const startY = baseFlyY - H * 0.185;
+            const endX = thorHomeX - W * 0.305;
+            const endY = thorHomeY - H * 0.165;
+            thorSpec.x = startX + (endX - startX) * dashEase;
+            thorSpec.y = startY + (endY - startY) * dashEase;
+            thorSpec.rot = -0.16 * Math.sin(Math.min(1, dashP * 1.15) * Math.PI * 0.65);
+            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && dashP > 0.04 ? 5 : 0;
+            const ang = Math.atan2(endY - startY, endX - startX);
+            thorSpec.dashDirX = Math.cos(ang);
+            thorSpec.dashDirY = Math.sin(ang);
+            aerialSpeedLinesIntensity = dashP > 0.08 ? Math.sin(dashP * Math.PI) * 0.85 : 0;
+            aerialSpeedLinesAngle = ang;
+            aerialSpeedLinesRgb = '125, 211, 252';
+            if (srcMode === 'omni_video') {
+              this.setContinuousFrame(thorSpec, 2.2 + dashP * 1.8, 9);
+            } else if (srcMode === 'nb2_6frame') {
+              this.setContinuousFrame(thorSpec, dashP > 0.55 ? 2.0 + ((dashP - 0.55) / 0.45) : 2.0, 5);
+            } else {
+              thorSpec.primaryIdx = dashP > 0.65 ? 2 : 1;
+            }
+            camZoom = 1.03 + dashEase * 0.14;
+            camX = W * 0.035 - dashEase * (W * 0.135);
+            camY = -H * 0.095 + dashEase * (H * 0.035);
+            camTilt = -0.014 + dashEase * 0.036;
+            launchSfxCheck();
+          } else if (rightFlyPattern === 'dip_rise') {
+            const dashP = Math.max(0, (p - 0.12) / 0.88);
+            const dashEase = 1 - Math.pow(1 - dashP, 2.6);
+            const startX = thorHomeX - W * 0.045;
+            const startY = baseFlyY + H * 0.105;
+            const endX = thorHomeX - W * 0.31;
+            const endY = thorHomeY - H * 0.22;
+            thorSpec.x = startX + (endX - startX) * dashEase;
+            thorSpec.y = startY + (endY - startY) * dashEase;
+            thorSpec.rot = 0.15 * dashEase;
+            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && dashP > 0.04 ? 5 : 0;
+            const ang = Math.atan2(endY - startY, endX - startX);
+            thorSpec.dashDirX = Math.cos(ang);
+            thorSpec.dashDirY = Math.sin(ang);
+            aerialSpeedLinesIntensity = dashP > 0.06 ? Math.sin(dashP * Math.PI) * 0.9 : 0;
+            aerialSpeedLinesAngle = ang;
+            aerialSpeedLinesRgb = '254, 240, 138';
+            if (srcMode === 'omni_video') {
+              this.setContinuousFrame(thorSpec, 2.2 + dashP * 1.8, 9);
+            } else if (srcMode === 'nb2_6frame') {
+              this.setContinuousFrame(thorSpec, dashP > 0.55 ? 2.0 + ((dashP - 0.55) / 0.45) : 2.0, 5);
+            } else {
+              thorSpec.primaryIdx = dashP > 0.65 ? 2 : 1;
+            }
+            camZoom = 1.07 + dashEase * 0.12;
+            camX = W * 0.03 - dashEase * (W * 0.13);
+            camY = H * 0.045 - dashEase * (H * 0.14);
+            camTilt = dashEase * 0.025;
+            launchSfxCheck();
+          } else if (rightFlyPattern === 'dash_past') {
+            // Brief speed-blur beat (matching DOS #016 f06 delay=4!) -> High-Speed Rising Diagonal Iaido Cross-Slash!
+            const pauseFrac = 0.24;
+            if (p < pauseFrac) {
+              const bp = p / pauseFrac;
+              thorSpec.x = thorHomeX - W * 0.26 - bp * (W * 0.05);
+              thorSpec.y = baseFlyY + H * 0.055;
+              thorSpec.opacity = 0.28 + 0.72 * Math.abs(Math.cos(bp * Math.PI));
+              thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 5 : 0;
+              thorSpec.dashDirX = -1;
+              thorSpec.dashDirY = 0;
+              thorSpec.primaryIdx = srcMode === 'nb2_3pose' ? 1 : 2;
+              camZoom = 1.09 + bp * 0.04;
+              camX = -W * 0.06;
+              camY = H * 0.025;
+            } else {
+              const dashP = (p - pauseFrac) / (1 - pauseFrac);
+              const dashEase = 1 - Math.pow(1 - dashP, 3);
+              const startX = thorHomeX - W * 0.31;
+              const startY = baseFlyY + H * 0.055;
+              const endX = thorHomeX - W * 0.31;
+              const endY = thorHomeY - H * 0.195;
+              // Sweeps cleanly up-right/diagonal rising arc right across the enemy!
+              thorSpec.x = startX + Math.sin(dashP * Math.PI) * (-W * 0.05) + (endX - startX) * dashEase;
+              thorSpec.y = startY + (endY - startY) * dashEase;
+              thorSpec.opacity = 1;
+              thorSpec.rot = -0.1 * (1 - dashEase);
+              thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 6 : 0;
+              thorSpec.dashDirX = -0.35;
+              thorSpec.dashDirY = -0.94;
+              aerialSpeedLinesIntensity = Math.sin(dashP * Math.PI) * 0.95;
+              aerialSpeedLinesAngle = Math.atan2(-0.55, -0.83);
+              aerialSpeedLinesRgb = '253, 224, 71';
+              if (srcMode === 'omni_video') {
+                this.setContinuousFrame(thorSpec, 2.6 + dashP * 1.6, 9);
+              } else if (srcMode === 'nb2_6frame') {
+                this.setContinuousFrame(thorSpec, 2.0 + dashP * 1.0, 5);
+              } else {
+                thorSpec.primaryIdx = dashP > 0.4 ? 2 : 1;
+              }
+              camZoom = 1.13 + dashEase * 0.08;
+              camX = -W * 0.06 - dashEase * (W * 0.05);
+              camY = H * 0.025 - dashEase * (H * 0.11);
+              camTilt = -0.018 + dashEase * 0.038;
+              launchSfxCheck();
+            }
+          } else {
+            // `hover_swoop`: Crisp hawk-like horizontal aerial lunge (`#017 Miasdod`)
+            const dashP = Math.max(0, (p - 0.16) / 0.84);
+            const dashEase = 1 - Math.pow(1 - dashP, 3);
+            thorSpec.x = thorHomeX + W * 0.02 - dashEase * (W * 0.33);
+            thorSpec.y = baseFlyY - H * 0.08 - dashEase * (H * 0.105);
+            thorSpec.rot = -0.08 * dashEase;
+            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && dashP > 0.04 ? 5 : 0;
+            thorSpec.dashDirX = -0.96;
+            thorSpec.dashDirY = -0.27;
+            aerialSpeedLinesIntensity = dashP > 0.1 ? Math.sin(dashP * Math.PI) * 0.65 : 0;
+            aerialSpeedLinesAngle = Math.atan2(-0.27, -0.96);
+            aerialSpeedLinesRgb = '254, 240, 138';
+            if (srcMode === 'omni_video') {
+              this.setContinuousFrame(thorSpec, 2.3 + dashP * 1.7, 9);
+            } else if (srcMode === 'nb2_6frame') {
+              this.setContinuousFrame(thorSpec, dashP > 0.6 ? 2.0 + ((dashP - 0.6) / 0.4) : 2.0, 5);
+            } else {
+              thorSpec.primaryIdx = dashP > 0.65 ? 2 : 1;
+            }
+            camZoom = 1.1 + dashEase * 0.11;
+            camX = W * 0.05 - dashEase * (W * 0.15);
+            camY = -H * 0.03 - dashEase * (H * 0.04);
+            camTilt = -0.012 + dashEase * 0.028;
+            launchSfxCheck();
+          }
+        } else if (localT < tImpactEnd) {
+          // PHASE 3: Impact Burst & Authentic Aerial Pull-Up / Descending Sheath Follow-Through!
+          const p = (localT - tStrikeStart) / (tImpactEnd - tStrikeStart);
+          if (srcMode === 'omni_video') {
+            if (p < 0.72) {
+              this.setContinuousFrame(thorSpec, 4.0 + (p / 0.72) * 5.0, 9);
+            } else {
+              thorSpec.primaryIdx = 9;
+            }
+          } else if (srcMode === 'nb2_6frame') {
+            if (p < 0.30) {
+              this.setContinuousFrame(thorSpec, 3.0 + (p / 0.30) * 1.0, 5);
+            } else if (p < 0.62) {
+              this.setContinuousFrame(thorSpec, 4.0 + ((p - 0.30) / 0.32) * 1.0, 5);
+            } else {
+              thorSpec.primaryIdx = 5;
+            }
+          } else {
+            thorSpec.primaryIdx = 2;
+          }
+
+          if (rightFlyPattern === 'climb_dive') {
+            // Pull out smoothly from dive-bomb after impact!
+            const pull = Math.max(0, (p - 0.18) / 0.82);
+            thorSpec.x = thorHomeX - W * 0.305 - Math.sin(Math.min(1, p * 2.2) * Math.PI) * 28 + pull * (W * 0.04);
+            thorSpec.y = thorHomeY - H * 0.165 + Math.sin(Math.min(1, p * 2.5) * Math.PI) * 16 - pull * (H * 0.035);
+            thorSpec.rot = -0.14 * (1 - p) + 0.06 * pull;
+          } else if (rightFlyPattern === 'dip_rise') {
+            // Soar high up-left apex before easing downward!
+            thorSpec.x = thorHomeX - W * 0.31 + p * (W * 0.05);
+            thorSpec.y = thorHomeY - H * 0.22 - Math.sin(p * Math.PI) * (H * 0.04);
+            thorSpec.rot = 0.12 * (1 - p);
+          } else if (rightFlyPattern === 'dash_past') {
+            // Iconic #016 Kailas descending aerial glide back right while sheathing flaming blade (`f4 -> f5`)!
+            const descend = Math.pow(p, 0.85);
+            thorSpec.x = thorHomeX - W * 0.31 + descend * (W * 0.14);
+            thorSpec.y = thorHomeY - H * 0.195 + descend * (H * 0.125);
+            thorSpec.rot = 0.04 * Math.sin(p * Math.PI);
+          } else {
+            // `hover_swoop`: buoyant hover bob at strike point!
+            thorSpec.x = thorHomeX - W * 0.31 - Math.min(1, p * 4) * 18;
+            thorSpec.y = baseFlyY - H * 0.185 + Math.sin(p * Math.PI * 2) * 12;
+            thorSpec.rot = -0.05 * (1 - p);
+          }
+
+          slashArcProgress = Math.min(1, p * 2.1);
+          shockwaveProgress = Math.min(1, p * 1.8);
+          shockwaveCenter = { x: banditHomeX + 45, y: banditHomeY - 195 };
+          shockwaveGroundY = banditHomeY;
+
+          this.fireOnce('thor_impact', () => {
+            const hitList = this.vfxAssets.rightUnit.sfxProfile?.hitSfxList ?? [];
+            const impactSfx: SfxKind = hitList[0] ?? (this.scenario === 'thor_crit' ? 'crit' : 'hit');
+            this.sound.playSfx(impactSfx);
+            if (this.config.enableHitStopAndSparks) {
+              this.hitStopRemainingMs = 95;
+            }
+            this.spawnImpactSparks(
+              banditHomeX + 45,
+              banditHomeY - 195,
+              banditHomeY,
+              85,
+              ['#ffffff', '#fde047', '#f59e0b', '#38bdf8', '#7dd3fc'],
+              -1,
+              -0.45
+            );
+            this.spawnAirGustPlume(banditHomeX + 20, banditHomeY - 140, -1, -0.3, 14);
+            this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.35, 10);
+            this.banditTargetHp = Math.max(0, this.banditTargetHp - this.thorStrikeDmg);
+          });
+
+          const recoil = Math.sin(Math.min(1, p * 2.2) * Math.PI);
+          banditSpec.x = banditHomeX - recoil * 52;
+          banditSpec.y = banditHomeY + leftHoverBob - recoil * 26;
+          banditSpec.rot = -recoil * 0.1;
+          banditSpec.scaleX = 1.0 - recoil * 0.07;
+          banditSpec.scaleY = 1.0 + recoil * 0.05;
+          banditSpec.flashWhite = Math.max(0, 1 - p * 3.5);
+          impactFlashAlpha = Math.max(0, 1 - p * 4.5);
+
+          camZoom = 1.2 - p * 0.11;
+          camX = -W * 0.1 * (1 - p * 0.5);
+          camY = -H * 0.065 * (1 - p * 0.5);
+          camTilt = 0.018 * (1 - p);
+          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 24) : 0;
+        } else {
+          // PHASE 4: Graceful Wing-Flapping Arc Return to Hover Station!
+          const p = (localT - tImpactEnd) / Math.max(1, tEnd - tImpactEnd);
+          const ease = 1 - Math.pow(1 - p, 2);
+          setReturnFlapFrame(p);
+          const startX =
+            rightFlyPattern === 'dash_past'
+              ? thorHomeX - W * 0.17
+              : rightFlyPattern === 'climb_dive'
+                ? thorHomeX - W * 0.265
+                : rightFlyPattern === 'dip_rise'
+                  ? thorHomeX - W * 0.26
+                  : thorHomeX - W * 0.31 - 18;
+          const startY =
+            rightFlyPattern === 'dash_past'
+              ? thorHomeY - H * 0.07
+              : rightFlyPattern === 'climb_dive'
+                ? thorHomeY - H * 0.20
+                : rightFlyPattern === 'dip_rise'
+                  ? thorHomeY - H * 0.22
+                  : baseFlyY - H * 0.185;
+          const arcLift = rightFlyPattern === 'dip_rise' ? -H * 0.03 * Math.sin(p * Math.PI) : -H * 0.075 * Math.sin(p * Math.PI);
+          thorSpec.x = startX + ease * (thorHomeX - startX);
+          thorSpec.y = startY + ease * (thorHomeY + rightHoverBob - startY) + arcLift;
+          thorSpec.rot = 0.06 * Math.sin(p * Math.PI);
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.6 ? 2 : 0;
+          thorSpec.dashDirX = 0.92;
+          thorSpec.dashDirY = 0.38;
+          this.fireOnce('thor_fly_return_flap', () => {
+            this.sound.playSfx('step_wing');
+            this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 30, -0.5, 0.8, 8);
+          });
+          camZoom = 1.09 - ease * 0.09;
+          camX = -W * 0.05 * (1 - ease);
+          camY = -H * 0.032 * (1 - ease);
         }
       } else if (localT < 460) {
         // 1. Coiled Wind-Up at Bottom-Right
@@ -1522,7 +2009,7 @@ export class Modern25DCombatRenderer {
         // Thor diagonal Down-Right recoil (matching FD2.EXE dx > 0, dy > 0!)
         const recoil = Math.sin(Math.min(1, p * 2.2) * Math.PI);
         thorSpec.x = thorHomeX + recoil * 44;
-        thorSpec.y = thorHomeY + recoil * 22;
+        thorSpec.y = thorHomeY + rightHoverBob + recoil * 22;
         thorSpec.rot = recoil * 0.08;
         thorSpec.flashWhite = Math.max(0, 1 - p * 3.8);
         impactFlashAlpha = Math.max(0, (1 - p * 4.8) * 0.7);
@@ -1546,7 +2033,7 @@ export class Modern25DCombatRenderer {
         const startX = banditHomeX - 18 + W * 0.3 + 20;
         const startY = banditHomeY - 10 + H * 0.18 + 10;
         banditSpec.x = startX + ease * (banditHomeX - startX);
-        banditSpec.y = startY + ease * (banditHomeY - startY);
+        banditSpec.y = startY + ease * (banditHomeY + leftHoverBob - startY);
         banditSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.6 ? 2 : 0;
         banditSpec.dashDirX = 1;
         banditSpec.dashDirY = 0.48;
@@ -1574,8 +2061,30 @@ export class Modern25DCombatRenderer {
     // Unified single terrain backdrop for melee (uses Enemy's tile, no floating TAI disc)
     this.drawTerrainBackdrop(ctx, W, H, this.vfxAssets.enemyBgId, camX, camY, thorHomeY);
 
-    this.drawGroundShadow(ctx, banditSpec.x, banditSpec.y, 195);
-    this.drawGroundShadow(ctx, thorSpec.x, thorSpec.y, 215);
+    // Optional directional anime velocity lines behind high-speed aerial dive / rising slash / flash cross-slash!
+    if (aerialSpeedLinesIntensity > 0.02) {
+      this.drawAerialSpeedLines(ctx, W, H, aerialSpeedLinesAngle, aerialSpeedLinesIntensity, aerialSpeedLinesRgb);
+    }
+
+    // Ground shadows stay anchored on the ground plane beneath airborne units, shrinking & softening with altitude!
+    if (leftIsFlying) {
+      const lAlt = Math.max(0, banditHomeY - banditSpec.y);
+      const lRad = 195 * Math.max(0.36, 1 - lAlt / 540);
+      const lAlpha = Math.max(0.24, 1 - lAlt / 430);
+      this.drawGroundShadow(ctx, banditSpec.x, banditHomeY, lRad, lAlpha);
+    } else {
+      this.drawGroundShadow(ctx, banditSpec.x, banditSpec.y, 195);
+    }
+    if (rightIsFlying) {
+      const groundRatio = Math.max(0, Math.min(1, (thorHomeX - thorSpec.x) / Math.max(1, thorHomeX - banditHomeX)));
+      const thorGroundY = thorHomeY - groundRatio * (thorHomeY - banditHomeY);
+      const rAlt = Math.max(0, thorGroundY - thorSpec.y);
+      const rRad = 215 * Math.max(0.35, 1 - rAlt / 540);
+      const rAlpha = Math.max(0.22, 1 - rAlt / 420);
+      this.drawGroundShadow(ctx, thorSpec.x, thorGroundY, rRad, rAlpha);
+    } else {
+      this.drawGroundShadow(ctx, thorSpec.x, thorSpec.y, 215);
+    }
 
     if (shockwaveProgress >= 0 && shockwaveProgress <= 1 && this.config.enableHitStopAndSparks) {
       this.drawGroundShockwave(ctx, shockwaveCenter.x, shockwaveGroundY - 10, shockwaveProgress);
@@ -1592,10 +2101,12 @@ export class Modern25DCombatRenderer {
     // Render Thor (Bottom-Right Foreground, higher Y -> drawn on top in painter's algorithm!)
     if (thorDrawsInFront) {
       const thorDispSize = 720;
-      this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, '#38bdf8', thorDispSize);
+      const thorAfterimageColor = rightFlyPattern === 'dash_past' ? '#fde047' : '#38bdf8';
+      this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, thorAfterimageColor, thorDispSize);
     }
 
     if (
+      !rightIsFlying &&
       thorSpec.primaryIdx === 1 &&
       thorStart >= 0 &&
       t >= thorStart &&
@@ -2335,6 +2846,7 @@ export class Modern25DCombatRenderer {
       }
     }
 
+    const baseOpacity = Math.max(0, Math.min(1, spec.opacity ?? 1.0));
     const flashStrength = Math.max(0, Math.min(1, spec.flashWhite));
     const tint = flashStrength > 0.04 ? '#ffffff' : undefined;
     const tintAlpha = flashStrength * 0.82;
@@ -2349,7 +2861,7 @@ export class Modern25DCombatRenderer {
         spec.scaleX,
         spec.scaleY,
         spec.rot * (1 - b),
-        1 - b * 0.75,
+        (1 - b * 0.75) * baseOpacity,
         displaySize,
         tint,
         tintAlpha
@@ -2362,7 +2874,7 @@ export class Modern25DCombatRenderer {
         spec.scaleX,
         spec.scaleY,
         spec.rot * b,
-        b,
+        b * baseOpacity,
         displaySize,
         tint,
         tintAlpha
@@ -2376,7 +2888,7 @@ export class Modern25DCombatRenderer {
         spec.scaleX,
         spec.scaleY,
         spec.rot,
-        1.0,
+        baseOpacity,
         displaySize,
         tint,
         tintAlpha
@@ -2927,18 +3439,62 @@ export class Modern25DCombatRenderer {
     ctx.restore();
   }
 
-  private drawGroundShadow(ctx: CanvasRenderingContext2D, x: number, y: number, radiusX: number): void {
+  private drawGroundShadow(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    radiusX: number,
+    alphaScale = 1.0
+  ): void {
+    const a = Math.max(0.12, Math.min(1.0, alphaScale));
     ctx.save();
     ctx.translate(x, y - 10);
     ctx.scale(1, 0.24);
     const grad = ctx.createRadialGradient(0, 0, radiusX * 0.1, 0, 0, radiusX);
-    grad.addColorStop(0, 'rgba(5, 8, 6, 0.74)');
-    grad.addColorStop(0.6, 'rgba(5, 8, 6, 0.36)');
+    grad.addColorStop(0, `rgba(5, 8, 6, ${(0.74 * a).toFixed(3)})`);
+    grad.addColorStop(0.6, `rgba(5, 8, 6, ${(0.36 * a).toFixed(3)})`);
     grad.addColorStop(1, 'rgba(5, 8, 6, 0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(0, 0, radiusX, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+
+  /** Dynamic directional anime speed-lines painted behind soaring / dive-bombing flying units. */
+  private drawAerialSpeedLines(
+    ctx: CanvasRenderingContext2D,
+    W: number,
+    H: number,
+    angleRad: number,
+    intensity: number,
+    colorRgb = '254, 240, 138'
+  ): void {
+    if (intensity <= 0.02 || !this.config.enableVolumetricSlash) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.translate(W * 0.5, H * 0.5);
+    ctx.rotate(angleRad);
+    const diag = Math.hypot(W, H) * 0.65;
+    const lineCount = 18;
+    for (let i = 0; i < lineCount; i++) {
+      const seed = (i * 137.5) % 100;
+      const y = ((i / (lineCount - 1)) - 0.5) * H * 1.05 + Math.sin(seed) * 28;
+      const speedShift = ((this.elapsedMs * 3.8 + seed * 42) % (diag * 2)) - diag;
+      const len = 180 + (seed % 32) * 14;
+      const lineAlpha = (0.14 + (i % 3) * 0.09) * Math.min(1, intensity);
+      const grad = ctx.createLinearGradient(speedShift - len, y, speedShift + len * 0.25, y);
+      grad.addColorStop(0, `rgba(${colorRgb}, 0)`);
+      grad.addColorStop(0.45, `rgba(${colorRgb}, ${lineAlpha.toFixed(3)})`);
+      grad.addColorStop(0.82, `rgba(255, 255, 255, ${(lineAlpha * 1.15).toFixed(3)})`);
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = i % 4 === 0 ? 4.5 : 2.2;
+      ctx.beginPath();
+      ctx.moveTo(speedShift - len, y);
+      ctx.lineTo(speedShift + len * 0.25, y);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
