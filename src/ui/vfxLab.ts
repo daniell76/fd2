@@ -109,7 +109,11 @@ export interface VfxManifestUnitEntry {
   isFlying?: boolean;
   /** Authentic 1995 DOS FIGANI.DAT aerial prelude trajectory for Dragon Knights & Dragonkin. */
   flightPattern?: FlightPattern;
-  /** Optional canvas scale multiplier (`canvasPx / 680`, e.g., `1.8` for `1224x1224` giant winged mounts like #020 Sara) so riders keep true human body scale without clipping outstretched wings! */
+  /** Canonical standing height (cm) used for cross-character proportional biometric scaling (`1.80 world-px / cm`). */
+  heightCm?: number;
+  /** Optional total mounted height (cm) including horse or wyvern (e.g., 242 for #007 Lancelot, 325 for #020 Sara). */
+  mountHeightCm?: number;
+  /** Calibrated render scale multiplier so every unit matches its canonical heightCm without destructive WebP resampling! */
   displayScale?: number;
   sfxProfile?: UnitSfxProfile;
   overallPass?: boolean;
@@ -249,7 +253,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=34';
+const VFX_ASSET_VERSION = '?v=35';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -1394,19 +1398,19 @@ export class Modern25DCombatRenderer {
 
           if (rightFlyPattern === 'climb_dive') {
             // #020 Sara / #054 Ares / #056 Raiden / #027 / #049: Repeated wing-flaps climbing HIGH UP-RIGHT!
-            const isGiantMount = (this.vfxAssets.rightUnit.displayScale ?? 1) > 1.25;
+            const isGiantMount = (this.vfxAssets.rightUnit.displayScale ?? 1) >= 1.5;
             setWingFlapCycle(2.2, p, true);
             const heave = Math.sin(p * Math.PI * 4.4) * 12;
             thorSpec.x = thorHomeX + ease * (W * 0.05) + Math.sin(p * Math.PI * 2.2) * 16;
-            thorSpec.y = baseFlyY - ease * (H * (isGiantMount ? 0.165 : 0.185)) + heave;
+            thorSpec.y = baseFlyY - ease * (H * (isGiantMount ? 0.145 : 0.185)) + heave;
             thorSpec.rot = 0.05 * Math.sin(p * Math.PI) - 0.04 * (p > 0.78 ? (p - 0.78) / 0.22 : 0);
             thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p > 0.22 ? 2 : 0;
             thorSpec.dashDirX = 0.35;
             thorSpec.dashDirY = -0.94;
-            // Subtle epic camera pullback on giant dragon mounts so soaring wingtips NEVER clip the top bezel!
-            camZoom = isGiantMount ? 1.0 - ease * 0.13 : 1.0 + ease * 0.03;
-            camX = ease * W * (isGiantMount ? 0.015 : 0.035);
-            camY = -ease * H * (isGiantMount ? 0.135 : 0.095);
+            // Smooth cinematic pullback on colossal dragon mounts (`ds >= 1.5`, e.g., #020 Sara 2.22x!) so soaring wingtips stay 100% unclipped!
+            camZoom = isGiantMount ? 1.0 - ease * 0.22 : 1.0 + ease * 0.03;
+            camX = ease * W * (isGiantMount ? 0.0 : 0.035);
+            camY = -ease * H * (isGiantMount ? 0.175 : 0.095);
             camTilt = -ease * 0.014;
           } else if (rightFlyPattern === 'dip_rise') {
             // #055 Lorna: Repeated wing-flaps dipping LOW skimming the battlefield ground!
@@ -1467,11 +1471,11 @@ export class Modern25DCombatRenderer {
           };
 
           if (rightFlyPattern === 'climb_dive') {
-            const isGiantMount = (this.vfxAssets.rightUnit.displayScale ?? 1) > 1.25;
+            const isGiantMount = (this.vfxAssets.rightUnit.displayScale ?? 1) >= 1.5;
             const dashP = Math.max(0, (p - 0.14) / 0.86);
             const dashEase = Math.pow(dashP, 0.72); // snappy fast dive acceleration!
             const startX = thorHomeX + W * 0.05;
-            const startY = baseFlyY - H * (isGiantMount ? 0.165 : 0.185);
+            const startY = baseFlyY - H * (isGiantMount ? 0.145 : 0.185);
             const endX = thorHomeX - W * 0.305;
             const endY = thorHomeY - H * 0.165;
             thorSpec.x = startX + (endX - startX) * dashEase;
@@ -1491,11 +1495,11 @@ export class Modern25DCombatRenderer {
             } else {
               thorSpec.primaryIdx = dashP > 0.65 ? 2 : 1;
             }
-            const zoomStart = isGiantMount ? 0.87 : 1.03;
-            const zoomTarget = isGiantMount ? 1.08 : 1.17;
+            const zoomStart = isGiantMount ? 0.78 : 1.03;
+            const zoomTarget = isGiantMount ? 0.94 : 1.17;
             camZoom = zoomStart + dashEase * (zoomTarget - zoomStart);
-            camX = W * (isGiantMount ? 0.015 : 0.035) - dashEase * (W * 0.125);
-            camY = -H * (isGiantMount ? 0.135 : 0.095) + dashEase * (H * (isGiantMount ? 0.065 : 0.035));
+            camX = W * (isGiantMount ? 0.0 : 0.035) - dashEase * (W * (isGiantMount ? 0.085 : 0.125));
+            camY = -H * (isGiantMount ? 0.175 : 0.095) + dashEase * (H * (isGiantMount ? 0.08 : 0.035));
             camTilt = -0.014 + dashEase * 0.036;
             launchSfxCheck();
           } else if (rightFlyPattern === 'dip_rise') {
@@ -1679,9 +1683,10 @@ export class Modern25DCombatRenderer {
           banditSpec.flashWhite = Math.max(0, 1 - p * 3.5);
           impactFlashAlpha = Math.max(0, 1 - p * 4.5);
 
-          camZoom = 1.2 - p * 0.11;
-          camX = -W * 0.1 * (1 - p * 0.5);
-          camY = -H * 0.065 * (1 - p * 0.5);
+          const isGiantMountImp = (this.vfxAssets.rightUnit.displayScale ?? 1) >= 1.5;
+          camZoom = isGiantMountImp ? 0.94 + p * 0.02 : 1.2 - p * 0.11;
+          camX = isGiantMountImp ? -W * 0.085 * (1 - p * 0.5) : -W * 0.1 * (1 - p * 0.5);
+          camY = isGiantMountImp ? -H * 0.095 * (1 - p * 0.5) : -H * 0.065 * (1 - p * 0.5);
           camTilt = 0.018 * (1 - p);
           camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 24) : 0;
         } else {
@@ -1716,9 +1721,10 @@ export class Modern25DCombatRenderer {
             this.sound.playSfx('step_wing');
             this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 30, -0.5, 0.8, 8);
           });
-          camZoom = 1.09 - ease * 0.09;
-          camX = -W * 0.05 * (1 - ease);
-          camY = -H * 0.032 * (1 - ease);
+          const isGiantMountRet = (this.vfxAssets.rightUnit.displayScale ?? 1) >= 1.5;
+          camZoom = isGiantMountRet ? 0.96 + ease * 0.04 : 1.09 - ease * 0.09;
+          camX = (isGiantMountRet ? -W * 0.042 : -W * 0.05) * (1 - ease);
+          camY = (isGiantMountRet ? -H * 0.048 : -H * 0.032) * (1 - ease);
         }
       } else if (localT < 460) {
         // 1. Coiled Wind-Up at Bottom-Right
@@ -2074,33 +2080,37 @@ export class Modern25DCombatRenderer {
     }
 
     // Ground shadows stay anchored on the ground plane beneath airborne units, shrinking & softening with altitude!
+    const leftScale = this.vfxAssets.leftUnit.displayScale ?? 1;
+    const rightScale = this.vfxAssets.rightUnit.displayScale ?? 1;
+    const leftShadowBase = Math.round(195 * Math.min(1.45, Math.max(0.75, 0.55 + 0.45 * leftScale)));
+    const rightShadowBase = Math.round(215 * Math.min(1.5, Math.max(0.75, 0.55 + 0.45 * rightScale)));
     if (leftIsFlying) {
       const lAlt = Math.max(0, banditHomeY - banditSpec.y);
-      const lRad = 195 * Math.max(0.36, 1 - lAlt / 540);
+      const lRad = leftShadowBase * Math.max(0.36, 1 - lAlt / 540);
       const lAlpha = Math.max(0.24, 1 - lAlt / 430);
       this.drawGroundShadow(ctx, banditSpec.x, banditHomeY, lRad, lAlpha);
     } else {
-      this.drawGroundShadow(ctx, banditSpec.x, banditSpec.y, 195);
+      this.drawGroundShadow(ctx, banditSpec.x, banditSpec.y, leftShadowBase);
     }
     if (rightIsFlying) {
       const groundRatio = Math.max(0, Math.min(1, (thorHomeX - thorSpec.x) / Math.max(1, thorHomeX - banditHomeX)));
       const thorGroundY = thorHomeY - groundRatio * (thorHomeY - banditHomeY);
       const rAlt = Math.max(0, thorGroundY - thorSpec.y);
-      const rRad = 215 * Math.max(0.35, 1 - rAlt / 540);
+      const rRad = rightShadowBase * Math.max(0.35, 1 - rAlt / 540);
       const rAlpha = Math.max(0.22, 1 - rAlt / 420);
       this.drawGroundShadow(ctx, thorSpec.x, thorGroundY, rRad, rAlpha);
     } else {
-      this.drawGroundShadow(ctx, thorSpec.x, thorSpec.y, 215);
+      this.drawGroundShadow(ctx, thorSpec.x, thorSpec.y, rightShadowBase);
     }
 
     if (shockwaveProgress >= 0 && shockwaveProgress <= 1 && this.config.enableHitStopAndSparks) {
       this.drawGroundShockwave(ctx, shockwaveCenter.x, shockwaveGroundY - 10, shockwaveProgress);
     }
 
-    // Render Bandit (Top-Left, lower Y -> drawn first in painter's algorithm)
+    // Render Bandit (Top-Left, lower Y -> drawn first in painter's algorithm; 545px base = 75.7% perspective depth vs 720px foreground!)
     const activeBanditPoses = this.getActivePoseList('bandit');
     const activeThorPoses = this.getActivePoseList('thor');
-    const banditDispSize = Math.round(495 * (this.vfxAssets.leftUnit.displayScale ?? 1));
+    const banditDispSize = Math.round(545 * leftScale);
     this.renderCombatantWithBlend(ctx, activeBanditPoses, banditSpec, '#ef4444', banditDispSize);
     if (banditSpec.primaryIdx >= 1 && banditSpec.primaryIdx <= 6) {
       this.drawBanditVisorGlint(ctx, banditSpec.x + 24, banditSpec.y - 340, t);
@@ -2505,7 +2515,7 @@ export class Modern25DCombatRenderer {
       targetPoses,
       targetSpec,
       isHeroAtk ? '#ef4444' : '#38bdf8',
-      Math.round((isHeroAtk ? 545 : 700) * (targetUnit.displayScale ?? 1))
+      Math.round((isHeroAtk ? 610 : 700) * (targetUnit.displayScale ?? 1))
     );
 
     // Render all arriving projectiles streaking in horizontally from the edge into the target's torso!
@@ -2800,7 +2810,13 @@ export class Modern25DCombatRenderer {
       this.drawGroundShockwave(ctx, targetHomeX, targetHomeY - 10, shockwaveProgress);
     }
 
-    this.renderCombatantWithBlend(ctx, targetPoses, targetSpec, '#ef4444', 550);
+    this.renderCombatantWithBlend(
+      ctx,
+      targetPoses,
+      targetSpec,
+      '#ef4444',
+      Math.round(620 * (target.displayScale ?? 1))
+    );
 
     // Front-layer elemental spell pillar & vortex over Target!
     if (spellP >= 0) {
@@ -2921,11 +2937,11 @@ export class Modern25DCombatRenderer {
   ): void {
     const preset = getTerrainPreset(bgId);
     const pFactor = this.config.enableParallaxAndGodRays ? 0.35 : 0;
-    // Generous bleed margins (1.44x) so epic camera pullbacks (`camZoom < 1.0`, e.g. giant dragon climb) never expose black borders!
-    const bgX = -W * 0.22 + camX * pFactor;
-    const bgY = -H * 0.22 + camY * pFactor;
-    const bgW = W * 1.44;
-    const bgH = H * 1.44;
+    // Generous bleed margins (1.68x) so epic camera pullbacks (`camZoom = 0.78`, e.g. giant dragon climb) never expose black borders!
+    const bgX = -W * 0.34 + camX * pFactor;
+    const bgY = -H * 0.36 + camY * pFactor;
+    const bgW = W * 1.68;
+    const bgH = H * 1.68;
 
     const bgImg = this.vfxAssets.bgImages.get(bgId) ?? this.vfxAssets.forestBg;
     if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {

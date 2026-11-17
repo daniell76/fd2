@@ -14,7 +14,9 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_000",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 176,
+      "displayScale": 1.14
     },
     {
       "uid": 1,
@@ -27,7 +29,9 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_001",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 184,
+      "displayScale": 0.96
     },
     {
       "uid": 2,
@@ -40,7 +44,9 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_002",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 185,
+      "displayScale": 0.95
     },
     {
       "uid": 3,
@@ -53,7 +59,9 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_003",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 182,
+      "displayScale": 0.93
     },
     {
       "uid": 4,
@@ -66,7 +74,9 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_004",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 180,
+      "displayScale": 1.0
     },
     {
       "uid": 5,
@@ -79,7 +89,9 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_005",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 171,
+      "displayScale": 0.92
     },
     {
       "uid": 6,
@@ -92,7 +104,9 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_006",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 188,
+      "displayScale": 1.07
     },
     {
       "uid": 7,
@@ -132,7 +146,10 @@
           "color": "azure"
         }
       ],
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 182,
+      "mountHeightCm": 242,
+      "displayScale": 1.24
     },
     {
       "uid": 8,
@@ -155,7 +172,9 @@
         "nb6": 4,
         "omni": 5
       },
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 166,
+      "displayScale": 0.86
     },
     {
       "uid": 9,
@@ -172,7 +191,9 @@
       "magicElement": "fire",
       "magicNameZh": "炎龍術",
       "magicNameEn": "Flame Dragon",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 164,
+      "displayScale": 0.85
     },
     {
       "uid": 10,
@@ -189,7 +210,9 @@
       "magicElement": "holy",
       "magicNameZh": "聖光審判",
       "magicNameEn": "Holy Radiance",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 162,
+      "displayScale": 0.84
     },
     {
       "uid": 11,
@@ -206,7 +229,9 @@
       "magicElement": "holy",
       "magicNameZh": "聖光審判",
       "magicNameEn": "Holy Radiance",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 165,
+      "displayScale": 0.95
     },
     {
       "uid": 12,
@@ -234,7 +259,9 @@
           "color": "gold"
         }
       ],
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 166,
+      "displayScale": 0.95
     },
     {
       "uid": 13,
@@ -258,7 +285,9 @@
         "nb6": 2,
         "omni": 3
       },
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 180,
+      "displayScale": 0.99
     },
     {
       "uid": 14,
@@ -275,7 +304,9 @@
       "magicElement": "thunder",
       "magicNameZh": "轟雷術",
       "magicNameEn": "Thunderstorm",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 168,
+      "displayScale": 0.98
     },
     {
       "uid": 15,
@@ -288,7 +319,9 @@
       "cameraOrientation": "up_left",
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_015",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 182,
+      "displayScale": 1.06
     },
     {
       "uid": 16,
@@ -303,7 +336,9 @@
       "dir": "assets/vfx_lab/units/u_016",
       "isFlying": true,
       "flightPattern": "dash_past",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 192,
+      "displayScale": 1.26
     },
     {
       "uid": 17,
@@ -318,7 +353,9 @@
       "dir": "assets/vfx_lab/units/u_017",
       "isFlying": true,
       "flightPattern": "hover_swoop",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 190,
+      "displayScale": 1.18
     },
     {
       "uid": 18,
@@ -347,7 +384,9 @@
           "color": "azure"
         }
       ],
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 170,
+      "displayScale": 0.95
     },
     {
       "uid": 19,
@@ -361,7 +400,9 @@
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_019",
       "hasMagic": false,
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 188,
+      "displayScale": 0.99
     },
     {
       "uid": 20,
@@ -376,8 +417,10 @@
       "dir": "assets/vfx_lab/units/u_020",
       "isFlying": true,
       "flightPattern": "climb_dive",
-      "displayScale": 1.8,
-      "overallPass": true
+      "displayScale": 2.22,
+      "overallPass": true,
+      "heightCm": 168,
+      "mountHeightCm": 325
     },
     {
       "uid": 96,
@@ -390,7 +433,9 @@
       "cameraOrientation": "down_right",
       "cutinFacing": "right",
       "dir": "assets/vfx_lab/units/u_096",
-      "overallPass": true
+      "overallPass": true,
+      "heightCm": 175,
+      "displayScale": 0.88
     }
   ],
   "totalUnits": 22,
