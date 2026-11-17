@@ -376,6 +376,7 @@
       "dir": "assets/vfx_lab/units/u_020",
       "isFlying": true,
       "flightPattern": "climb_dive",
+      "displayScale": 1.8,
       "overallPass": true
     },
     {
