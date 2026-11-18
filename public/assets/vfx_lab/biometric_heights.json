@@ -920,7 +920,7 @@
       "gender": "male",
       "mounted": "none",
       "isFlying": true,
-      "flightPattern": "dash_past",
+      "flightPattern": "soar_plunge",
       "isRemote": false,
       "hitCount": 1,
       "heightCm": 194,
@@ -938,7 +938,7 @@
         195
       ],
       "status": "calibrated",
-      "calibratedDisplayScale": 1.44,
+      "calibratedDisplayScale": 1.42,
       "appearanceNotes": "Sapphire-blue winged Dragonkin (龍人) swordsman; curved scimitar/blade"
     },
     {
@@ -972,7 +972,7 @@
         152
       ],
       "status": "calibrated",
-      "calibratedDisplayScale": 1.22,
+      "calibratedDisplayScale": 1.26,
       "appearanceNotes": "Emerald-green winged Dragonkin (龍人) swordsman; horned crest, spear/sword"
     },
     {
@@ -996,7 +996,7 @@
       "poseFactor": 0.88,
       "targetBodyPx": 333,
       "targetTotalPx": 333,
-      "recommendedCanvasPx": 1080,
+      "recommendedCanvasPx": 1224,
       "dosIdleSize": [
         135,
         132
@@ -1006,7 +1006,7 @@
         132
       ],
       "status": "calibrated",
-      "calibratedDisplayScale": 1.2,
+      "calibratedDisplayScale": 1.42,
       "appearanceNotes": "Towering muscular indigo-grey gorilla-like Demon Warrior (魔族); wingless brute"
     },
     {
@@ -1074,7 +1074,7 @@
         143
       ],
       "status": "calibrated",
-      "calibratedDisplayScale": 1.09,
+      "calibratedDisplayScale": 1.12,
       "appearanceNotes": "Sleek white/steel visored bipedal robot mecha (機械)"
     },
     {

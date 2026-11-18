@@ -79,7 +79,7 @@ export interface VfxHitFrameSpec {
   color?: 'gold' | 'azure';
 }
 
-export type FlightPattern = 'climb_dive' | 'dip_rise' | 'dash_past' | 'hover_swoop';
+export type FlightPattern = 'climb_dive' | 'dip_rise' | 'dash_past' | 'soar_plunge' | 'hover_swoop';
 
 export interface VfxManifestUnitEntry {
   uid: number;
@@ -259,7 +259,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=43';
+const VFX_ASSET_VERSION = '?v=44';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -640,7 +640,7 @@ export class Modern25DCombatRenderer {
   private hasLongFlyPrelude(unit: VfxManifestUnitEntry): boolean {
     if (!unit.isFlying || unit.isRemote) return false;
     const p = unit.flightPattern;
-    return p === 'climb_dive' || p === 'dip_rise' || p === 'dash_past';
+    return p === 'climb_dive' || p === 'dip_rise' || p === 'dash_past' || p === 'soar_plunge';
   }
 
   public getTotalDurationMs(): number {
@@ -1562,7 +1562,10 @@ export class Modern25DCombatRenderer {
         // faithfully recreating Dragon Knight & Dragonkin aerial preludes from `FIGANI.DAT`!
         // =====================================================================
         const isLongFly =
-          rightFlyPattern === 'climb_dive' || rightFlyPattern === 'dip_rise' || rightFlyPattern === 'dash_past';
+          rightFlyPattern === 'climb_dive' ||
+          rightFlyPattern === 'dip_rise' ||
+          rightFlyPattern === 'dash_past' ||
+          rightFlyPattern === 'soar_plunge';
         const tPreludeEnd = isLongFly ? 660 : 460;
         const tStrikeStart = isLongFly ? 1040 : 820;
         const tImpactEnd = isLongFly ? 1640 : 1400;
@@ -1606,19 +1609,23 @@ export class Modern25DCombatRenderer {
         const patternBadgeZh =
           rightFlyPattern === 'climb_dive'
             ? '🐉 飛行前搖 · 高空盤旋俯衝 (龍騎士)'
-            : rightFlyPattern === 'dip_rise'
-              ? '🐉 飛行前搖 · 低空掠地升龍斬 (龍騎士)'
-              : rightFlyPattern === 'dash_past'
-                ? '🐉 飛行前搖 · 疾風橫掠居合斬 (龍劍士)'
-                : '🐉 飛行前搖 · 浮空振翅疾襲 (龍人)';
+            : rightFlyPattern === 'soar_plunge'
+              ? '🐉 飛行前搖 · 沖天高空下斬 (龍劍士)'
+              : rightFlyPattern === 'dip_rise'
+                ? '🐉 飛行前搖 · 低空掠地升龍斬 (龍騎士)'
+                : rightFlyPattern === 'dash_past'
+                  ? '🐉 飛行前搖 · 疾風橫掠居合斬 (龍劍士)'
+                  : '🐉 飛行前搖 · 浮空振翅疾襲 (龍人)';
         const patternBadgeEn =
           rightFlyPattern === 'climb_dive'
             ? '🐉 Aerial Prelude · High Climb & Dive-Bomb'
-            : rightFlyPattern === 'dip_rise'
-              ? '🐉 Aerial Prelude · Low Dip & Rising Slash'
-              : rightFlyPattern === 'dash_past'
-                ? '🐉 Aerial Prelude · Low Dash & Cross-Slash'
-                : '🐉 Aerial Prelude · Hover Bob & Swoop';
+            : rightFlyPattern === 'soar_plunge'
+              ? '🐉 Aerial Prelude · High Sky Soar & Downward Slash'
+              : rightFlyPattern === 'dip_rise'
+                ? '🐉 Aerial Prelude · Low Dip & Rising Slash'
+                : rightFlyPattern === 'dash_past'
+                  ? '🐉 Aerial Prelude · Low Dash & Cross-Slash'
+                  : '🐉 Aerial Prelude · Hover Bob & Swoop';
         this.activeStageBadge = isEn
           ? `${patternBadgeEn} · ${enemyTerrain.en}`
           : `${patternBadgeZh} · ${enemyTerrain.zh}`;
@@ -1671,8 +1678,22 @@ export class Modern25DCombatRenderer {
                 this.spawnDustPlume(thorSpec.x, thorHomeY, 1, 0.2, 12);
               });
             }
+          } else if (rightFlyPattern === 'soar_plunge') {
+            // #026 St. Koulas: Soar HIGH UP-LEFT into the sky (`f00->f03 ox:158->7, oy->0`), raising curved scimitar high overhead!
+            setWingFlapCycle(2.0, p, true);
+            const heave = Math.sin(p * Math.PI * 4.0) * 12;
+            thorSpec.x = thorHomeX - Math.pow(p, 1.15) * (W * 0.25);
+            thorSpec.y = baseFlyY - ease * (H * 0.42) + heave;
+            thorSpec.rot = -0.08 * ease;
+            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p > 0.16 ? 3 : 0;
+            thorSpec.dashDirX = -0.52;
+            thorSpec.dashDirY = -0.85;
+            camZoom = 1.0 + ease * 0.04;
+            camX = -ease * W * 0.05;
+            camY = -ease * H * 0.125;
+            camTilt = -ease * 0.016;
           } else if (rightFlyPattern === 'dash_past') {
-            // #016 Kailas / #026: Fast wing-tuck sweeping horizontally LEFT & low across foreground!
+            // #016 Kailas: Fast wing-tuck sweeping horizontally LEFT & low across foreground!
             setWingFlapCycle(2.0, p, true);
             thorSpec.x = thorHomeX - Math.pow(p, 1.35) * (W * 0.26);
             thorSpec.y = baseFlyY + ease * (H * 0.055) + Math.sin(p * Math.PI * 4) * 8;
@@ -1769,6 +1790,52 @@ export class Modern25DCombatRenderer {
             camY = H * 0.045 - dashEase * (H * 0.14);
             camTilt = dashEase * 0.025;
             launchSfxCheck();
+          } else if (rightFlyPattern === 'soar_plunge') {
+            // #026 St. Koulas: Brief high-sky apex hover (`f05 d=6`) -> Explosive steep DOWNWARD diagonal plunging cleave (`f06->f07`)!
+            const pauseFrac = 0.20;
+            const startX = thorHomeX - W * 0.25;
+            const startY = baseFlyY - H * 0.42;
+            const endX = thorHomeX - W * 0.29;
+            const endY = thorHomeY - H * 0.14;
+            if (p < pauseFrac) {
+              const bp = p / pauseFrac;
+              thorSpec.x = startX - bp * (W * 0.04);
+              thorSpec.y = startY - Math.sin(bp * Math.PI) * (H * 0.04);
+              thorSpec.opacity = 0.35 + 0.65 * Math.abs(Math.cos(bp * Math.PI));
+              thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 4 : 0;
+              thorSpec.dashDirX = 0;
+              thorSpec.dashDirY = -1;
+              thorSpec.primaryIdx = srcMode === 'nb2_3pose' ? 1 : 2;
+              camZoom = 1.04 + bp * 0.04;
+              camX = -W * 0.05;
+              camY = -H * 0.125;
+            } else {
+              const dashP = (p - pauseFrac) / (1 - pauseFrac);
+              const dashEase = Math.pow(dashP, 0.72); // explosive gravity-fed plunging dive!
+              thorSpec.x = startX - W * 0.04 + (endX - (startX - W * 0.04)) * dashEase;
+              thorSpec.y = startY + (endY - startY) * dashEase;
+              thorSpec.opacity = 1;
+              thorSpec.rot = 0.14 * Math.sin(Math.min(1, dashP * 1.1) * Math.PI * 0.7);
+              thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 6 : 0;
+              const ang = Math.atan2(endY - startY, 65);
+              thorSpec.dashDirX = Math.cos(ang);
+              thorSpec.dashDirY = Math.sin(ang);
+              aerialSpeedLinesIntensity = Math.sin(dashP * Math.PI) * 0.96;
+              aerialSpeedLinesAngle = ang;
+              aerialSpeedLinesRgb = '253, 224, 71';
+              if (srcMode === 'omni_video') {
+                this.setContinuousFrame(thorSpec, 2.5 + dashP * 1.7, 9);
+              } else if (srcMode === 'nb2_6frame') {
+                this.setContinuousFrame(thorSpec, 2.0 + dashP * 1.3, 5);
+              } else {
+                thorSpec.primaryIdx = dashP > 0.4 ? 2 : 1;
+              }
+              camZoom = 1.08 + dashEase * 0.12;
+              camX = -W * 0.05 - dashEase * (W * 0.05);
+              camY = -H * 0.125 + dashEase * (H * 0.07);
+              camTilt = -0.016 + dashEase * 0.036;
+              launchSfxCheck();
+            }
           } else if (rightFlyPattern === 'dash_past') {
             // Brief speed-blur beat (matching DOS #016 f06 delay=4!) -> High-Speed Rising Diagonal Iaido Cross-Slash!
             const pauseFrac = 0.24;
@@ -1873,6 +1940,12 @@ export class Modern25DCombatRenderer {
             thorSpec.x = thorHomeX - W * 0.31 + p * (W * 0.05);
             thorSpec.y = thorHomeY - H * 0.22 - Math.sin(p * Math.PI) * (H * 0.04);
             thorSpec.rot = 0.12 * (1 - p);
+          } else if (rightFlyPattern === 'soar_plunge') {
+            // #026 St. Koulas: Sweeping downward-right cleaving dive pull-out (`f07 (5,0) -> f08 (195,63) -> f10 (187,32)`)!
+            const descend = Math.pow(p, 0.80);
+            thorSpec.x = thorHomeX - W * 0.29 + descend * (W * 0.15);
+            thorSpec.y = thorHomeY - H * 0.14 + Math.sin(Math.min(1, p * 1.8) * Math.PI) * (H * 0.055) + descend * (H * 0.055);
+            thorSpec.rot = 0.08 * (1 - p);
           } else if (rightFlyPattern === 'dash_past') {
             // Iconic #016 Kailas descending aerial glide back right while sheathing flaming blade (`f4 -> f5`)!
             const descend = Math.pow(p, 0.85);
@@ -1934,19 +2007,23 @@ export class Modern25DCombatRenderer {
           const startX =
             rightFlyPattern === 'dash_past'
               ? thorHomeX - W * 0.17
-              : rightFlyPattern === 'climb_dive'
-                ? thorHomeX - W * 0.265
-                : rightFlyPattern === 'dip_rise'
-                  ? thorHomeX - W * 0.26
-                  : thorHomeX - W * 0.31 - 18;
+              : rightFlyPattern === 'soar_plunge'
+                ? thorHomeX - W * 0.14
+                : rightFlyPattern === 'climb_dive'
+                  ? thorHomeX - W * 0.265
+                  : rightFlyPattern === 'dip_rise'
+                    ? thorHomeX - W * 0.26
+                    : thorHomeX - W * 0.31 - 18;
           const startY =
             rightFlyPattern === 'dash_past'
               ? thorHomeY - H * 0.07
-              : rightFlyPattern === 'climb_dive'
-                ? thorHomeY - H * 0.20
-                : rightFlyPattern === 'dip_rise'
-                  ? thorHomeY - H * 0.22
-                  : baseFlyY - H * 0.185;
+              : rightFlyPattern === 'soar_plunge'
+                ? thorHomeY - H * 0.085
+                : rightFlyPattern === 'climb_dive'
+                  ? thorHomeY - H * 0.20
+                  : rightFlyPattern === 'dip_rise'
+                    ? thorHomeY - H * 0.22
+                    : baseFlyY - H * 0.185;
           const arcLift = rightFlyPattern === 'dip_rise' ? -H * 0.03 * Math.sin(p * Math.PI) : -H * 0.075 * Math.sin(p * Math.PI);
           thorSpec.x = startX + ease * (thorHomeX - startX);
           thorSpec.y = startY + ease * (thorHomeY + rightHoverBob - startY) + arcLift;
@@ -2355,7 +2432,8 @@ export class Modern25DCombatRenderer {
     // Render Thor (Bottom-Right Foreground, higher Y -> drawn on top in painter's algorithm!)
     if (thorDrawsInFront) {
       const thorDispSize = Math.round(720 * (this.vfxAssets.rightUnit.displayScale ?? 1));
-      const thorAfterimageColor = rightFlyPattern === 'dash_past' ? '#fde047' : '#38bdf8';
+      const thorAfterimageColor =
+        rightFlyPattern === 'dash_past' || rightFlyPattern === 'soar_plunge' ? '#fde047' : '#38bdf8';
       this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, thorAfterimageColor, thorDispSize);
     }
 

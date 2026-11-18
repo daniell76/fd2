@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 33,
-  "updatedAt": "2026-11-18T17:45:00Z",
+  "updatedAt": "2026-11-18T19:40:00Z",
   "units": [
     {
       "uid": 0,
@@ -557,11 +557,11 @@
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_026",
       "isFlying": true,
-      "flightPattern": "dash_past",
+      "flightPattern": "soar_plunge",
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 194,
-      "displayScale": 1.44
+      "displayScale": 1.42
     },
     {
       "uid": 27,
@@ -579,7 +579,7 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 192,
-      "displayScale": 1.22
+      "displayScale": 1.26
     },
     {
       "uid": 28,
@@ -614,7 +614,7 @@
       "magicNameEn": "Demon Blade",
       "overallPass": true,
       "heightCm": 210,
-      "displayScale": 1.2
+      "displayScale": 1.42
     },
     {
       "uid": 29,
@@ -651,7 +651,7 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 215,
-      "displayScale": 1.09
+      "displayScale": 1.12
     },
     {
       "uid": 31,
