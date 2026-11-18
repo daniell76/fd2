@@ -870,13 +870,13 @@
         151
       ],
       "status": "done",
-      "calibratedDisplayScale": 1.11,
+      "calibratedDisplayScale": 1.08,
       "appearanceNotes": "BALD goateed MALE Elf High Priest! Broad crimson-gold cloak, huge upturned elf ears"
     },
     {
       "uid": 25,
       "nameZh": "謝多",
-      "nameEn": "Shedo",
+      "nameEn": "Shadow",
       "side": "player",
       "role": "hero",
       "baseHeroId": 25,

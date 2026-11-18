@@ -109,6 +109,12 @@ export interface VfxManifestUnitEntry {
   isFlying?: boolean;
   /** Authentic 1995 DOS FIGANI.DAT aerial prelude trajectory for Dragon Knights & Dragonkin. */
   flightPattern?: FlightPattern;
+  /** Authentic stationary long-range beam/energy wave (e.g., #022 Karis Kamehameha Ki-Wave, Dragon Breath, Gaia Cannon): attacker stays planted at home position while a thick volumetric beam connects originAnchor diagonally up-left onto the enemy! */
+  stationaryBeam?: {
+    originAnchor: { x: number; y: number };
+    color: 'azure' | 'gold' | 'crimson' | 'emerald';
+    thickness?: number;
+  };
   /** Canonical standing height (cm) used for cross-character proportional biometric scaling (`1.80 world-px / cm`). */
   heightCm?: number;
   /** Optional total mounted height (cm) including horse or wyvern (e.g., 242 for #007 Lancelot, 325 for #020 Sara). */
@@ -253,7 +259,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=38';
+const VFX_ASSET_VERSION = '?v=39';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -633,7 +639,11 @@ export class Modern25DCombatRenderer {
 
   public getTotalDurationMs(): number {
     if (this.scenario === 'hero_magic') return 3150;
-    const heroFlyExtra = this.hasLongFlyPrelude(this.vfxAssets.rightUnit) ? 330 : 0;
+    const heroFlyExtra = this.hasLongFlyPrelude(this.vfxAssets.rightUnit)
+      ? 330
+      : this.vfxAssets.rightUnit.stationaryBeam
+        ? 290
+        : 0;
     if (this.scenario === 'thor_crit') {
       return this.vfxAssets.rightUnit.isRemote ? 2850 : 2600 + heroFlyExtra;
     }
@@ -834,7 +844,9 @@ export class Modern25DCombatRenderer {
       ? 2450
       : this.hasLongFlyPrelude(this.vfxAssets.rightUnit)
         ? 2160
-        : 1830;
+        : this.vfxAssets.rightUnit.stationaryBeam
+          ? 2120
+          : 1830;
     const banditDur = this.vfxAssets.leftUnit.isRemote ? 2450 : 1850;
     if (this.scenario === 'hero_magic') {
       return { thorStart: 120, banditStart: -1, thorDur: 2950, banditDur: 0 };
@@ -1145,6 +1157,16 @@ export class Modern25DCombatRenderer {
     let aerialSpeedLinesIntensity = 0;
     let aerialSpeedLinesAngle = 0;
     let aerialSpeedLinesRgb = '254, 240, 138';
+    let stationaryBeamState: {
+      originX: number;
+      originY: number;
+      targetX: number;
+      targetY: number;
+      progress: number;
+      chargeOnly?: boolean;
+      color: 'azure' | 'gold' | 'crimson' | 'emerald';
+      thickness: number;
+    } | null = null;
     const thorDrawsInFront = true;
 
     // -------------------------------------------------------------------------
@@ -1159,9 +1181,224 @@ export class Modern25DCombatRenderer {
       this.vfxAssets.thorOmniPoses.length > 10;
     const rightOmniMax = Math.max(1, this.vfxAssets.thorOmniPoses.length - 1);
 
+    const rightStationaryBeam = this.vfxAssets.rightUnit.stationaryBeam;
     if (thorStart >= 0 && t >= thorStart && t < thorStart + thorDur) {
       const localT = t - thorStart;
-      if (isRightMultiHit && rightHitFrames) {
+      if (rightStationaryBeam) {
+        // Authentic 1995 DOS Stationary Long-Range Ki/Energy Wave (e.g., #022 Karis `f00..f19`):
+        // Fighter stays PLANTED at home right-foreground (`ZERO approaching dash!`), gathers Qi centered
+        // in cupped hands, and blasts a thick solid volumetric beam diagonally UP-LEFT (↖) all the way
+        // onto the enemy's body with sustained knockback and massive exploding hit splash!
+        const thorDispSize = Math.round(720 * (this.vfxAssets.rightUnit.displayScale ?? 1));
+        const getBeamOrigin = () => ({
+          x: thorSpec.x + (rightStationaryBeam.originAnchor.x - 0.5) * thorDispSize * thorSpec.scaleX,
+          y: thorSpec.y + (rightStationaryBeam.originAnchor.y - 648 / 680) * thorDispSize * thorSpec.scaleY,
+        });
+        const beamColor = rightStationaryBeam.color;
+        const beamThick = rightStationaryBeam.thickness ?? 116;
+
+        if (localT < 500) {
+          // 1. Stationary Ryu-style Qi Vortex Gather centered on cupped hands (F0 -> F1)
+          const p = localT / 500;
+          const ease = 1 - Math.pow(1 - p, 3);
+          if (srcMode === 'omni_video') {
+            this.setContinuousFrame(thorSpec, p * 1.25, rightOmniMax);
+          } else if (srcMode === 'nb2_6frame') {
+            this.setContinuousFrame(thorSpec, p * 1.05, 5);
+          } else {
+            thorSpec.primaryIdx = p < 0.35 ? 0 : 1;
+          }
+          thorSpec.x = thorHomeX + ease * 10;
+          thorSpec.y = thorHomeY + ease * 4;
+          thorSpec.scaleY = 1.0 - Math.sin(p * Math.PI) * 0.035;
+          camZoom = 1.0 + ease * 0.05;
+          camX = ease * W * 0.03;
+          this.fireOnce('beam_gather_sfx', () => {
+            const prof = this.vfxAssets.rightUnit.sfxProfile;
+            this.sound.playSfx(prof?.launchSfx ?? 'step_foot');
+            this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.3, 10);
+          });
+          const org = getBeamOrigin();
+          stationaryBeamState = {
+            originX: org.x,
+            originY: org.y,
+            targetX: banditHomeX + 35,
+            targetY: banditHomeY - 195,
+            progress: p * 0.45,
+            chargeOnly: true,
+            color: beamColor,
+            thickness: beamThick,
+          };
+        } else if (localT < 880) {
+          // 2. Hadouken Launch Sphere Charge IN PLACE + Optional Critical Cut-In (F1 -> F2)
+          const p = (localT - 500) / 380;
+          const ease = 1 - Math.pow(1 - p, 2);
+          if (this.config.enableAnimeCutIn && this.scenario === 'thor_crit') {
+            cutInProgress = p;
+            cutInUnit = 'thor';
+          }
+          if (srcMode === 'omni_video') {
+            this.setContinuousFrame(thorSpec, 1.25 + p * 2.1, rightOmniMax);
+          } else if (srcMode === 'nb2_6frame') {
+            this.setContinuousFrame(thorSpec, 1.05 + p * 1.15, 5);
+          } else {
+            thorSpec.primaryIdx = 1;
+          }
+          thorSpec.x = thorHomeX + 10 + ease * 10;
+          thorSpec.y = thorHomeY + 4 + ease * 4;
+          camZoom = 1.05 + ease * 0.04;
+          camX = W * 0.03 * (1 - ease * 0.6);
+          const org = getBeamOrigin();
+          stationaryBeamState = {
+            originX: org.x,
+            originY: org.y,
+            targetX: banditHomeX + 35,
+            targetY: banditHomeY - 195,
+            progress: 0.45 + p * 0.55,
+            chargeOnly: true,
+            color: beamColor,
+            thickness: beamThick,
+          };
+          this.fireOnce('beam_charge_dust', () => {
+            this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.45, 12);
+          });
+        } else if (localT < 1720) {
+          // 3. MASSIVE THICK UP-LEFT (↖) KAMEHAMEHA KI BEAM ACROSS ENTIRE BATTLEFIELD!
+          // Karis remains STATIONARY at thorHomeX with intense ground-brace recoil & skid dust!
+          const p = (localT - 880) / 840;
+          const isFading = p > 0.78;
+          if (srcMode === 'omni_video') {
+            if (p < 0.72) {
+              this.setContinuousFrame(thorSpec, 4.0 + Math.sin(p * Math.PI * 6) * 0.5 + 0.5, rightOmniMax);
+            } else if (p < 0.88) {
+              this.setContinuousFrame(thorSpec, 6.0 + ((p - 0.72) / 0.16) * 1.5, rightOmniMax);
+            } else {
+              this.setContinuousFrame(thorSpec, 7.5 + ((p - 0.88) / 0.12) * 1.5, rightOmniMax);
+            }
+          } else if (srcMode === 'nb2_6frame') {
+            if (p < 0.74) {
+              thorSpec.primaryIdx = 3;
+            } else if (p < 0.9) {
+              thorSpec.primaryIdx = 4;
+            } else {
+              thorSpec.primaryIdx = 5;
+            }
+          } else {
+            thorSpec.primaryIdx = 2;
+          }
+          // Heavy recoil brace right on home spot (NO approaching dash toward enemy!)
+          const braceRecoil = p < 0.75 ? Math.min(1, p * 6) * (16 + Math.sin(p * 42) * 2.5) : 16 * (1 - (p - 0.75) / 0.25);
+          thorSpec.x = thorHomeX + 18 + braceRecoil;
+          thorSpec.y = thorHomeY + 6 + braceRecoil * 0.28;
+          thorSpec.scaleX = 1.0 + (p < 0.15 ? 0.04 * (1 - p / 0.15) : 0);
+
+          const targetHitX = banditHomeX + 26;
+          const targetHitY = banditHomeY - 190;
+          const org = getBeamOrigin();
+          stationaryBeamState = {
+            originX: org.x,
+            originY: org.y,
+            targetX: targetHitX,
+            targetY: targetHitY,
+            progress: p,
+            chargeOnly: false,
+            color: beamColor,
+            thickness: beamThick,
+          };
+
+          // Ground shockwave right beneath enemy + skid dust under Karis's braced boots!
+          shockwaveProgress = Math.min(1, p * 1.35);
+          shockwaveCenter = { x: targetHitX, y: targetHitY };
+          shockwaveGroundY = banditHomeY;
+          slashArcProgress = -1; // Suppress golden melee sword crescent arc!
+
+          this.fireOnce('beam_impact_1', () => {
+            const hitList = this.vfxAssets.rightUnit.sfxProfile?.hitSfxList ?? [];
+            const impactSfx: SfxKind = hitList[0] ?? (this.scenario === 'thor_crit' ? 'crit' : 'hit');
+            this.sound.playSfx(impactSfx);
+            if (this.config.enableHitStopAndSparks) {
+              this.hitStopRemainingMs = 75;
+            }
+            this.spawnImpactSparks(
+              targetHitX,
+              targetHitY,
+              banditHomeY,
+              85,
+              ['#ffffff', '#e0f2fe', '#7dd3fc', '#38bdf8', '#2563eb'],
+              -1,
+              -0.42
+            );
+            this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.35, 18);
+            this.spawnDustPlume(thorHomeX + 15, thorHomeY + 6, 1, 0.35, 14);
+            this.banditTargetHp = Math.max(0, this.banditTargetHp - Math.round(this.thorStrikeDmg * 0.55));
+          });
+          if (p > 0.34) {
+            this.fireOnce('beam_impact_2', () => {
+              this.spawnImpactSparks(
+                targetHitX - 18,
+                targetHitY - 12,
+                banditHomeY,
+                65,
+                ['#ffffff', '#bae6fd', '#38bdf8', '#60a5fa'],
+                -1,
+                -0.38
+              );
+              this.spawnDustPlume(banditHomeX - 24, banditHomeY, -1, -0.35, 14);
+              this.spawnDustPlume(thorHomeX + 20, thorHomeY + 6, 1, 0.35, 10);
+              this.banditTargetHp = Math.max(
+                0,
+                this.banditTargetHp - (this.thorStrikeDmg - Math.round(this.thorStrikeDmg * 0.55))
+              );
+            });
+          }
+
+          // Enemy sustained up-left diagonal pushback & white flash under roaring beam pressure!
+          const beamTravel = Math.min(1, p / 0.14);
+          const sustainRecoil =
+            p < 0.78
+              ? beamTravel * (46 + Math.sin(p * 55) * 6)
+              : 46 * Math.max(0, 1 - (p - 0.78) / 0.22);
+          banditSpec.x = banditHomeX - sustainRecoil;
+          banditSpec.y = banditHomeY - sustainRecoil * 0.42;
+          banditSpec.rot = -(sustainRecoil / 46) * 0.12;
+          banditSpec.scaleX = 1.0 - (sustainRecoil / 46) * 0.08;
+          banditSpec.scaleY = 1.0 + (sustainRecoil / 46) * 0.06;
+          banditSpec.flashWhite =
+            p < 0.12
+              ? 0
+              : p < 0.76
+                ? 0.35 + 0.5 * Math.abs(Math.sin(p * 28))
+                : Math.max(0, (1 - (p - 0.76) / 0.18) * 0.5);
+          impactFlashAlpha = p < 0.18 ? Math.max(0, 1 - p / 0.18) * 0.7 : isFading ? 0 : 0.16;
+
+          // Keep wide cinematic framing so BOTH Karis (right) and Bandit (left) + full beam are 100% visible!
+          camZoom = 1.08 - p * 0.04;
+          camX = -W * 0.02;
+          camY = -H * 0.025;
+          camTilt = 0.01 * (1 - p);
+          camShake =
+            this.config.enableHitStopAndSparks && p >= 0.06 && p < 0.78
+              ? (p < 0.26 ? 22 : 12) * (1 - Math.max(0, p - 0.55) * 1.4)
+              : 0;
+        } else {
+          // 4. Clean stationary recovery IN PLACE (F5 -> F0, ZERO sliding return!)
+          const p = (localT - 1720) / Math.max(1, thorDur - 1720);
+          const ease = 1 - Math.pow(1 - p, 2);
+          const endIdx = srcMode === 'omni_video' ? rightOmniMax : srcMode === 'nb2_6frame' ? 5 : 2;
+          if (p < 0.45) {
+            thorSpec.primaryIdx = endIdx;
+            thorSpec.secondaryIdx = 0;
+            thorSpec.blend = p / 0.45;
+          } else {
+            thorSpec.primaryIdx = 0;
+          }
+          thorSpec.x = thorHomeX + 18 * (1 - ease);
+          thorSpec.y = thorHomeY + 6 * (1 - ease);
+          camZoom = 1.04 - ease * 0.04;
+          camX = -W * 0.02 * (1 - ease);
+          camY = -H * 0.025 * (1 - ease);
+        }
+      } else if (isRightMultiHit && rightHitFrames) {
         // Multi-Hit Combo Sequence (e.g., #007 Lancelot: 3 Spear Thrusts + Rising Azure Crescent Finisher!)
         const firstHitFrame = rightHitFrames[0].frame;
         if (localT < 260) {
@@ -2118,6 +2355,7 @@ export class Modern25DCombatRenderer {
 
     if (
       !rightIsFlying &&
+      !rightStationaryBeam &&
       thorSpec.primaryIdx === 1 &&
       thorStart >= 0 &&
       t >= thorStart &&
@@ -2125,6 +2363,22 @@ export class Modern25DCombatRenderer {
       this.config.enableVolumetricSlash
     ) {
       this.drawBladeChargeAura(ctx, thorSpec.x + 55, thorSpec.y - 420, (t - thorStart) / 820);
+    }
+
+    // Authentic Full-Screen Thick Diagonal Stationary Ki / Energy Beam (e.g. #022 Karis Kamehameha!)
+    if (stationaryBeamState) {
+      this.drawStationaryKiBeam(
+        ctx,
+        stationaryBeamState.originX,
+        stationaryBeamState.originY,
+        stationaryBeamState.targetX,
+        stationaryBeamState.targetY,
+        stationaryBeamState.progress,
+        Boolean(stationaryBeamState.chargeOnly),
+        stationaryBeamState.color,
+        stationaryBeamState.thickness,
+        t
+      );
     }
 
     // Volumetric Crescent Slash Shaders aligned with the diagonal swing plane!
@@ -3700,6 +3954,254 @@ export class Modern25DCombatRenderer {
     } else {
       ctx.drawImage(img, dx, dy, displaySize, displaySize);
     }
+    ctx.restore();
+  }
+
+  /**
+   * Draws an authentic full-screen thick volumetric Ki / Energy Beam (e.g., #022 Karis Hadouken / Kamehameha)
+   * shooting diagonally from the stationary attacker's cupped palms straight into the enemy's chest
+   * with surging shock-rings and a massive exploding impact splash on the target's body!
+   */
+  private drawStationaryKiBeam(
+    ctx: CanvasRenderingContext2D,
+    originX: number,
+    originY: number,
+    targetX: number,
+    targetY: number,
+    progress: number,
+    chargeOnly: boolean,
+    color: 'azure' | 'gold' | 'crimson' | 'emerald',
+    thickness: number,
+    t: number
+  ): void {
+    const pal =
+      color === 'gold'
+        ? { outer: '245, 158, 11', mid: '253, 224, 71', light: '254, 249, 195' }
+        : color === 'crimson'
+          ? { outer: '220, 38, 38', mid: '251, 146, 60', light: '254, 240, 138' }
+          : color === 'emerald'
+            ? { outer: '5, 150, 105', mid: '52, 211, 153', light: '209, 250, 229' }
+            : { outer: '37, 99, 235', mid: '56, 189, 248', light: '224, 242, 254' };
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+
+    if (chargeOnly) {
+      // Swirling inward suction particles & gathering palm glow right on Karis's hands!
+      const p = Math.max(0, Math.min(1, progress));
+      const r = 24 + p * 46;
+      const g = ctx.createRadialGradient(originX, originY, 2, originX, originY, r * 1.45);
+      g.addColorStop(0, `rgba(255, 255, 255, ${0.45 + p * 0.45})`);
+      g.addColorStop(0.35, `rgba(${pal.mid}, ${0.35 + p * 0.45})`);
+      g.addColorStop(1, `rgba(${pal.outer}, 0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(originX, originY, r * 1.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 6 smooth curved suction arcs pulling INTO the hands
+      for (let i = 0; i < 6; i++) {
+        const baseAng = (i * Math.PI) / 3 + t * 0.008;
+        const dist = (1 - ((p * 2.2 + i * 0.17) % 1)) * 125;
+        const px = originX + Math.cos(baseAng) * dist;
+        const py = originY + Math.sin(baseAng) * dist;
+        const grad = ctx.createLinearGradient(px, py, originX, originY);
+        grad.addColorStop(0, `rgba(${pal.mid}, 0)`);
+        grad.addColorStop(0.55, `rgba(${pal.light}, ${0.55 * p})`);
+        grad.addColorStop(1, `rgba(255, 255, 255, 0)`);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2.5 + p * 2;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.quadraticCurveTo(
+          originX + Math.cos(baseAng + 0.55) * dist * 0.55,
+          originY + Math.sin(baseAng + 0.55) * dist * 0.55,
+          originX + Math.cos(baseAng + 0.15) * (dist * 0.12),
+          originY + Math.sin(baseAng + 0.15) * (dist * 0.12)
+        );
+        ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
+
+    const p = Math.max(0, Math.min(1, progress));
+    const dx = targetX - originX;
+    const dy = targetY - originY;
+    const totalLen = Math.max(40, Math.hypot(dx, dy));
+    const angle = Math.atan2(dy, dx);
+
+    // Beam envelope: instant explosive launch (`0..0.11`), roaring full-span sustain (`0.11..0.78`), snappy taper (`0.78..1.0`)
+    const reach = Math.min(1, p / 0.11);
+    const curLen = totalLen * reach;
+    const fade = p < 0.76 ? 1.0 : Math.max(0, 1 - (p - 0.76) / 0.24);
+    const widthScale =
+      p < 0.09
+        ? 0.55 + (p / 0.09) * 0.55
+        : p < 0.76
+          ? 1.0 + Math.sin(t * 0.055) * 0.09 + (p < 0.2 ? (1 - p / 0.2) * 0.22 : 0)
+          : Math.max(0.08, fade * fade);
+    const halfH = thickness * 0.5 * widthScale;
+
+    if (fade <= 0.01) {
+      ctx.restore();
+      return;
+    }
+
+    ctx.save();
+    ctx.translate(originX, originY);
+    ctx.rotate(angle);
+
+    // 1. Massive outer corona aura sheath
+    const coronaH = halfH * 1.65;
+    const coronaGrad = ctx.createLinearGradient(0, -coronaH, 0, coronaH);
+    coronaGrad.addColorStop(0, `rgba(${pal.outer}, 0)`);
+    coronaGrad.addColorStop(0.24, `rgba(${pal.outer}, ${0.52 * fade})`);
+    coronaGrad.addColorStop(0.5, `rgba(${pal.mid}, ${0.88 * fade})`);
+    coronaGrad.addColorStop(0.76, `rgba(${pal.outer}, ${0.52 * fade})`);
+    coronaGrad.addColorStop(1, `rgba(${pal.outer}, 0)`);
+    ctx.fillStyle = coronaGrad;
+    ctx.beginPath();
+    ctx.roundRect(-24, -coronaH, curLen + 48, coronaH * 2, coronaH);
+    ctx.fill();
+
+    // 2. Crisp blazing cylindrical mid-beam (electric sky-blue!)
+    const midH = halfH * 1.02;
+    const midGrad = ctx.createLinearGradient(0, -midH, 0, midH);
+    midGrad.addColorStop(0, `rgba(${pal.outer}, ${0.15 * fade})`);
+    midGrad.addColorStop(0.18, `rgba(${pal.mid}, ${0.95 * fade})`);
+    midGrad.addColorStop(0.5, `rgba(255, 255, 255, ${0.98 * fade})`);
+    midGrad.addColorStop(0.82, `rgba(${pal.mid}, ${0.95 * fade})`);
+    midGrad.addColorStop(1, `rgba(${pal.outer}, ${0.15 * fade})`);
+    ctx.fillStyle = midGrad;
+    ctx.beginPath();
+    ctx.roundRect(-14, -midH, curLen + 28, midH * 2, midH);
+    ctx.fill();
+
+    // 3. Pure incandescent solid white-hot inner core (`source-over` crisp brightness!)
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    const coreH = halfH * 0.56;
+    const coreGrad = ctx.createLinearGradient(0, -coreH, 0, coreH);
+    coreGrad.addColorStop(0, `rgba(${pal.light}, ${0.25 * fade})`);
+    coreGrad.addColorStop(0.25, `rgba(255, 255, 255, ${0.98 * fade})`);
+    coreGrad.addColorStop(0.5, `rgba(255, 255, 255, ${1.0 * fade})`);
+    coreGrad.addColorStop(0.75, `rgba(255, 255, 255, ${0.98 * fade})`);
+    coreGrad.addColorStop(1, `rgba(${pal.light}, ${0.25 * fade})`);
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.roundRect(-8, -coreH, curLen + 16, coreH * 2, coreH);
+    ctx.fill();
+    ctx.restore();
+
+    // 4. High-velocity supersonic energy streaks & helical crackling lines rushing down the shaft
+    for (let si = 0; si < 7; si++) {
+      const sy = ((si - 3) / 3.2) * (halfH * 0.85) + Math.sin(t * 0.04 + si * 2.1) * 4;
+      const sx = ((t * 1.85 + si * 137) % Math.max(120, curLen)) * 0.85;
+      const slen = Math.min(curLen - sx, 90 + (si % 3) * 55);
+      if (slen > 15) {
+        const sg = ctx.createLinearGradient(sx, sy, sx + slen, sy);
+        sg.addColorStop(0, 'rgba(255,255,255,0)');
+        sg.addColorStop(0.5, `rgba(255,255,255,${0.9 * fade})`);
+        sg.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.strokeStyle = sg;
+        ctx.lineWidth = si % 2 === 0 ? 4 : 2.2;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + slen, sy);
+        ctx.stroke();
+      }
+    }
+
+    // 5. Concentric glowing shockwave rings pulsing rapidly outward from palms toward enemy!
+    for (let ri = 0; ri < 4; ri++) {
+      const rp = (p * 3.8 + ri * 0.25) % 1;
+      const rx = 24 + rp * Math.max(40, curLen - 40);
+      const rAlpha = (1 - Math.abs(rp - 0.5) * 1.4) * fade * 0.85;
+      if (rAlpha > 0.05) {
+        ctx.strokeStyle = `rgba(${pal.light}, ${rAlpha})`;
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.ellipse(rx, 0, halfH * 0.22, halfH * (1.28 + rp * 0.22), 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // 6. Blazing launch sphere right between Karis's cupped palms!
+    const launchR = halfH * 1.55;
+    const lg = ctx.createRadialGradient(0, 0, 4, 0, 0, launchR);
+    lg.addColorStop(0, `rgba(255, 255, 255, ${1.0 * fade})`);
+    lg.addColorStop(0.4, `rgba(${pal.light}, ${0.92 * fade})`);
+    lg.addColorStop(0.7, `rgba(${pal.mid}, ${0.55 * fade})`);
+    lg.addColorStop(1, `rgba(${pal.outer}, 0)`);
+    ctx.fillStyle = lg;
+    ctx.beginPath();
+    ctx.arc(0, 0, launchR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Crisp leading wavefront / hemispherical blast head while traveling!
+    if (reach < 0.99) {
+      const headG = ctx.createRadialGradient(curLen, 0, 6, curLen, 0, halfH * 1.7);
+      headG.addColorStop(0, 'rgba(255,255,255,1)');
+      headG.addColorStop(0.45, `rgba(${pal.mid},0.9)`);
+      headG.addColorStop(1, `rgba(${pal.outer},0)`);
+      ctx.fillStyle = headG;
+      ctx.beginPath();
+      ctx.arc(curLen, 0, halfH * 1.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // 7. MASSIVE EXPLODING IMPACT SPLASH ON ENEMY'S BODY (`reach >= 0.88`)!
+    if (reach >= 0.85) {
+      const impactIntensity = Math.min(1, (reach - 0.85) / 0.15) * fade;
+      const pulse = 1 + Math.sin(t * 0.065) * 0.12;
+      const splashR = halfH * 2.55 * pulse;
+
+      // Intense inner white-cyan collision burst wrapping enemy chest
+      const ig = ctx.createRadialGradient(targetX, targetY, 6, targetX, targetY, splashR);
+      ig.addColorStop(0, `rgba(255, 255, 255, ${1.0 * impactIntensity})`);
+      ig.addColorStop(0.28, `rgba(${pal.light}, ${0.95 * impactIntensity})`);
+      ig.addColorStop(0.58, `rgba(${pal.mid}, ${0.65 * impactIntensity})`);
+      ig.addColorStop(1, `rgba(${pal.outer}, 0)`);
+      ctx.fillStyle = ig;
+      ctx.beginPath();
+      ctx.arc(targetX, targetY, splashR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Splashing liquid-light burst spikes & back-blast tendrils spraying outward behind enemy!
+      ctx.save();
+      ctx.translate(targetX, targetY);
+      ctx.rotate(angle); // +X points past enemy (up-left direction of beam!)
+      for (let ti = 0; ti < 12; ti++) {
+        const spread = ((ti / 11) - 0.5) * Math.PI * 1.55;
+        const wobble = Math.sin(t * 0.045 + ti * 1.9) * 0.14;
+        const ang = spread + wobble;
+        const len = (halfH * (1.85 + (ti % 3) * 0.65)) * pulse * impactIntensity;
+        const baseW = (9 + (ti % 4) * 3.5) * widthScale;
+        ctx.fillStyle = ti % 2 === 0 ? `rgba(255, 255, 255, ${0.92 * impactIntensity})` : `rgba(${pal.mid}, ${0.85 * impactIntensity})`;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ang + 1.57) * baseW, Math.sin(ang + 1.57) * baseW);
+        ctx.lineTo(Math.cos(ang) * len, Math.sin(ang) * len);
+        ctx.lineTo(Math.cos(ang - 1.57) * baseW, Math.sin(ang - 1.57) * baseW);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Twin impact shockwave oval rings flattening perpendicular to beam impact plane!
+      for (let kr = 0; kr < 2; kr++) {
+        const kp = (p * 4.2 + kr * 0.5) % 1;
+        const ka = (1 - kp) * impactIntensity * 0.9;
+        ctx.strokeStyle = `rgba(${pal.light}, ${ka})`;
+        ctx.lineWidth = 4.5 * (1 - kp * 0.5);
+        ctx.beginPath();
+        ctx.ellipse(-8 + kp * 26, 0, halfH * (0.35 + kp * 0.35), halfH * (1.1 + kp * 1.95), 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     ctx.restore();
   }
 

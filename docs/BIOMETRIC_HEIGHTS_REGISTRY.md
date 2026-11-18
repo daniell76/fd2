@@ -14,7 +14,7 @@
 | Average Male Human | 173–178 cm | 311–320 px upright (~280–295 crouch) | `680×680` | Thor, Jonah, Soldiers, Archers, Mages, Bandits, Ninjas |
 | Tall Male Human / Elf | 180–185 cm | 324–333 px upright | `680×680` | Hano, Tino, Hawat, Ares, Beckway, Karis, **Silfa (#024!)**, Knights |
 | Towering Heavy Knight / Warlord | 188–190 cm | 338–342 px upright (excl. horns) | `680×680` | Raiden, Rodman, Saka, Hell/Dark Knight |
-| Leopard-Man (`豹人`) | 180–182 cm | 285–305 px deep martial/ninja crouch | `680×680` | Secobang, Shedo, Ally Panther |
+| Leopard-Man (`豹人`) | 180–182 cm | 285–305 px deep martial/ninja crouch | `680×680` | Secobang, Shadow, Ally Panther |
 | Feral Beast-Man Enemy (`獸人`) | 164–170 cm | 192–199 px ultra-low feral crouch! | `680×680` | Cougar-Man (#102), Spotted Leopard-Man (#103) |
 | Winged Dragonkin (`龍人`) | 188–194 cm | 310–330 px body (wings `420–460 px`) | **`960×960`** (`1.41×`) | Kailas, Miasdod, St. Colas, Banarosia, Dragonkin Warriors/Mages |
 | Giant Juggernauts / Demons / Mecha | 205–250 cm | 345–430 px towering stature | **`960×960`** (`1.41×`) | Armored Samurai/Berserker, Darksei, Gargoyles, Gaia, Mecha Legion |
@@ -59,8 +59,8 @@
 | `#021` | 約拿 (Jonah) | 人類 | 聖者 | male | **174cm** | — | melee, magic | `301px` | `680` | `104×141` | ✅ `1.00×` | Elderly white-bearded Saint/Sage man; hooded brown monastic cloak & staff |
 | `#022` | 卡里斯 (Karis) | 人類 | 武聖 | male | **180cm** | — | melee (ki wave) | `305px` | `680` | `120×133` | ✅ `1.07×` | Long dark-navy-haired male Martial Master; '武' calligraphy on back |
 | `#023` | 羅蘭 (Roland) | 精靈 | 神射手 | female | **168cm** | — | ranged, 5-hit | `296px` | `680` | `134×138` | ✅ `1.00×` | FEMALE Elf Master Sniper! Wavy blonde/ash hair, navy headband, long bow (ranged 5-hit) |
-| `#024` | 希爾法 (Silfa) | 精靈 | 祭師 | male | **184cm** | — | melee, magic | `325px` | `680` | `130×151` | ✅ `1.11×` | BALD goateed MALE Elf High Priest! Broad crimson-gold cloak, huge upturned elf ears |
-| `#025` | 謝多 (Shedo) | 豹人 | 忍者 | male | **180cm** | — | 2-hit, magic | `285px` | `680` | `150×124` | ✅ `1.02×` | Blue-black Panther Leopard-Man (豹人) ninja; feline head, twin ears, ZERO human hair, dual blades |
+| `#024` | 希爾法 (Silfa) | 精靈 | 祭師 | male | **184cm** | — | melee, magic | `325px` | `680` | `130×151` | ✅ `1.08×` | BALD goateed MALE Elf High Priest! Broad crimson-gold cloak, huge upturned elf ears |
+| `#025` | 謝多 (Shadow) | 豹人 | 忍者 | male | **180cm** | — | 2-hit, magic | `285px` | `680` | `150×124` | ✅ `1.02×` | Blue-black Panther Leopard-Man (豹人) ninja; feline head, twin ears, ZERO human hair, dual blades (Hit #1 Right Hand, Hit #2 Left Hand) |
 | `#026` | 聖寇拉斯 (St. Colas) | 龍人 | 龍劍士 | male | **194cm** | — | fly:`dash_past` | `321px` | `960` | `162×195` | planned | Sapphire-blue winged Dragonkin (龍人) swordsman; curved scimitar/blade |
 | `#027` | 巴拿羅西亞 (Banarosia) | 龍人 | 龍劍士 | male | **192cm** | — | fly:`climb_dive` | `318px` | `960` | `183×152` | planned | Emerald-green winged Dragonkin (龍人) swordsman; horned crest, spear/sword |
 | `#028` | 達克塞 (Darksei) | 魔族 | 魔戰士 | male | **210cm** | — | 2-hit | `333px` | `960` | `135×132` | planned | Towering muscular indigo-grey gorilla-like Demon Warrior (魔族); wingless brute |

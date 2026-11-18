@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 121,
-  "updatedAt": "2026-11-18T00:30:00Z",
+  "updatedAt": "2026-11-18T06:50:00Z",
   "units": [
     {
       "uid": 0,
@@ -455,7 +455,15 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 180,
-      "displayScale": 1.07
+      "displayScale": 1.07,
+      "stationaryBeam": {
+        "originAnchor": {
+          "x": 0.447,
+          "y": 0.594
+        },
+        "color": "azure",
+        "thickness": 118
+      }
     },
     {
       "uid": 23,
@@ -501,12 +509,12 @@
       "magicNameEn": "Divine Grace",
       "overallPass": true,
       "heightCm": 184,
-      "displayScale": 1.11
+      "displayScale": 1.08
     },
     {
       "uid": 25,
       "nameZh": "謝多",
-      "nameEn": "Shedo",
+      "nameEn": "Shadow",
       "classNameZh": "忍者",
       "classEn": "Ninja",
       "role": "hero",
