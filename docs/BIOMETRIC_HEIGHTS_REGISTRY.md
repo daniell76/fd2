@@ -16,8 +16,8 @@
 | Towering Heavy Knight / Warlord | 188–190 cm | 338–342 px upright (excl. horns) | `680×680` | Raiden, Rodman, Saka, Hell/Dark Knight |
 | Leopard-Man (`豹人`) | 180–182 cm | 285–305 px deep martial/ninja crouch | `680×680` | Secobang, Shadow, Ally Panther |
 | Feral Beast-Man Enemy (`獸人`) | 164–170 cm | 192–199 px ultra-low feral crouch! | `680×680` | Cougar-Man (#102), Spotted Leopard-Man (#103) |
-| Winged Dragonkin (`龍人`) | 188–194 cm | 310–330 px body (wings `420–460 px`) | **`960×960`** (`1.41×`) | Kailas, Miasdod, St. Colas, Banarosia, Dragonkin Warriors/Mages |
-| Giant Juggernauts / Demons / Mecha | 205–250 cm | 345–430 px towering stature | **`960×960`** (`1.41×`) | Armored Samurai/Berserker, Darksei, Gargoyles, Gaia, Mecha Legion |
+| Winged Dragonkin (`龍人`) | 188–194 cm | 310–330 px body (wings `420–460 px`) | **`960×960`** (`1.41×`) | Kailas, Miasdod, St. Koulas, Banarossia, Dragonkin Warriors/Mages |
+| Giant Juggernauts / Demons / Mecha | 205–250 cm | 345–430 px towering stature | **`960×960`** (`1.41×`) | Armored Samurai/Berserker, Darksey, Gargoyles, Gaia, Mecha Legion |
 | Warhorse-Mounted Paladin | 171–188 cm / **234–248 cm** | Rider 1:1 human; Total `420–446 px` | **`960×960`** (`1.41×`) | Lancelot (#007), Ares (#036), Lorna (#037), Raiden (#038) |
 | Wyvern-Mounted Dragon Knight | 168–188 cm / **325–340 cm** | Rider 1:1 human; Total `585–612 px` | **`1224×1224`** (`1.80–2.25×`) | Sara (#020), Ares (#054), Lorna (#055), Raiden (#056), Enemy (#086) |
 | Elemental Demon Gods | 215–320 cm | `335–485 px` boss stature | **`960–1224px`** | Earth (#122), Water (#123), Wind (#124), Fire (#125), Sky (#126) |
@@ -61,12 +61,12 @@
 | `#023` | 羅蘭 (Loran) | 精靈 | 神射手 | female | **168cm** | — | ranged, 5-hit | `296px` | `680` | `134×138` | ✅ `1.00×` | FEMALE Elf Master Sniper! Wavy blonde/ash hair, navy headband, long bow (ranged 5-hit) |
 | `#024` | 希爾法 (Silfa) | 精靈 | 祭師 | male | **184cm** | — | melee, magic | `325px` | `680` | `130×151` | ✅ `1.08×` | BALD goateed MALE Elf High Priest! Broad crimson-gold cloak, huge upturned elf ears |
 | `#025` | 謝多 (Shadow) | 豹人 | 忍者 | male | **180cm** | — | 2-hit, magic | `285px` | `680` | `150×124` | ✅ `1.02×` | Blue-black Panther Leopard-Man (豹人) ninja; feline head, twin ears, ZERO human hair, dual blades (Hit #1 Right Hand, Hit #2 Left Hand) |
-| `#026` | 聖寇拉斯 (St. Colas) | 龍人 | 龍劍士 | male | **194cm** | — | fly:`dash_past` | `321px` | `960` | `162×195` | planned | Sapphire-blue winged Dragonkin (龍人) swordsman; curved scimitar/blade |
-| `#027` | 巴拿羅西亞 (Banarosia) | 龍人 | 龍劍士 | male | **192cm** | — | fly:`climb_dive` | `318px` | `960` | `183×152` | planned | Emerald-green winged Dragonkin (龍人) swordsman; horned crest, spear/sword |
-| `#028` | 達克塞 (Darksei) | 魔族 | 魔戰士 | male | **210cm** | — | 2-hit | `333px` | `960` | `135×132` | planned | Towering muscular indigo-grey gorilla-like Demon Warrior (魔族); wingless brute |
-| `#029` | 亞齊梅吉 (Archimage) | 魔族 | 大法師 | male | **168cm** | — | melee | `266px` | `680` | `116×111` | planned | Bald blue-skinned compact Demon Archmage (魔族); hunched dark-blue mystic robe |
-| `#030` | 蓋亞 (Gaia) | 機械 | 機兵 | mecha | **215cm** | — | melee | `356px` | `960` | `104×143` | planned | Sleek white/steel visored bipedal robot mecha (機械) |
-| `#031` | 渥德 (Ward) | 機械 | 機兵 | male | **194cm** | — | melee | `325px` | `680` | `111×145` | planned | Tall black-haired cyborg/bio-android man (機械) with cybernetic facial lines |
+| `#026` | 聖寇拉斯 (St. Koulas) | 龍人 | 龍劍士 | male | **194cm** | — | fly:`dash_past` | `321px` | `960` | `162×195` | ✅ `1.44×` | Cobalt-blue winged Dragonkin (龍人) swordsman; copper-striped steel armor, curved scimitar |
+| `#027` | 巴拿羅西亞 (Banarossia) | 龍人 | 龍劍士 | male | **192cm** | — | fly:`climb_dive` | `318px` | `960` | `183×152` | ✅ `1.22×` | Emerald-green winged Dragonkin (龍人) lancer; pearl-silver plate, flame dragoon lance |
+| `#028` | 達克塞 (Darksey) | 魔族 | 魔戰士 | male | **210cm** | — | 2-hit, magic | `333px` | `1080` | `135×132` | ✅ `1.20×` | Towering muscular indigo wingless Demon Warrior (魔族); 2-hit bare-fist combo (Right Hook → Left Uppercut) + arcane magic |
+| `#029` | 亞齊梅吉 (Archmage) | 魔族 | 大法師 | male | **168cm** | — | melee, magic | `266px` | `960` | `116×111` | ✅ `0.99×` | Bald blue-skinned compact Demon Archmage (魔族); right-hand ivory-orb staff, ice-blue starburst nova + hollow star-ring |
+| `#030` | 蓋亞 (Gaia) | 機械 | 機兵 | mecha | **215cm** | — | melee | `356px` | `960` | `104×143` | ✅ `1.09×` | Sleek silver-white/cobalt visored bipedal robot mecha (機械); jet-boosted spinning rocket punch |
+| `#031` | 渥德 (Ward) | 機械 | 機兵 | male | **194cm** | — | melee | `325px` | `1224` | `111×145` | ✅ `1.60×` | Muscular bio-android martial artist (機械); pale silver-grey bio-alloy arms, 2-finger salute, colossal horizontal backhand wave |
 
 ## 2. Promoted Hero Classes — Tier 2 & 3 (`#032–#065`, 31 units)
 | UID | Name (ZH / EN) | Race | Class | Sex | Height | Mount | Flight / Remote | Target Body (`px`) | Canvas | DOS Idle | Status / Scale | Key Appearance Notes |

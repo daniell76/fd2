@@ -910,7 +910,7 @@
     {
       "uid": 26,
       "nameZh": "聖寇拉斯",
-      "nameEn": "St. Colas",
+      "nameEn": "St. Koulas",
       "side": "player",
       "role": "hero",
       "baseHeroId": 26,
@@ -937,14 +937,14 @@
         162,
         195
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
+      "status": "calibrated",
+      "calibratedDisplayScale": 1.44,
       "appearanceNotes": "Sapphire-blue winged Dragonkin (龍人) swordsman; curved scimitar/blade"
     },
     {
       "uid": 27,
       "nameZh": "巴拿羅西亞",
-      "nameEn": "Banarosia",
+      "nameEn": "Banarossia",
       "side": "player",
       "role": "hero",
       "baseHeroId": 27,
@@ -971,14 +971,14 @@
         181,
         152
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
+      "status": "calibrated",
+      "calibratedDisplayScale": 1.22,
       "appearanceNotes": "Emerald-green winged Dragonkin (龍人) swordsman; horned crest, spear/sword"
     },
     {
       "uid": 28,
       "nameZh": "達克塞",
-      "nameEn": "Darksei",
+      "nameEn": "Darksey",
       "side": "player",
       "role": "hero",
       "baseHeroId": 28,
@@ -996,7 +996,7 @@
       "poseFactor": 0.88,
       "targetBodyPx": 333,
       "targetTotalPx": 333,
-      "recommendedCanvasPx": 960,
+      "recommendedCanvasPx": 1080,
       "dosIdleSize": [
         135,
         132
@@ -1005,14 +1005,14 @@
         135,
         132
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
+      "status": "calibrated",
+      "calibratedDisplayScale": 1.2,
       "appearanceNotes": "Towering muscular indigo-grey gorilla-like Demon Warrior (魔族); wingless brute"
     },
     {
       "uid": 29,
       "nameZh": "亞齊梅吉",
-      "nameEn": "Archimage",
+      "nameEn": "Archmage",
       "side": "player",
       "role": "hero",
       "baseHeroId": 29,
@@ -1030,7 +1030,7 @@
       "poseFactor": 0.88,
       "targetBodyPx": 266,
       "targetTotalPx": 266,
-      "recommendedCanvasPx": 680,
+      "recommendedCanvasPx": 960,
       "dosIdleSize": [
         116,
         111
@@ -1039,8 +1039,8 @@
         120,
         116
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
+      "status": "calibrated",
+      "calibratedDisplayScale": 0.99,
       "appearanceNotes": "Bald blue-skinned compact Demon Archmage (魔族); hunched dark-blue mystic robe"
     },
     {
@@ -1073,8 +1073,8 @@
         104,
         143
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
+      "status": "calibrated",
+      "calibratedDisplayScale": 1.09,
       "appearanceNotes": "Sleek white/steel visored bipedal robot mecha (機械)"
     },
     {
@@ -1098,7 +1098,7 @@
       "poseFactor": 0.93,
       "targetBodyPx": 325,
       "targetTotalPx": 325,
-      "recommendedCanvasPx": 680,
+      "recommendedCanvasPx": 1224,
       "dosIdleSize": [
         111,
         145
@@ -1107,8 +1107,8 @@
         111,
         145
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
+      "status": "calibrated",
+      "calibratedDisplayScale": 1.6,
       "appearanceNotes": "Tall black-haired cyborg/bio-android man (機械) with cybernetic facial lines"
     },
     {

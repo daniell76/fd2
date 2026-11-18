@@ -259,7 +259,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=42';
+const VFX_ASSET_VERSION = '?v=43';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -287,7 +287,7 @@ function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifest
       dex &&
         (dex.classNameZh?.includes('龍騎士') ||
           dex.classNameZh?.includes('飛龍') ||
-          ((dex.raceId === 4 || dex.raceId === 5) && entry.uid !== 28))
+          ((dex.raceId === 4 || dex.raceId === 5) && entry.uid !== 28 && entry.uid !== 29))
     );
   const projectileType = entry.projectileType ?? (isRemote ? 'bolt' : undefined);
 
