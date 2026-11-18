@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 121,
-  "updatedAt": "2026-11-13T16:59:30Z",
+  "updatedAt": "2026-11-18T00:30:00Z",
   "units": [
     {
       "uid": 0,
@@ -423,6 +423,121 @@
       "mountHeightCm": 325
     },
     {
+      "uid": 21,
+      "nameZh": "約拿",
+      "nameEn": "Jonah",
+      "classNameZh": "聖者",
+      "classEn": "Saint",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_021",
+      "hasMagic": true,
+      "magicElement": "holy",
+      "magicNameZh": "聖光彈",
+      "magicNameEn": "Holy Bolt",
+      "overallPass": true,
+      "heightCm": 174,
+      "displayScale": 1.0
+    },
+    {
+      "uid": 22,
+      "nameZh": "卡里斯",
+      "nameEn": "Karis",
+      "classNameZh": "武聖",
+      "classEn": "Martial Master",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_022",
+      "hasMagic": false,
+      "overallPass": true,
+      "heightCm": 180,
+      "displayScale": 1.07
+    },
+    {
+      "uid": 23,
+      "nameZh": "羅蘭",
+      "nameEn": "Roland",
+      "classNameZh": "神射手",
+      "classEn": "Master Sniper",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_023",
+      "isRemote": true,
+      "projectileType": "arrow",
+      "rangedBurstCount": 5,
+      "muzzleAnchor": {
+        "x": 0.218,
+        "y": 0.582
+      },
+      "rangedFireFrame": {
+        "nb6": 4,
+        "omni": 5
+      },
+      "hasMagic": false,
+      "overallPass": true,
+      "heightCm": 168,
+      "displayScale": 1.0
+    },
+    {
+      "uid": 24,
+      "nameZh": "希爾法",
+      "nameEn": "Silfa",
+      "classNameZh": "祭師",
+      "classEn": "High Priest",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_024",
+      "hasMagic": true,
+      "magicElement": "holy",
+      "magicNameZh": "神恩術",
+      "magicNameEn": "Divine Grace",
+      "overallPass": true,
+      "heightCm": 184,
+      "displayScale": 1.11
+    },
+    {
+      "uid": 25,
+      "nameZh": "謝多",
+      "nameEn": "Shedo",
+      "classNameZh": "忍者",
+      "classEn": "Ninja",
+      "role": "hero",
+      "side": "player",
+      "cameraOrientation": "up_left",
+      "cutinFacing": "left",
+      "dir": "assets/vfx_lab/units/u_025",
+      "omniFrameCount": 12,
+      "hitFrames": [
+        {
+          "frame": 4,
+          "weight": 0.42,
+          "sfx": "slash",
+          "color": "gold"
+        },
+        {
+          "frame": 8,
+          "weight": 0.58,
+          "sfx": "crit",
+          "color": "gold"
+        }
+      ],
+      "hasMagic": true,
+      "magicElement": "fire",
+      "magicNameZh": "炎龍術",
+      "magicNameEn": "Flame Dragon",
+      "overallPass": true,
+      "heightCm": 180,
+      "displayScale": 1.02
+    },
+    {
       "uid": 96,
       "nameZh": "盜賊",
       "nameEn": "Bandit",
@@ -438,6 +553,6 @@
       "displayScale": 0.88
     }
   ],
-  "totalUnits": 22,
+  "totalUnits": 27,
   "format": "webp"
 }

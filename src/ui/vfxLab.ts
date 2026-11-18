@@ -253,7 +253,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=37';
+const VFX_ASSET_VERSION = '?v=38';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -270,10 +270,9 @@ function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifest
   const hasMagic = entry.hasMagic ?? spellIds.size > 0;
   let magicElement = entry.magicElement;
   if (!magicElement && hasMagic) {
-    if (spellIds.has(0) || spellIds.has(1) || spellIds.has(2)) magicElement = 'fire';
-    else if (spellIds.has(3) || spellIds.has(4) || spellIds.has(5)) magicElement = 'thunder';
-    else if (spellIds.has(6) || spellIds.has(7) || spellIds.has(8)) magicElement = 'ice';
-    else if (spellIds.has(13) || spellIds.has(14) || spellIds.has(32)) magicElement = 'holy';
+    if (spellIds.has(0) || spellIds.has(1) || spellIds.has(2) || spellIds.has(3)) magicElement = 'fire';
+    else if (spellIds.has(4) || spellIds.has(5) || spellIds.has(6) || spellIds.has(7)) magicElement = 'thunder';
+    else if (spellIds.has(8) || spellIds.has(13) || spellIds.has(14) || spellIds.has(15) || spellIds.has(16) || spellIds.has(32)) magicElement = 'holy';
     else magicElement = 'arcane';
   }
   const isFlying =
@@ -2368,9 +2367,15 @@ export class Modern25DCombatRenderer {
             ctx.save();
             ctx.globalCompositeOperation = 'screen';
             const grad = ctx.createRadialGradient(mPos.x, mPos.y, 4, mPos.x, mPos.y, 130 * mf + 22);
-            grad.addColorStop(0, `rgba(255, 255, 240, ${0.95 * mf})`);
-            grad.addColorStop(0.4, `rgba(253, 224, 71, ${0.65 * mf})`);
-            grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+            if (projectileType === 'arrow') {
+              grad.addColorStop(0, `rgba(255, 255, 255, ${0.96 * mf})`);
+              grad.addColorStop(0.4, `rgba(56, 189, 248, ${0.72 * mf})`);
+              grad.addColorStop(1, 'rgba(37, 99, 235, 0)');
+            } else {
+              grad.addColorStop(0, `rgba(255, 255, 240, ${0.95 * mf})`);
+              grad.addColorStop(0.4, `rgba(253, 224, 71, ${0.65 * mf})`);
+              grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+            }
             ctx.fillStyle = grad;
             ctx.beginPath();
             ctx.arc(mPos.x, mPos.y, 130 * mf + 22, 0, Math.PI * 2);
@@ -2421,8 +2426,13 @@ export class Modern25DCombatRenderer {
     const hitTimes3 =
       burstCount === 1
         ? [0.19]
-        : Array.from({ length: burstCount }, (_, i) => 0.16 + i * (0.36 / Math.max(1, burstCount - 1)));
-    const yOffsets3 = burstCount === 1 ? [0] : [-36, 6, 40];
+        : Array.from({ length: burstCount }, (_, i) => 0.14 + i * ((burstCount >= 5 ? 0.42 : 0.36) / Math.max(1, burstCount - 1)));
+    const yOffsets3 =
+      burstCount >= 5
+        ? [-48, -22, 2, 26, 50]
+        : burstCount === 1
+          ? [0]
+          : [-36, 6, 40];
 
     let camShake = 0;
     let camZoom = 1.04;
@@ -2450,7 +2460,9 @@ export class Modern25DCombatRenderer {
             hy,
             targetHomeY,
             isLastHit ? (isCrit ? 85 : 58) : 34,
-            ['#ffffff', '#fde047', '#f59e0b', '#ef4444', '#fb923c'],
+            projectileType === 'arrow'
+              ? ['#ffffff', '#e0f2fe', '#7dd3fc', '#38bdf8', '#2563eb']
+              : ['#ffffff', '#fde047', '#f59e0b', '#ef4444', '#fb923c'],
             isHeroAtk ? -1 : 1,
             -0.25
           );
@@ -3057,9 +3069,14 @@ export class Modern25DCombatRenderer {
     const startX = dirX < 0 ? W * 0.98 : W * 0.02;
     const endX = dirX < 0 ? W * 0.02 : W * 0.98;
     const bCount = Math.max(1, burstCount);
-    const yOffs = bCount === 1 ? [0] : [-72, 12, 84];
+    const yOffs =
+      bCount >= 5
+        ? [-108, -54, 0, 54, 108]
+        : bCount > 1
+          ? [-72, 12, 84]
+          : [0];
     for (let bi = 0; bi < bCount; bi++) {
-      const stagger = bCount === 1 ? 0 : (bi - (bCount - 1) * 0.5) * 0.16;
+      const stagger = bCount === 1 ? 0 : (bi - (bCount - 1) * 0.5) * (bCount >= 5 ? 0.105 : 0.16);
       const bp = progress - stagger;
       if (bp < -0.2 || bp > 1.25) continue;
       const projX = startX + (endX - startX) * bp;
@@ -3071,10 +3088,17 @@ export class Modern25DCombatRenderer {
       const wakeLen = 580;
       const tailX = projX - dirX * wakeLen;
       const wakeGrad = ctx.createLinearGradient(projX, projY, tailX, projY);
-      wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-      wakeGrad.addColorStop(0.25, 'rgba(253, 224, 71, 0.72)');
-      wakeGrad.addColorStop(0.65, 'rgba(56, 189, 248, 0.35)');
-      wakeGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      if (projectileType === 'arrow') {
+        wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+        wakeGrad.addColorStop(0.25, 'rgba(125, 211, 252, 0.80)');
+        wakeGrad.addColorStop(0.65, 'rgba(37, 99, 235, 0.40)');
+        wakeGrad.addColorStop(1, 'rgba(37, 99, 235, 0)');
+      } else {
+        wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+        wakeGrad.addColorStop(0.25, 'rgba(253, 224, 71, 0.72)');
+        wakeGrad.addColorStop(0.65, 'rgba(56, 189, 248, 0.35)');
+        wakeGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      }
       ctx.fillStyle = wakeGrad;
       ctx.beginPath();
       ctx.moveTo(projX + dirX * 35, projY);
@@ -3084,7 +3108,7 @@ export class Modern25DCombatRenderer {
       ctx.fill();
       ctx.restore();
 
-      this.drawHdProjectile(ctx, projX, projY, dirX, projectileType, bCount > 1 ? 1.55 : 1.85);
+      this.drawHdProjectile(ctx, projX, projY, dirX, projectileType, bCount >= 5 ? 1.38 : bCount > 1 ? 1.55 : 1.85);
     }
 
     // Subtle dark vignette top & bottom framing like dramatic widescreen anime cutaway
@@ -3115,20 +3139,27 @@ export class Modern25DCombatRenderer {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     const aura = ctx.createLinearGradient(75, 0, -240, 0);
-    aura.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-    aura.addColorStop(0.28, 'rgba(253, 224, 71, 0.78)');
-    aura.addColorStop(0.65, 'rgba(249, 115, 22, 0.35)');
-    aura.addColorStop(1, 'rgba(249, 115, 22, 0)');
+    if (projectileType === 'arrow') {
+      aura.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+      aura.addColorStop(0.28, 'rgba(56, 189, 248, 0.85)');
+      aura.addColorStop(0.68, 'rgba(37, 99, 235, 0.42)');
+      aura.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    } else {
+      aura.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      aura.addColorStop(0.28, 'rgba(253, 224, 71, 0.78)');
+      aura.addColorStop(0.65, 'rgba(249, 115, 22, 0.35)');
+      aura.addColorStop(1, 'rgba(249, 115, 22, 0)');
+    }
     ctx.fillStyle = aura;
     ctx.beginPath();
     ctx.moveTo(86, 0);
-    ctx.lineTo(-240, -24);
-    ctx.lineTo(-240, 24);
+    ctx.lineTo(-240, projectileType === 'arrow' ? -18 : -24);
+    ctx.lineTo(-240, projectileType === 'arrow' ? 18 : 24);
     ctx.closePath();
     ctx.fill();
 
     // Shock cone rings right behind tip
-    ctx.strokeStyle = 'rgba(254, 249, 195, 0.78)';
+    ctx.strokeStyle = projectileType === 'arrow' ? 'rgba(186, 230, 253, 0.88)' : 'rgba(254, 249, 195, 0.78)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(64, 0);
@@ -3138,7 +3169,69 @@ export class Modern25DCombatRenderer {
     ctx.stroke();
     ctx.restore();
 
-    if (projectileType === 'beam') {
+    if (projectileType === 'arrow') {
+      // Sleek incandescent sapphire-cyan & white-hot elven spirit arrow (authentic #023 Roland f17..f21!)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const outer = ctx.createLinearGradient(92, 0, -235, 0);
+      outer.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      outer.addColorStop(0.24, 'rgba(125, 211, 252, 0.96)');
+      outer.addColorStop(0.65, 'rgba(37, 99, 235, 0.65)');
+      outer.addColorStop(1, 'rgba(37, 99, 235, 0)');
+      ctx.fillStyle = outer;
+      ctx.beginPath();
+      ctx.roundRect(-225, -10, 312, 20, 10);
+      ctx.fill();
+      ctx.restore();
+
+      // Razor silver-azure elven shaft + crystalline white core
+      ctx.fillStyle = '#0ea5e9';
+      ctx.fillRect(-130, -2.8, 185, 5.6);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(-115, -1.4, 178, 2.8);
+
+      // Luminous sapphire-white swept energy fletching
+      ctx.fillStyle = '#bae6fd';
+      ctx.beginPath();
+      ctx.moveTo(-78, -2);
+      ctx.lineTo(-124, -14);
+      ctx.lineTo(-140, -11);
+      ctx.lineTo(-106, -2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-78, 2);
+      ctx.lineTo(-124, 14);
+      ctx.lineTo(-140, 11);
+      ctx.lineTo(-106, 2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Piercing diamond ice-steel arrowhead
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(86, 0);
+      ctx.lineTo(44, -9);
+      ctx.lineTo(54, 0);
+      ctx.lineTo(44, 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const tipGlow = ctx.createRadialGradient(78, 0, 2, 78, 0, 30);
+      tipGlow.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      tipGlow.addColorStop(0.45, 'rgba(56, 189, 248, 0.9)');
+      tipGlow.addColorStop(1, 'rgba(37, 99, 235, 0)');
+      ctx.fillStyle = tipGlow;
+      ctx.beginPath();
+      ctx.arc(78, 0, 30, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (projectileType === 'beam') {
       // High-energy golden-white plasma cannon lance (matching #013 Beckway's iconic yellow plasma bolts!)
       ctx.save();
       ctx.globalCompositeOperation = 'screen';

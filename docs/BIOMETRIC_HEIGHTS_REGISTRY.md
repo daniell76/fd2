@@ -56,11 +56,11 @@
 | `#018` | 蜜蒂 (Mitty) | 人類 | 劍聖 | female | **170cm** | — | 2-hit | `291px` | `680` | `147×137` | ✅ `0.95×` | Golden-haired female Sword Saint; crimson gold-embroidered cape |
 | `#019` | 羅德曼 (Rodman) | 人類 | 劍聖 | male | **188cm** | — | melee | `332px` | `680` | `125×185` | ✅ `0.99×` | Heavy-armored silver-gold plate Sword Saint; two-handed Jodan greatsword |
 | `#020` | 莎拉 (Sara) | 人類 | 龍騎士 | female | **168cm** | 325cm (wyvern) | fly:`climb_dive` | `287px` | `1224` | `151×199` | ✅ `2.22×` | Sea-green-haired human female Dragon Knight riding emerald wyvern |
-| `#021` | 約拿 (Jonah) | 人類 | 聖者 | male | **174cm** | — | melee | `301px` | `680` | `104×141` | planned | Elderly white-bearded Saint/Sage man; hooded brown monastic cloak & staff |
-| `#022` | 卡里斯 (Karis) | 人類 | 武聖 | male | **180cm** | — | melee | `305px` | `680` | `120×133` | planned | Long dark-navy-haired male Martial Master; '武' calligraphy on back |
-| `#023` | 羅蘭 (Roland) | 精靈 | 神射手 | female | **168cm** | — | ranged, 5-hit | `296px` | `680` | `134×138` | planned | FEMALE Elf Master Sniper! Wavy blonde/ash hair, navy headband, long bow (ranged 5-hit) |
-| `#024` | 希爾法 (Silfa) | 精靈 | 祭師 | male | **184cm** | — | melee | `325px` | `680` | `130×151` | planned | BALD goateed MALE Elf High Priest! Broad crimson-gold cloak, huge upturned elf ears |
-| `#025` | 謝多 (Shedo) | 豹人 | 忍者 | male | **180cm** | — | 2-hit | `285px` | `680` | `150×124` | planned | Blue-black Panther Leopard-Man (豹人) ninja; feline head, twin ears, ZERO human hair, dual blades |
+| `#021` | 約拿 (Jonah) | 人類 | 聖者 | male | **174cm** | — | melee, magic | `301px` | `680` | `104×141` | ✅ `1.00×` | Elderly white-bearded Saint/Sage man; hooded brown monastic cloak & staff |
+| `#022` | 卡里斯 (Karis) | 人類 | 武聖 | male | **180cm** | — | melee (ki wave) | `305px` | `680` | `120×133` | ✅ `1.07×` | Long dark-navy-haired male Martial Master; '武' calligraphy on back |
+| `#023` | 羅蘭 (Roland) | 精靈 | 神射手 | female | **168cm** | — | ranged, 5-hit | `296px` | `680` | `134×138` | ✅ `1.00×` | FEMALE Elf Master Sniper! Wavy blonde/ash hair, navy headband, long bow (ranged 5-hit) |
+| `#024` | 希爾法 (Silfa) | 精靈 | 祭師 | male | **184cm** | — | melee, magic | `325px` | `680` | `130×151` | ✅ `1.11×` | BALD goateed MALE Elf High Priest! Broad crimson-gold cloak, huge upturned elf ears |
+| `#025` | 謝多 (Shedo) | 豹人 | 忍者 | male | **180cm** | — | 2-hit, magic | `285px` | `680` | `150×124` | ✅ `1.02×` | Blue-black Panther Leopard-Man (豹人) ninja; feline head, twin ears, ZERO human hair, dual blades |
 | `#026` | 聖寇拉斯 (St. Colas) | 龍人 | 龍劍士 | male | **194cm** | — | fly:`dash_past` | `321px` | `960` | `162×195` | planned | Sapphire-blue winged Dragonkin (龍人) swordsman; curved scimitar/blade |
 | `#027` | 巴拿羅西亞 (Banarosia) | 龍人 | 龍劍士 | male | **192cm** | — | fly:`climb_dive` | `318px` | `960` | `183×152` | planned | Emerald-green winged Dragonkin (龍人) swordsman; horned crest, spear/sword |
 | `#028` | 達克塞 (Darksei) | 魔族 | 魔戰士 | male | **210cm** | — | 2-hit | `333px` | `960` | `135×132` | planned | Towering muscular indigo-grey gorilla-like Demon Warrior (魔族); wingless brute |
