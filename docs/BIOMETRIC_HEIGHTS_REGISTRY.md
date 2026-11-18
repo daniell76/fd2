@@ -10,7 +10,7 @@
 | Category | Height Band (cm) | Target Body (`680`-space px) | Recommended WebP Canvas | Units |
 | :--- | :---: | :---: | :---: | :--- |
 | Petite Female Human | 162–166 cm | 292–299 px upright | `680×680` | Celia, Uni, Marin, Sophia, Kelly, Villager F |
-| Tall Female Human / Elf | 168–172 cm | 302–310 px upright | `680×680` | Lorna, Shan, Mitty, **Roland (#023!)**, Katna, Marl |
+| Tall Female Human / Elf | 168–172 cm | 302–310 px upright | `680×680` | Lorna, Shan, Mitty, **Loran (#023!)**, Katna, Marl |
 | Average Male Human | 173–178 cm | 311–320 px upright (~280–295 crouch) | `680×680` | Thor, Jonah, Soldiers, Archers, Mages, Bandits, Ninjas |
 | Tall Male Human / Elf | 180–185 cm | 324–333 px upright | `680×680` | Hano, Tino, Hawat, Ares, Beckway, Karis, **Silfa (#024!)**, Knights |
 | Towering Heavy Knight / Warlord | 188–190 cm | 338–342 px upright (excl. horns) | `680×680` | Raiden, Rodman, Saka, Hell/Dark Knight |
@@ -25,7 +25,7 @@
 
 > [!IMPORTANT]
 > **Critical Portrait & Mount Traps Caught by Full-Roster Inspection:**
-> - **`#023 羅蘭 (Roland)`** is a **FEMALE Elf Sniper** (blonde/ash wavy hair, navy headband, red lipstick — `168 cm`), NOT male!
+> - **`#023 羅蘭 (Loran)`** is a **FEMALE Elf Sniper** (blonde/ash wavy hair, navy headband, red lipstick — `168 cm`), NOT male!
 > - **`#024 希爾法 (Silfa)`** is a **BALD, GOATEED MALE Elf High Priest** (`184 cm`, huge crimson-gold cloak & upturned elf ears), NOT female!
 > - **`#117 卡特那 (Katna)`** is an **eye-patched FEMALE sea-blue-haired swordswoman** (`170 cm`)!
 > - **`#069`, `#082–#085`, `#118`** (`騎兵`/`騎士` on allied/enemy side) are **ON FOOT heavy armored lancers** in the DOS battle sprites, NOT mounted on horses!
@@ -58,7 +58,7 @@
 | `#020` | 莎拉 (Sara) | 人類 | 龍騎士 | female | **168cm** | 325cm (wyvern) | fly:`climb_dive` | `287px` | `1224` | `151×199` | ✅ `2.22×` | Sea-green-haired human female Dragon Knight riding emerald wyvern |
 | `#021` | 約拿 (Jonah) | 人類 | 聖者 | male | **174cm** | — | melee, magic | `301px` | `680` | `104×141` | ✅ `1.00×` | Elderly white-bearded Saint/Sage man; hooded brown monastic cloak & staff |
 | `#022` | 卡里斯 (Karis) | 人類 | 武聖 | male | **180cm** | — | melee (ki wave) | `305px` | `680` | `120×133` | ✅ `1.07×` | Long dark-navy-haired male Martial Master; '武' calligraphy on back |
-| `#023` | 羅蘭 (Roland) | 精靈 | 神射手 | female | **168cm** | — | ranged, 5-hit | `296px` | `680` | `134×138` | ✅ `1.00×` | FEMALE Elf Master Sniper! Wavy blonde/ash hair, navy headband, long bow (ranged 5-hit) |
+| `#023` | 羅蘭 (Loran) | 精靈 | 神射手 | female | **168cm** | — | ranged, 5-hit | `296px` | `680` | `134×138` | ✅ `1.00×` | FEMALE Elf Master Sniper! Wavy blonde/ash hair, navy headband, long bow (ranged 5-hit) |
 | `#024` | 希爾法 (Silfa) | 精靈 | 祭師 | male | **184cm** | — | melee, magic | `325px` | `680` | `130×151` | ✅ `1.08×` | BALD goateed MALE Elf High Priest! Broad crimson-gold cloak, huge upturned elf ears |
 | `#025` | 謝多 (Shadow) | 豹人 | 忍者 | male | **180cm** | — | 2-hit, magic | `285px` | `680` | `150×124` | ✅ `1.02×` | Blue-black Panther Leopard-Man (豹人) ninja; feline head, twin ears, ZERO human hair, dual blades (Hit #1 Right Hand, Hit #2 Left Hand) |
 | `#026` | 聖寇拉斯 (St. Colas) | 龍人 | 龍劍士 | male | **194cm** | — | fly:`dash_past` | `321px` | `960` | `162×195` | planned | Sapphire-blue winged Dragonkin (龍人) swordsman; curved scimitar/blade |

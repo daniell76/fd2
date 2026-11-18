@@ -259,7 +259,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=40';
+const VFX_ASSET_VERSION = '?v=41';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -2526,7 +2526,7 @@ export class Modern25DCombatRenderer {
       const fireNb6 = actorUnit.rangedFireFrame?.nb6 ?? 3;
       const isArrowVolley = projectileType === 'arrow' && burstCount >= 2;
 
-      // Exact 1995 DOS #023 Roland (u_023_attack.png):
+      // Exact 1995 DOS #023 Loran (u_023_attack.png):
       //   - Frames 1..4 (p < 0.44): draw & tension build
       //   - Frame 5 (p = 0.44..0.59): vibrating bow release peak (5 spirit arrows still on bow!)
       //   - JUST AFTER Frame 5 (p >= 0.59): crisp snap to empty-bow Frame 6 (`nb6_5` / `omni_8..9`),
@@ -2689,7 +2689,7 @@ export class Modern25DCombatRenderer {
       if (isArrowVolley) {
         const spriteScale = actorDispSize / 680;
         // Exact outer bow rim in empty Frame 6 (`nb6_5.webp`: x = 162/680 = 0.238 vs muzzleAnchor 0.194 -> delta 0.044)
-        // Clamping the trailing energy wake right at the bow rim prevents any tail overlap over Roland's arm/face!
+        // Clamping the trailing energy wake right at the bow rim prevents any tail overlap over Loran's arm/face!
         const bowRimX = mPos.x - dirX * (0.044 * actorDispSize * actorSpec.scaleX);
         const endX = isHeroAtk ? -260 : W + 260;
 
@@ -2791,7 +2791,7 @@ export class Modern25DCombatRenderer {
     };
 
     const isArrowVolley3 = projectileType === 'arrow' && burstCount >= 2;
-    // Authentic 1995 DOS #023 Roland Stage 3 target barrage (`u_023_attack.png` f16..f23):
+    // Authentic 1995 DOS #023 Loran Stage 3 target barrage (`u_023_attack.png` f16..f23):
     // 5 exact hits (`f17..f21`), each `delay=2` DOS ticks (~55ms apart, `Δp3 = 0.056` -> 224ms blistering rapid barrage!)
     // Organic scatter matching exact DOS pixel coordinates `y = [79, 61, 68, 40, 54]` & `x = [81, 91, 70, 88, 80]`,
     // centered cleanly across the target's torso/chest/shoulder!
@@ -3485,7 +3485,7 @@ export class Modern25DCombatRenderer {
     const bCount = Math.max(1, burstCount);
 
     if (projectileType === 'arrow') {
-      // Tight, razor-thin 5-arrow spirit volley pack matching #023 Roland Frame 5 (`nb6_4.webp`) & DOS `f13`!
+      // Tight, razor-thin 5-arrow spirit volley pack matching #023 Loran Frame 5 (`nb6_4.webp`) & DOS `f13`!
       // Tight vertical spread (`[-44..+44]` instead of wide `[-108..+108]`) & ultra-short stagger (`±0.05` total)!
       const arrowYOffs =
         bCount === 5
@@ -3575,7 +3575,7 @@ export class Modern25DCombatRenderer {
   }
 
   /**
-   * Draws a razor-thin, needle-sharp luminous sapphire-white elven spirit arrow matching #023 Roland Frame 5 (`nb6_4.webp`)
+   * Draws a razor-thin, needle-sharp luminous sapphire-white elven spirit arrow matching #023 Loran Frame 5 (`nb6_4.webp`)
    * and 1995 DOS `u_023_attack.png` (3px-tall streaks — NOT a chunky crossbow bolt cone!).
    * Origin `(tipX, y)` is the EXACT front needle tip of the arrowhead; `tailLen` extends backward opposite `dirX`.
    */
@@ -3703,7 +3703,7 @@ export class Modern25DCombatRenderer {
   }
 
   /**
-   * Authentic 1995 DOS `#023 Roland` (`f17..f23`) Stage 3 target landing / absorption effect:
+   * Authentic 1995 DOS `#023 Loran` (`f17..f23`) Stage 3 target landing / absorption effect:
    * As each thin spirit arrow pierces `(hitX, hitY)`, its long luminous white-blue needle streak
    * collapses rapidly tail-into-tip (`280px -> 108px -> 36px -> vanish`) straight into the wound,
    * paired with a crisp sapphire-white piercing star flash and vertical elliptical shock ring.

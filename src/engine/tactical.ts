@@ -1939,8 +1939,8 @@ export function evaluateChapterBattleStatus(
   // - Ch 21 (`id === 20`): `#24 希爾法` (`slot 16`) and `#23 羅蘭` (`slot 17`) must survive (`fn_68177`)!
   if (chapter.id === 20) {
     const silva = findHeroUnit(24);
-    const roland = findHeroUnit(23);
-    if ((silva && silva.hp <= 0) || (roland && roland.hp <= 0)) return 'defeat';
+    const loran = findHeroUnit(23);
+    if ((silva && silva.hp <= 0) || (loran && loran.hp <= 0)) return 'defeat';
   }
 
   // - Ch 22 (`id === 21`): `#24 希爾法` (`slot 1`) must survive (`fn_68231`)!
