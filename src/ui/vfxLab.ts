@@ -381,10 +381,16 @@ function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifest
     }
   }
 
+  // Auto-count exact DOS impact frames (`fr.sfx !== 0`) for remote ranged units so future snipers/archers match DOS automatically!
+  const dosImpactCount = frames.filter((fr) => Boolean(fr.sfx && fr.sfx !== 0)).length;
+  const rangedBurstCount =
+    entry.rangedBurstCount ?? (isRemote && dosImpactCount > 1 ? dosImpactCount : undefined);
+
   return {
     ...entry,
     isRemote,
     projectileType,
+    rangedBurstCount,
     hasMagic,
     magicElement,
     isFlying,
@@ -2518,13 +2524,69 @@ export class Modern25DCombatRenderer {
       // Map launch progress cleanly through Ready -> Wind-Up/Aim -> Exact Firing Frame(s) -> Recoil Hold!
       const fireOmni = actorUnit.rangedFireFrame?.omni ?? Math.min(actorMaxIdx, 5);
       const fireNb6 = actorUnit.rangedFireFrame?.nb6 ?? 3;
-      const shotTimes =
-        burstCount === 1
+      const isArrowVolley = projectileType === 'arrow' && burstCount >= 2;
+
+      // Exact 1995 DOS #023 Roland (u_023_attack.png):
+      //   - Frames 1..4 (p < 0.44): draw & tension build
+      //   - Frame 5 (p = 0.44..0.59): vibrating bow release peak (5 spirit arrows still on bow!)
+      //   - JUST AFTER Frame 5 (p >= 0.59): crisp snap to empty-bow Frame 6 (`nb6_5` / `omni_8..9`),
+      //     and ALL 5 razor-thin spirit arrows immediately erupt together just past the bow in an
+      //     ultra-tight staggered pack (DOS f13: ~15ms between arrows, 62ms total spread — NOT slow 1-by-1!)
+      const arrowLeadRelease = 0.59;
+      const arrowVolleySpec: Array<{ slotIdx: number; yOffPx: number; releaseT: number; tipLeadPx: number }> =
+        burstCount === 5
+          ? [
+              // Exact DOS f13 order & HD Frame 5 (nb6_4.webp) bundle y-offsets (`y = 368, 378, 390, 404, 421` around 393):
+              // Ultra-tight simultaneous volley pack (~8ms between arrows, 35ms total spread — ALL 5 leave her bow together!)
+              { slotIdx: 2, yOffPx: -2, releaseT: arrowLeadRelease + 0.000, tipLeadPx: 16 },
+              { slotIdx: 4, yOffPx: 25, releaseT: arrowLeadRelease + 0.007, tipLeadPx: 10 },
+              { slotIdx: 0, yOffPx: -24, releaseT: arrowLeadRelease + 0.015, tipLeadPx: 6 },
+              { slotIdx: 3, yOffPx: 11, releaseT: arrowLeadRelease + 0.023, tipLeadPx: 18 },
+              { slotIdx: 1, yOffPx: -13, releaseT: arrowLeadRelease + 0.031, tipLeadPx: 2 },
+            ]
+          : Array.from({ length: burstCount }, (_, i) => {
+              const frac = burstCount === 1 ? 0 : i / (burstCount - 1) - 0.5;
+              return {
+                slotIdx: i,
+                yOffPx: Math.round(frac * 52),
+                releaseT: arrowLeadRelease + i * (0.034 / Math.max(1, burstCount - 1)),
+                tipLeadPx: Math.round((1 - Math.abs(frac) * 2) * 12),
+              };
+            });
+
+      const shotTimes = isArrowVolley
+        ? arrowVolleySpec.map((s) => s.releaseT)
+        : burstCount === 1
           ? [0.56]
           : Array.from({ length: burstCount }, (_, i) => 0.36 + i * (0.42 / Math.max(1, burstCount - 1)));
       const firstShot = shotTimes[0];
 
-      if (srcMode === 'omni_video') {
+      if (isArrowVolley) {
+        if (srcMode === 'omni_video') {
+          if (p < 0.44) {
+            // Smooth draw across F1..F4 (`omni_0..4`)
+            this.setContinuousFrame(actorSpec, (p / 0.44) * Math.max(1, fireOmni - 1), actorMaxIdx);
+          } else if (p < arrowLeadRelease) {
+            // Hold Frame 5 (`omni_5` bloom -> `omni_6`, 5 arrows vibrating on bow — ZERO loose missiles yet!)
+            actorSpec.primaryIdx = p < 0.51 ? fireOmni : Math.min(actorMaxIdx, fireOmni + 1);
+          } else {
+            // JUST AFTER Frame 5: crisp empty-bow follow-through (`omni_8..9` = `nb6_5`, no ghost arrows stuck on bow!)
+            actorSpec.primaryIdx = Math.min(actorMaxIdx, Math.max(fireOmni + 3, actorMaxIdx - 1));
+          }
+        } else if (srcMode === 'nb2_6frame') {
+          if (p < 0.44) {
+            this.setContinuousFrame(actorSpec, (p / 0.44) * Math.max(1, fireNb6 - 1), 5);
+          } else if (p < arrowLeadRelease) {
+            // Crisp Frame 5 (`nb6_4`) — vibrating bow releasing the 5-arrow bundle!
+            actorSpec.primaryIdx = fireNb6;
+          } else {
+            // Crisp Frame 6 (`nb6_5`) — empty bow as the 5 arrows immediately leave her bow!
+            actorSpec.primaryIdx = 5;
+          }
+        } else {
+          actorSpec.primaryIdx = p < 0.25 ? 0 : p < arrowLeadRelease ? 1 : 2;
+        }
+      } else if (srcMode === 'omni_video') {
         if (p < firstShot - 0.02) {
           this.setContinuousFrame(actorSpec, (p / (firstShot - 0.02)) * Math.max(1, fireOmni - 0.6), actorMaxIdx);
         } else if (p < 0.88) {
@@ -2555,30 +2617,45 @@ export class Modern25DCombatRenderer {
         y: actorSpec.y + (muzzleAnchor.y - 648 / 680) * actorDispSize * actorSpec.scaleY,
       });
 
-      // Trigger recoil kickback & authentic FD2 launch SFX for EVERY shot in the volley!
+      // Trigger recoil kickback & authentic FD2 launch SFX
       let camShake = 0;
       let totalKick = 0;
-      for (let si = 0; si < shotTimes.length; si++) {
-        const st = shotTimes[si];
-        if (p >= st) {
-          const rp = Math.min(1, (p - st) / 0.18);
-          totalKick = Math.max(totalKick, Math.sin(rp * Math.PI) * (burstCount > 1 ? 14 : 18));
-          camShake = Math.max(camShake, (1 - rp) * (burstCount > 1 ? 9 : 7));
-          const mPos = getMuzzlePos();
-          this.fireOnce(`ranged_fire_sfx_${attackerSide}_${si}`, () => {
-            const launchSfx: SfxKind = actorUnit.sfxProfile?.launchSfx ?? 'bank:50:2';
+      if (isArrowVolley) {
+        // Authentic 1995 DOS #023 f12: ONE crisp bow-twang release (`bank:48:5`) right at bow snap (`p = 0.58`),
+        // subtle kick & clean subtle dust — zero chunky white spark bars cluttering the delicate 5-arrow bundle!
+        if (p >= arrowLeadRelease - 0.01) {
+          const rp = Math.min(1, (p - (arrowLeadRelease - 0.01)) / 0.2);
+          totalKick = Math.sin(rp * Math.PI) * 10;
+          camShake = (1 - rp) * 5;
+          this.fireOnce(`ranged_fire_sfx_${attackerSide}_volley`, () => {
+            const launchSfx: SfxKind = actorUnit.sfxProfile?.launchSfx ?? 'bank:48:5';
             this.sound.playSfx(launchSfx);
-            this.spawnDustPlume(actorSpec.x, actorSpec.y, isHeroAtk ? 1 : -1, 0.2, si === 0 ? 12 : 6);
-            this.spawnImpactSparks(
-              mPos.x,
-              mPos.y,
-              actorSpec.y,
-              burstCount > 1 ? 18 : 24,
-              ['#ffffff', '#fde047', '#f59e0b', '#fb923c'],
-              isHeroAtk ? -1 : 1,
-              0
-            );
+            this.spawnDustPlume(actorSpec.x, actorSpec.y, isHeroAtk ? 1 : -1, 0.14, 7);
           });
+        }
+      } else {
+        for (let si = 0; si < shotTimes.length; si++) {
+          const st = shotTimes[si];
+          if (p >= st) {
+            const rp = Math.min(1, (p - st) / 0.18);
+            totalKick = Math.max(totalKick, Math.sin(rp * Math.PI) * (burstCount > 1 ? 14 : 18));
+            camShake = Math.max(camShake, (1 - rp) * (burstCount > 1 ? 9 : 7));
+            const mPos = getMuzzlePos();
+            this.fireOnce(`ranged_fire_sfx_${attackerSide}_${si}`, () => {
+              const launchSfx: SfxKind = actorUnit.sfxProfile?.launchSfx ?? 'bank:50:2';
+              this.sound.playSfx(launchSfx);
+              this.spawnDustPlume(actorSpec.x, actorSpec.y, isHeroAtk ? 1 : -1, 0.2, si === 0 ? 12 : 6);
+              this.spawnImpactSparks(
+                mPos.x,
+                mPos.y,
+                actorSpec.y,
+                burstCount > 1 ? 18 : 24,
+                ['#ffffff', '#fde047', '#f59e0b', '#fb923c'],
+                isHeroAtk ? -1 : 1,
+                0
+              );
+            });
+          }
         }
       }
       actorSpec.x += isHeroAtk ? totalKick : -totalKick;
@@ -2606,35 +2683,71 @@ export class Modern25DCombatRenderer {
         actorDispSize
       );
 
-      // Render every active outgoing bolt/beam streaking straight out of `muzzleAnchor` off screen edge!
+      // Render outgoing projectiles streaking off screen edge!
       const mPos = getMuzzlePos();
-      const endX = isHeroAtk ? -160 : W + 160;
-      for (let si = 0; si < shotTimes.length; si++) {
-        const st = shotTimes[si];
-        if (p >= st && p <= st + 0.28) {
-          const boltP = Math.min(1, (p - st) / 0.2);
-          const bx = mPos.x + (endX - mPos.x) * boltP;
-          this.drawHdProjectile(ctx, bx, mPos.y, isHeroAtk ? -1 : 1, projectileType, 1.15);
+      const dirX: -1 | 1 = isHeroAtk ? -1 : 1;
+      if (isArrowVolley) {
+        const spriteScale = actorDispSize / 680;
+        // Exact outer bow rim in empty Frame 6 (`nb6_5.webp`: x = 162/680 = 0.238 vs muzzleAnchor 0.194 -> delta 0.044)
+        // Clamping the trailing energy wake right at the bow rim prevents any tail overlap over Roland's arm/face!
+        const bowRimX = mPos.x - dirX * (0.044 * actorDispSize * actorSpec.scaleX);
+        const endX = isHeroAtk ? -260 : W + 260;
 
-          if (boltP < 0.48) {
-            const mf = 1 - boltP / 0.48;
+        // Subtle crisp sapphire release sheen right along the bowstring/grip just as the 5 arrows depart
+        if (p >= arrowLeadRelease - 0.02 && p <= arrowLeadRelease + 0.14) {
+          const mf = 1 - Math.abs(p - (arrowLeadRelease + 0.02)) / 0.12;
+          if (mf > 0) {
             ctx.save();
             ctx.globalCompositeOperation = 'screen';
-            const grad = ctx.createRadialGradient(mPos.x, mPos.y, 4, mPos.x, mPos.y, 130 * mf + 22);
-            if (projectileType === 'arrow') {
-              grad.addColorStop(0, `rgba(255, 255, 255, ${0.96 * mf})`);
-              grad.addColorStop(0.4, `rgba(56, 189, 248, ${0.72 * mf})`);
-              grad.addColorStop(1, 'rgba(37, 99, 235, 0)');
-            } else {
+            ctx.translate(bowRimX, mPos.y);
+            const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 48 * mf + 14);
+            g.addColorStop(0, `rgba(255, 255, 255, ${0.88 * mf})`);
+            g.addColorStop(0.42, `rgba(125, 211, 252, ${0.58 * mf})`);
+            g.addColorStop(1, 'rgba(37, 99, 235, 0)');
+            ctx.fillStyle = g;
+            ctx.scale(0.55, 1.45);
+            ctx.beginPath();
+            ctx.arc(0, 0, 48 * mf + 14, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
+        // Launch ALL 5 razor-thin spirit arrows together as one tight staggered pack JUST AFTER Frame 5!
+        const travelSpan = 0.285; // ~320ms rapid dash across left half of screen (all 5 visible flying together!)
+        for (const av of arrowVolleySpec) {
+          if (p >= av.releaseT && p <= av.releaseT + travelSpan + 0.06) {
+            const ap = Math.min(1.18, (p - av.releaseT) / travelSpan);
+            const startTipX = mPos.x + dirX * (av.tipLeadPx * spriteScale);
+            const tipX = startTipX + (endX - startTipX) * Math.pow(ap, 1.04);
+            const ay = mPos.y + av.yOffPx * spriteScale;
+            const maxTail = Math.max(28, Math.abs(tipX - bowRimX));
+            this.drawElvenSpiritArrow(ctx, tipX, ay, dirX, 1.0, Math.min(255, maxTail));
+          }
+        }
+      } else {
+        const endX = isHeroAtk ? -160 : W + 160;
+        for (let si = 0; si < shotTimes.length; si++) {
+          const st = shotTimes[si];
+          if (p >= st && p <= st + 0.28) {
+            const boltP = Math.min(1, (p - st) / 0.2);
+            const bx = mPos.x + (endX - mPos.x) * boltP;
+            this.drawHdProjectile(ctx, bx, mPos.y, dirX, projectileType, 1.15);
+
+            if (boltP < 0.48) {
+              const mf = 1 - boltP / 0.48;
+              ctx.save();
+              ctx.globalCompositeOperation = 'screen';
+              const grad = ctx.createRadialGradient(mPos.x, mPos.y, 4, mPos.x, mPos.y, 130 * mf + 22);
               grad.addColorStop(0, `rgba(255, 255, 240, ${0.95 * mf})`);
               grad.addColorStop(0.4, `rgba(253, 224, 71, ${0.65 * mf})`);
               grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+              ctx.fillStyle = grad;
+              ctx.beginPath();
+              ctx.arc(mPos.x, mPos.y, 130 * mf + 22, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
             }
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(mPos.x, mPos.y, 130 * mf + 22, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
           }
         }
       }
@@ -2677,16 +2790,28 @@ export class Modern25DCombatRenderer {
       dashDirY: 0,
     };
 
-    const hitTimes3 =
-      burstCount === 1
+    const isArrowVolley3 = projectileType === 'arrow' && burstCount >= 2;
+    // Authentic 1995 DOS #023 Roland Stage 3 target barrage (`u_023_attack.png` f16..f23):
+    // 5 exact hits (`f17..f21`), each `delay=2` DOS ticks (~55ms apart, `Δp3 = 0.056` -> 224ms blistering rapid barrage!)
+    // Organic scatter matching exact DOS pixel coordinates `y = [79, 61, 68, 40, 54]` & `x = [81, 91, 70, 88, 80]`,
+    // centered cleanly across the target's torso/chest/shoulder!
+    const hitTimes3 = isArrowVolley3
+      ? burstCount === 5
+        ? [0.15, 0.206, 0.262, 0.318, 0.374]
+        : Array.from({ length: burstCount }, (_, i) => 0.15 + i * Math.min(0.06, 0.26 / Math.max(1, burstCount - 1)))
+      : burstCount === 1
         ? [0.19]
         : Array.from({ length: burstCount }, (_, i) => 0.14 + i * ((burstCount >= 5 ? 0.42 : 0.36) / Math.max(1, burstCount - 1)));
-    const yOffsets3 =
-      burstCount >= 5
+    const yOffsets3 = isArrowVolley3 && burstCount === 5
+      ? [44, 0, 20, -52, -16]
+      : burstCount >= 5
         ? [-48, -22, 2, 26, 50]
         : burstCount === 1
           ? [0]
           : [-36, 6, 40];
+    const xOffsets3 = isArrowVolley3 && burstCount === 5
+      ? [0, 22, -24, 14, -6]
+      : Array.from({ length: hitTimes3.length }, () => 0);
 
     let camShake = 0;
     let camZoom = 1.04;
@@ -2698,29 +2823,36 @@ export class Modern25DCombatRenderer {
     for (let hi = 0; hi < hitTimes3.length; hi++) {
       const hitAt = hitTimes3[hi];
       const isLastHit = hi === hitTimes3.length - 1;
+      const hx = impactX + (xOffsets3[hi] ?? 0) * (isHeroAtk ? 1 : -1);
       const hy = impactY + (yOffsets3[hi % yOffsets3.length] ?? 0);
       if (p3 >= hitAt) {
-        const span = isLastHit ? Math.max(0.32, 1 - hitAt) : 0.28;
+        const span = isLastHit ? Math.max(0.32, 1 - hitAt) : isArrowVolley3 ? 0.16 : 0.28;
         const hp = Math.min(1, (p3 - hitAt) / span);
         this.fireOnce(`ranged_impact_${attackerSide}_${hi}`, () => {
           const hitList = actorUnit.sfxProfile?.hitSfxList ?? [];
           const hitSfx: SfxKind = hitList[hi] ?? hitList[hitList.length - 1] ?? 'bank:50:1';
           this.sound.playSfx(hitSfx);
           if (this.config.enableHitStopAndSparks) {
-            this.hitStopRemainingMs = isLastHit ? (isCrit ? 90 : 65) : 28;
+            this.hitStopRemainingMs = isLastHit
+              ? (isCrit ? 88 : 60)
+              : isArrowVolley3
+                ? 12
+                : 28;
           }
           this.spawnImpactSparks(
-            impactX,
+            hx,
             hy,
             targetHomeY,
-            isLastHit ? (isCrit ? 85 : 58) : 34,
+            isArrowVolley3
+              ? (isLastHit ? (isCrit ? 34 : 20) : 7)
+              : (isLastHit ? (isCrit ? 85 : 58) : 34),
             projectileType === 'arrow'
               ? ['#ffffff', '#e0f2fe', '#7dd3fc', '#38bdf8', '#2563eb']
               : ['#ffffff', '#fde047', '#f59e0b', '#ef4444', '#fb923c'],
             isHeroAtk ? -1 : 1,
-            -0.25
+            -0.2
           );
-          this.spawnDustPlume(targetHomeX, targetHomeY, isHeroAtk ? -1 : 1, -0.2, isLastHit ? 16 : 7);
+          this.spawnDustPlume(targetHomeX, targetHomeY, isHeroAtk ? -1 : 1, -0.18, isLastHit ? 14 : isArrowVolley3 ? 4 : 7);
           const totalDmg = isHeroAtk ? this.thorStrikeDmg : this.banditStrikeDmg;
           const partDmg = isLastHit
             ? Math.max(1, totalDmg - Math.floor(totalDmg / hitTimes3.length) * (hitTimes3.length - 1))
@@ -2732,15 +2864,15 @@ export class Modern25DCombatRenderer {
           }
         });
 
-        const r = Math.sin(Math.min(1, hp * 2.1) * Math.PI) * (isLastHit ? 1.0 : 0.62);
+        const r = Math.sin(Math.min(1, hp * (isArrowVolley3 ? 2.5 : 2.1)) * Math.PI) * (isLastHit ? 1.0 : isArrowVolley3 ? 0.52 : 0.62);
         activeRecoil = Math.max(activeRecoil, r);
-        activeFlash = Math.max(activeFlash, Math.max(0, 1 - hp * 3.2) * (isLastHit ? 1.0 : 0.78));
-        impactFlashAlpha = Math.max(impactFlashAlpha, Math.max(0, 1 - hp * 4.2) * (isLastHit ? 1.0 : 0.65));
+        activeFlash = Math.max(activeFlash, Math.max(0, 1 - hp * (isArrowVolley3 ? 3.8 : 3.2)) * (isLastHit ? 1.0 : 0.72));
+        impactFlashAlpha = Math.max(impactFlashAlpha, Math.max(0, 1 - hp * 4.5) * (isLastHit ? 0.92 : isArrowVolley3 ? 0.48 : 0.65));
         if (isLastHit) shockwaveProgress = Math.min(1, hp * 1.9);
-        camZoom = Math.max(camZoom, 1.14 - hp * 0.1);
+        camZoom = Math.max(camZoom, (isArrowVolley3 ? 1.11 : 1.14) - hp * 0.08);
         camShake = Math.max(
           camShake,
-          this.config.enableHitStopAndSparks ? Math.max(0, (1 - hp * 2.4) * (isLastHit ? 24 : 14)) : 0
+          this.config.enableHitStopAndSparks ? Math.max(0, (1 - hp * 2.6) * (isLastHit ? 22 : isArrowVolley3 ? 11 : 14)) : 0
         );
       }
     }
@@ -2779,23 +2911,45 @@ export class Modern25DCombatRenderer {
     );
 
     // Render all arriving projectiles streaking in horizontally from the edge into the target's torso!
-    const approachSpan = 0.17;
+    const approachSpan = isArrowVolley3 ? 0.115 : 0.17;
+    const projDir: -1 | 1 = isHeroAtk ? -1 : 1;
     for (let hi = 0; hi < hitTimes3.length; hi++) {
       const hitAt = hitTimes3[hi];
+      const hx = impactX + (xOffsets3[hi] ?? 0) * (isHeroAtk ? 1 : -1);
       const hy = impactY + (yOffsets3[hi % yOffsets3.length] ?? 0);
       const enterAt = Math.max(0, hitAt - approachSpan);
-      if (p3 >= enterAt && p3 < hitAt) {
-        const ap = (p3 - enterAt) / Math.max(0.01, hitAt - enterAt);
-        const startX = isHeroAtk ? W + 120 : -120;
-        const bx = startX + (impactX - startX) * ap;
-        this.drawHdProjectile(ctx, bx, hy, isHeroAtk ? -1 : 1, projectileType, 1.25);
-      } else if (p3 >= hitAt && p3 < hitAt + 0.14) {
-        const bp = (p3 - hitAt) / 0.14;
-        const vibY = Math.sin(bp * 45) * 4 * (1 - bp);
-        ctx.save();
-        ctx.globalAlpha = 1 - bp;
-        this.drawHdProjectile(ctx, targetSpec.x + (isHeroAtk ? 30 : -30), hy + vibY, isHeroAtk ? -1 : 1, projectileType, 1.0);
-        ctx.restore();
+      if (isArrowVolley3) {
+        // Authentic DOS f16..f23 overlapping needle barrage:
+        //  1) Entering arrow streaks rapidly in from the screen edge right to (hx, hy)
+        //     (because `approachSpan` 0.115 > interval 0.068, the NEXT arrow already enters on the right
+        //      at the exact moment the previous arrow strikes — just like DOS f16..f20!)
+        //  2) On impact (`p3 >= hitAt`), NO clunky vibrating bolt stuck outside! The long luminous
+        //     sapphire-white needle shaft rapidly collapses tail-into-tip (`280px -> 110px -> 36px -> 0`)
+        //     straight into the wound point `(hx, hy)` with a razor-sharp cyan-white piercing star flash!
+        if (p3 >= enterAt && p3 < hitAt) {
+          const ap = (p3 - enterAt) / Math.max(0.01, hitAt - enterAt);
+          const startX = isHeroAtk ? W + 40 : -40;
+          const tipX = startX + (hx - startX) * ap;
+          this.drawElvenSpiritArrow(ctx, tipX, hy, projDir, 1.04, 240);
+        } else if (p3 >= hitAt && p3 < hitAt + 0.165) {
+          const bp = (p3 - hitAt) / 0.165;
+          const recoilShiftX = targetSpec.x - targetHomeX;
+          this.drawSpiritArrowImpactStreak(ctx, hx + recoilShiftX * 0.45, hy, projDir, bp, hi === hitTimes3.length - 1);
+        }
+      } else {
+        if (p3 >= enterAt && p3 < hitAt) {
+          const ap = (p3 - enterAt) / Math.max(0.01, hitAt - enterAt);
+          const startX = isHeroAtk ? W + 120 : -120;
+          const bx = startX + (impactX - startX) * ap;
+          this.drawHdProjectile(ctx, bx, hy, projDir, projectileType, 1.25);
+        } else if (p3 >= hitAt && p3 < hitAt + 0.14) {
+          const bp = (p3 - hitAt) / 0.14;
+          const vibY = Math.sin(bp * 45) * 4 * (1 - bp);
+          ctx.save();
+          ctx.globalAlpha = 1 - bp;
+          this.drawHdProjectile(ctx, targetSpec.x + (isHeroAtk ? 30 : -30), hy + vibY, projDir, projectileType, 1.0);
+          ctx.restore();
+        }
       }
     }
 
@@ -2807,10 +2961,16 @@ export class Modern25DCombatRenderer {
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
       const grad = ctx.createRadialGradient(impactX, impactY, 16, impactX, impactY, W * 0.65);
-      const a = this.hitStopRemainingMs > 0 ? 0.55 : impactFlashAlpha * 0.45;
-      grad.addColorStop(0, `rgba(255, 252, 220, ${a})`);
-      grad.addColorStop(0.35, `rgba(245, 158, 11, ${a * 0.45})`);
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      const a = this.hitStopRemainingMs > 0 ? (isArrowVolley3 ? 0.42 : 0.55) : impactFlashAlpha * (isArrowVolley3 ? 0.36 : 0.45);
+      if (projectileType === 'arrow') {
+        grad.addColorStop(0, `rgba(240, 249, 255, ${a})`);
+        grad.addColorStop(0.35, `rgba(56, 189, 248, ${a * 0.48})`);
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      } else {
+        grad.addColorStop(0, `rgba(255, 252, 220, ${a})`);
+        grad.addColorStop(0.35, `rgba(245, 158, 11, ${a * 0.45})`);
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      }
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, W, H);
       ctx.restore();
@@ -3323,46 +3483,84 @@ export class Modern25DCombatRenderer {
     const startX = dirX < 0 ? W * 0.98 : W * 0.02;
     const endX = dirX < 0 ? W * 0.02 : W * 0.98;
     const bCount = Math.max(1, burstCount);
-    const yOffs =
-      bCount >= 5
-        ? [-108, -54, 0, 54, 108]
-        : bCount > 1
-          ? [-72, 12, 84]
-          : [0];
-    for (let bi = 0; bi < bCount; bi++) {
-      const stagger = bCount === 1 ? 0 : (bi - (bCount - 1) * 0.5) * (bCount >= 5 ? 0.105 : 0.16);
-      const bp = progress - stagger;
-      if (bp < -0.2 || bp > 1.25) continue;
-      const projX = startX + (endX - startX) * bp;
-      const projY = H * 0.5 + (yOffs[bi % yOffs.length] ?? 0) + Math.sin(progress * Math.PI * 4 + bi) * 4;
 
-      // Full-span luminous wake trail behind projectile
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      const wakeLen = 580;
-      const tailX = projX - dirX * wakeLen;
-      const wakeGrad = ctx.createLinearGradient(projX, projY, tailX, projY);
-      if (projectileType === 'arrow') {
-        wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
-        wakeGrad.addColorStop(0.25, 'rgba(125, 211, 252, 0.80)');
-        wakeGrad.addColorStop(0.65, 'rgba(37, 99, 235, 0.40)');
+    if (projectileType === 'arrow') {
+      // Tight, razor-thin 5-arrow spirit volley pack matching #023 Roland Frame 5 (`nb6_4.webp`) & DOS `f13`!
+      // Tight vertical spread (`[-44..+44]` instead of wide `[-108..+108]`) & ultra-short stagger (`±0.05` total)!
+      const arrowYOffs =
+        bCount === 5
+          ? [-44, -22, 0, 22, 44]
+          : bCount > 1
+            ? Array.from({ length: bCount }, (_, i) => Math.round(((i / (bCount - 1)) - 0.5) * 86))
+            : [0];
+      const arrowStaggers =
+        bCount === 5
+          ? [0.022, -0.048, 0.056, -0.020, 0.004] // DOS f13 pack: center leads, bottom 2nd, top 3rd, tight cluster!
+          : Array.from({ length: bCount }, (_, i) => (bCount === 1 ? 0 : (i - (bCount - 1) * 0.5) * 0.032));
+
+      for (let bi = 0; bi < bCount; bi++) {
+        const bp = progress - (arrowStaggers[bi] ?? 0);
+        if (bp < -0.22 || bp > 1.25) continue;
+        const tipX = startX + (endX - startX) * bp;
+        const projY = H * 0.5 + (arrowYOffs[bi % arrowYOffs.length] ?? 0);
+
+        // Razor-slim horizontal cyan-white slipstream needle trail (NO bulky ±30px bolt cone!)
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const wakeLen = 520;
+        const tailX = tipX - dirX * wakeLen;
+        const wakeGrad = ctx.createLinearGradient(tipX, projY, tailX, projY);
+        wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.78)');
+        wakeGrad.addColorStop(0.28, 'rgba(125, 211, 252, 0.52)');
+        wakeGrad.addColorStop(0.68, 'rgba(56, 189, 248, 0.20)');
         wakeGrad.addColorStop(1, 'rgba(37, 99, 235, 0)');
-      } else {
+        ctx.fillStyle = wakeGrad;
+        ctx.beginPath();
+        ctx.moveTo(tipX - dirX * 14, projY - 3.6);
+        ctx.lineTo(tailX, projY - 0.8);
+        ctx.lineTo(tailX, projY + 0.8);
+        ctx.lineTo(tipX - dirX * 14, projY + 3.6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        this.drawElvenSpiritArrow(ctx, tipX, projY, dirX, 1.08, 300);
+      }
+    } else {
+      const yOffs =
+        bCount >= 5
+          ? [-108, -54, 0, 54, 108]
+          : bCount > 1
+            ? [-72, 12, 84]
+            : [0];
+      for (let bi = 0; bi < bCount; bi++) {
+        const stagger = bCount === 1 ? 0 : (bi - (bCount - 1) * 0.5) * (bCount >= 5 ? 0.105 : 0.16);
+        const bp = progress - stagger;
+        if (bp < -0.2 || bp > 1.25) continue;
+        const projX = startX + (endX - startX) * bp;
+        const projY = H * 0.5 + (yOffs[bi % yOffs.length] ?? 0) + Math.sin(progress * Math.PI * 4 + bi) * 4;
+
+        // Full-span luminous wake trail behind projectile
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const wakeLen = 580;
+        const tailX = projX - dirX * wakeLen;
+        const wakeGrad = ctx.createLinearGradient(projX, projY, tailX, projY);
         wakeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
         wakeGrad.addColorStop(0.25, 'rgba(253, 224, 71, 0.72)');
         wakeGrad.addColorStop(0.65, 'rgba(56, 189, 248, 0.35)');
         wakeGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
-      }
-      ctx.fillStyle = wakeGrad;
-      ctx.beginPath();
-      ctx.moveTo(projX + dirX * 35, projY);
-      ctx.lineTo(tailX, projY - 30);
-      ctx.lineTo(tailX, projY + 30);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+        ctx.fillStyle = wakeGrad;
+        ctx.beginPath();
+        ctx.moveTo(projX + dirX * 35, projY);
+        ctx.lineTo(tailX, projY - 30);
+        ctx.lineTo(tailX, projY + 30);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
 
-      this.drawHdProjectile(ctx, projX, projY, dirX, projectileType, bCount >= 5 ? 1.38 : bCount > 1 ? 1.55 : 1.85);
+        this.drawHdProjectile(ctx, projX, projY, dirX, projectileType, bCount >= 5 ? 1.38 : bCount > 1 ? 1.55 : 1.85);
+      }
     }
 
     // Subtle dark vignette top & bottom framing like dramatic widescreen anime cutaway
@@ -3376,6 +3574,246 @@ export class Modern25DCombatRenderer {
     ctx.restore();
   }
 
+  /**
+   * Draws a razor-thin, needle-sharp luminous sapphire-white elven spirit arrow matching #023 Roland Frame 5 (`nb6_4.webp`)
+   * and 1995 DOS `u_023_attack.png` (3px-tall streaks — NOT a chunky crossbow bolt cone!).
+   * Origin `(tipX, y)` is the EXACT front needle tip of the arrowhead; `tailLen` extends backward opposite `dirX`.
+   */
+  private drawElvenSpiritArrow(
+    ctx: CanvasRenderingContext2D,
+    tipX: number,
+    y: number,
+    dirX: -1 | 1,
+    scale = 1.0,
+    tailLen = 220
+  ): void {
+    const localTail = Math.max(36, tailLen / Math.max(0.25, scale));
+    ctx.save();
+    ctx.translate(tipX, y);
+    ctx.scale(dirX * scale, scale);
+
+    // 1. Delicate tapering sapphire-blue energy slipstream aura along shaft (ONLY ±4.5px tall, tapering to 0.5px!)
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const auraGrad = ctx.createLinearGradient(0, 0, -localTail, 0);
+    auraGrad.addColorStop(0, 'rgba(255, 255, 255, 0.86)');
+    auraGrad.addColorStop(0.14, 'rgba(125, 211, 252, 0.82)');
+    auraGrad.addColorStop(0.55, 'rgba(56, 189, 248, 0.36)');
+    auraGrad.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath();
+    ctx.moveTo(2, 0);
+    ctx.lineTo(-18, -5.2);
+    ctx.lineTo(-localTail, -0.8);
+    ctx.lineTo(-localTail, 0.8);
+    ctx.lineTo(-18, 5.2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Fine wispy parallel energy threads right behind the arrowhead barbs (matching Frame 5 nb6_4.webp!)
+    const wispLen = Math.min(localTail * 0.72, 130);
+    const wispGrad = ctx.createLinearGradient(-22, 0, -22 - wispLen, 0);
+    wispGrad.addColorStop(0, 'rgba(186, 230, 253, 0.62)');
+    wispGrad.addColorStop(0.55, 'rgba(56, 189, 248, 0.25)');
+    wispGrad.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    ctx.strokeStyle = wispGrad;
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(-24, -4.6);
+    ctx.lineTo(-24 - wispLen, -3.2);
+    ctx.moveTo(-24, 4.6);
+    ctx.lineTo(-24 - wispLen, 3.2);
+    ctx.stroke();
+    ctx.restore();
+
+    // 2. Crisp razor-thin azure energy sheath & pure crystalline white needle shaft (matching Frame 5!)
+    const shaftLen = Math.max(24, localTail);
+    const sheathGrad = ctx.createLinearGradient(-14, 0, -shaftLen, 0);
+    sheathGrad.addColorStop(0, 'rgba(56, 189, 248, 0.96)');
+    sheathGrad.addColorStop(0.42, 'rgba(96, 165, 250, 0.84)');
+    sheathGrad.addColorStop(0.78, 'rgba(59, 130, 246, 0.32)');
+    sheathGrad.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    ctx.fillStyle = sheathGrad;
+    ctx.beginPath();
+    ctx.moveTo(-14, -2.5);
+    ctx.lineTo(-shaftLen, -0.5);
+    ctx.lineTo(-shaftLen, 0.5);
+    ctx.lineTo(-14, 2.5);
+    ctx.closePath();
+    ctx.fill();
+
+    const coreLen = Math.min(shaftLen, shaftLen * 0.88);
+    const coreGrad = ctx.createLinearGradient(-12, 0, -coreLen, 0);
+    coreGrad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    coreGrad.addColorStop(0.5, 'rgba(240, 249, 255, 0.92)');
+    coreGrad.addColorStop(0.85, 'rgba(186, 230, 253, 0.45)');
+    coreGrad.addColorStop(1, 'rgba(186, 230, 253, 0)');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.moveTo(-12, -1.25);
+    ctx.lineTo(-coreLen, -0.35);
+    ctx.lineTo(-coreLen, 0.35);
+    ctx.lineTo(-12, 1.25);
+    ctx.closePath();
+    ctx.fill();
+
+    // 3. Sleek swept-back barbed elven spirit arrowhead (exact proportions of Frame 5 `nb6_4.webp`: ~34px long × 15px tall!)
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-34, -7.2);
+    ctx.lineTo(-22, -1.7);
+    ctx.lineTo(-22, 1.7);
+    ctx.lineTo(-34, 7.2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Outer luminous sapphire ink rim around the arrowhead
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.6;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // Inner bright ice-blue barb bevel accent
+    ctx.strokeStyle = 'rgba(186, 230, 253, 0.85)';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(-4, 0);
+    ctx.lineTo(-24, -4.4);
+    ctx.moveTo(-4, 0);
+    ctx.lineTo(-24, 4.4);
+    ctx.stroke();
+    ctx.restore();
+
+    // Subtle compact tip glint (radius 10px — keeps arrow razor-sharp, never bloated!)
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const glint = ctx.createRadialGradient(-2, 0, 0.5, -2, 0, 11);
+    glint.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    glint.addColorStop(0.45, 'rgba(125, 211, 252, 0.55)');
+    glint.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.fillStyle = glint;
+    ctx.beginPath();
+    ctx.arc(-2, 0, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  /**
+   * Authentic 1995 DOS `#023 Roland` (`f17..f23`) Stage 3 target landing / absorption effect:
+   * As each thin spirit arrow pierces `(hitX, hitY)`, its long luminous white-blue needle streak
+   * collapses rapidly tail-into-tip (`280px -> 108px -> 36px -> vanish`) straight into the wound,
+   * paired with a crisp sapphire-white piercing star flash and vertical elliptical shock ring.
+   */
+  private drawSpiritArrowImpactStreak(
+    ctx: CanvasRenderingContext2D,
+    hitX: number,
+    hitY: number,
+    dirX: -1 | 1,
+    bp: number,
+    isFinisher: boolean
+  ): void {
+    const t = Math.max(0, Math.min(1, bp));
+    const fade = 1 - t;
+    const streakLen = Math.max(8, (isFinisher ? 310 : 270) * Math.pow(fade, 1.55));
+    const halfH = Math.max(0.8, (isFinisher ? 2.8 : 2.3) * (1 - t * 0.45));
+
+    ctx.save();
+    ctx.translate(hitX, hitY);
+    ctx.scale(dirX, 1);
+    ctx.globalCompositeOperation = 'screen';
+
+    // 1. Collapsing needle-thin energy streak zipping straight into the impact point!
+    const haloGrad = ctx.createLinearGradient(8, 0, -streakLen, 0);
+    haloGrad.addColorStop(0, `rgba(255, 255, 255, ${0.95 * fade})`);
+    haloGrad.addColorStop(0.28, `rgba(125, 211, 252, ${0.88 * fade})`);
+    haloGrad.addColorStop(0.72, `rgba(56, 189, 248, ${0.42 * fade})`);
+    haloGrad.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    ctx.fillStyle = haloGrad;
+    ctx.beginPath();
+    ctx.moveTo(10, 0);
+    ctx.lineTo(-streakLen, -halfH * 2.2);
+    ctx.lineTo(-streakLen, halfH * 2.2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Pure razor-white interior needle line (matching DOS 3px white-blue hit streak!)
+    const coreGrad = ctx.createLinearGradient(6, 0, -streakLen * 0.92, 0);
+    coreGrad.addColorStop(0, `rgba(255, 255, 255, ${Math.min(1, fade * 1.4)})`);
+    coreGrad.addColorStop(0.58, `rgba(224, 242, 254, ${0.92 * fade})`);
+    coreGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.fillStyle = coreGrad;
+    ctx.beginPath();
+    ctx.moveTo(8, 0);
+    ctx.lineTo(0, -halfH);
+    ctx.lineTo(-streakLen * 0.92, -0.45);
+    ctx.lineTo(-streakLen * 0.92, 0.45);
+    ctx.lineTo(0, halfH);
+    ctx.closePath();
+    ctx.fill();
+
+    // 2. Sharp piercing burst flash right at the wound point (`t < 0.72`)
+    if (t < 0.72) {
+      const ft = t / 0.72;
+      const fa = Math.pow(1 - ft, 1.35);
+
+      // Vertical elliptical shock ring perpendicular to arrow trajectory
+      ctx.strokeStyle = `rgba(186, 230, 253, ${0.86 * fa})`;
+      ctx.lineWidth = (isFinisher ? 2.6 : 1.8) * (1 - ft * 0.5);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, (7 + ft * (isFinisher ? 20 : 14)), (14 + ft * (isFinisher ? 54 : 38)), 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Razor 4-point ice-white piercing star flash (`+` + angled `×` micro needles)
+      const starR = (isFinisher ? 52 : 34) * (0.45 + ft * 0.85);
+      const starW = (isFinisher ? 4.2 : 3.0) * fa;
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.96 * fa})`;
+      ctx.beginPath();
+      ctx.moveTo(0, -starR);
+      ctx.lineTo(starW, 0);
+      ctx.lineTo(0, starR);
+      ctx.lineTo(-starW, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(-starR * 1.15, 0);
+      ctx.lineTo(0, -starW * 0.8);
+      ctx.lineTo(starR * 0.75, 0);
+      ctx.lineTo(0, starW * 0.8);
+      ctx.closePath();
+      ctx.fill();
+
+      // Diagonal fine splinter spark lines flying back off impact
+      ctx.strokeStyle = `rgba(125, 211, 252, ${0.9 * fa})`;
+      ctx.lineWidth = 1.4;
+      const dLen = (isFinisher ? 44 : 28) * (0.4 + ft * 0.9);
+      for (const ang of [-2.45, -1.9, 1.9, 2.45]) {
+        const r0 = 6 + ft * 12;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ang) * r0, Math.sin(ang) * r0);
+        ctx.lineTo(Math.cos(ang) * (r0 + dLen), Math.sin(ang) * (r0 + dLen));
+        ctx.stroke();
+      }
+
+      // Pinpoint incandescent wound core glow
+      const coreR = (isFinisher ? 26 : 18) * fa + 4;
+      const glow = ctx.createRadialGradient(0, 0, 1, 0, 0, coreR);
+      glow.addColorStop(0, `rgba(255, 255, 255, ${0.98 * fa})`);
+      glow.addColorStop(0.45, `rgba(56, 189, 248, ${0.72 * fa})`);
+      glow.addColorStop(1, 'rgba(37, 99, 235, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(0, 0, coreR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
   /** Draws a crisp HD painted crossbow bolt / arrow / beam with supersonic flare cone. */
   private drawHdProjectile(
     ctx: CanvasRenderingContext2D,
@@ -3385,6 +3823,12 @@ export class Modern25DCombatRenderer {
     projectileType: 'bolt' | 'arrow' | 'beam' | 'orb',
     scale = 1.0
   ): void {
+    if (projectileType === 'arrow') {
+      // Dedicated razor-thin elven spirit arrow (never draw Celia's wide crossbow shock-cone triangle!)
+      this.drawElvenSpiritArrow(ctx, x, y, dirX, scale, 220 * scale);
+      return;
+    }
+
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(dirX * scale, scale);
@@ -3393,27 +3837,20 @@ export class Modern25DCombatRenderer {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     const aura = ctx.createLinearGradient(75, 0, -240, 0);
-    if (projectileType === 'arrow') {
-      aura.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
-      aura.addColorStop(0.28, 'rgba(56, 189, 248, 0.85)');
-      aura.addColorStop(0.68, 'rgba(37, 99, 235, 0.42)');
-      aura.addColorStop(1, 'rgba(37, 99, 235, 0)');
-    } else {
-      aura.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-      aura.addColorStop(0.28, 'rgba(253, 224, 71, 0.78)');
-      aura.addColorStop(0.65, 'rgba(249, 115, 22, 0.35)');
-      aura.addColorStop(1, 'rgba(249, 115, 22, 0)');
-    }
+    aura.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    aura.addColorStop(0.28, 'rgba(253, 224, 71, 0.78)');
+    aura.addColorStop(0.65, 'rgba(249, 115, 22, 0.35)');
+    aura.addColorStop(1, 'rgba(249, 115, 22, 0)');
     ctx.fillStyle = aura;
     ctx.beginPath();
     ctx.moveTo(86, 0);
-    ctx.lineTo(-240, projectileType === 'arrow' ? -18 : -24);
-    ctx.lineTo(-240, projectileType === 'arrow' ? 18 : 24);
+    ctx.lineTo(-240, -24);
+    ctx.lineTo(-240, 24);
     ctx.closePath();
     ctx.fill();
 
     // Shock cone rings right behind tip
-    ctx.strokeStyle = projectileType === 'arrow' ? 'rgba(186, 230, 253, 0.88)' : 'rgba(254, 249, 195, 0.78)';
+    ctx.strokeStyle = 'rgba(254, 249, 195, 0.78)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(64, 0);
@@ -3423,69 +3860,7 @@ export class Modern25DCombatRenderer {
     ctx.stroke();
     ctx.restore();
 
-    if (projectileType === 'arrow') {
-      // Sleek incandescent sapphire-cyan & white-hot elven spirit arrow (authentic #023 Roland f17..f21!)
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      const outer = ctx.createLinearGradient(92, 0, -235, 0);
-      outer.addColorStop(0, 'rgba(255, 255, 255, 1)');
-      outer.addColorStop(0.24, 'rgba(125, 211, 252, 0.96)');
-      outer.addColorStop(0.65, 'rgba(37, 99, 235, 0.65)');
-      outer.addColorStop(1, 'rgba(37, 99, 235, 0)');
-      ctx.fillStyle = outer;
-      ctx.beginPath();
-      ctx.roundRect(-225, -10, 312, 20, 10);
-      ctx.fill();
-      ctx.restore();
-
-      // Razor silver-azure elven shaft + crystalline white core
-      ctx.fillStyle = '#0ea5e9';
-      ctx.fillRect(-130, -2.8, 185, 5.6);
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(-115, -1.4, 178, 2.8);
-
-      // Luminous sapphire-white swept energy fletching
-      ctx.fillStyle = '#bae6fd';
-      ctx.beginPath();
-      ctx.moveTo(-78, -2);
-      ctx.lineTo(-124, -14);
-      ctx.lineTo(-140, -11);
-      ctx.lineTo(-106, -2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-78, 2);
-      ctx.lineTo(-124, 14);
-      ctx.lineTo(-140, 11);
-      ctx.lineTo(-106, 2);
-      ctx.closePath();
-      ctx.fill();
-
-      // Piercing diamond ice-steel arrowhead
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.moveTo(86, 0);
-      ctx.lineTo(44, -9);
-      ctx.lineTo(54, 0);
-      ctx.lineTo(44, 9);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 1.6;
-      ctx.stroke();
-
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      const tipGlow = ctx.createRadialGradient(78, 0, 2, 78, 0, 30);
-      tipGlow.addColorStop(0, 'rgba(255, 255, 255, 1)');
-      tipGlow.addColorStop(0.45, 'rgba(56, 189, 248, 0.9)');
-      tipGlow.addColorStop(1, 'rgba(37, 99, 235, 0)');
-      ctx.fillStyle = tipGlow;
-      ctx.beginPath();
-      ctx.arc(78, 0, 30, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    } else if (projectileType === 'beam') {
+    if (projectileType === 'beam') {
       // High-energy golden-white plasma cannon lance (matching #013 Beckway's iconic yellow plasma bolts!)
       ctx.save();
       ctx.globalCompositeOperation = 'screen';

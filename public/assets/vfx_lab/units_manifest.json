@@ -480,8 +480,8 @@
       "projectileType": "arrow",
       "rangedBurstCount": 5,
       "muzzleAnchor": {
-        "x": 0.218,
-        "y": 0.582
+        "x": 0.194,
+        "y": 0.578
       },
       "rangedFireFrame": {
         "nb6": 4,
