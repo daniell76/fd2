@@ -1141,9 +1141,10 @@
         119,
         130
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #000 Thor — MUST keep identical 176cm human/race body scale! Base traits: Young hero prince; blue headband, silver armor, sword"
+      "status": "calibrated",
+      "calibratedDisplayScale": 0.93,
+      "appearanceNotes": "Promoted form of #000 Thor — MUST keep identical 176cm human/race body scale! Base traits: Young hero prince; blue headband, silver armor, sword",
+      "canvas": 960
     },
     {
       "uid": 33,
@@ -1175,9 +1176,10 @@
         130,
         139
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #001 Hano — MUST keep identical 184cm human/race body scale! Base traits: Muscular red-haired warrior; crimson headband, battle axe"
+      "status": "calibrated",
+      "calibratedDisplayScale": 0.97,
+      "appearanceNotes": "Promoted form of #001 Hano — MUST keep identical 184cm human/race body scale! Base traits: Muscular red-haired warrior; crimson headband, battle axe",
+      "canvas": 960
     },
     {
       "uid": 34,
@@ -1209,9 +1211,10 @@
         99,
         167
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #002 Tino — MUST keep identical 185cm human/race body scale! Base traits: Tall silver-haired swordsman; long navy cloak"
+      "status": "calibrated",
+      "calibratedDisplayScale": 1.03,
+      "appearanceNotes": "Promoted form of #002 Tino — MUST keep identical 185cm human/race body scale! Base traits: Tall silver-haired swordsman; long navy cloak",
+      "canvas": 960
     },
     {
       "uid": 35,
@@ -1243,9 +1246,10 @@
         151,
         192
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Colossal horned-plate juggernaut form of #003 Hawat (182cm man, ~205cm w/ towering armor crest & huge shield/axe)! Base traits: Broad burly berserker; deep combat squat, axe"
+      "status": "calibrated",
+      "calibratedDisplayScale": 0.99,
+      "appearanceNotes": "Colossal horned-plate juggernaut form of #003 Hawat (182cm man, ~205cm w/ towering armor crest & huge shield/axe)! Base traits: Broad burly berserker; deep combat squat, axe",
+      "canvas": 960
     },
     {
       "uid": 36,
@@ -1277,9 +1281,10 @@
         171,
         174
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Warhorse-mounted Paladin form of #004 Ares (180cm rider / 240cm total on warhorse)! Base traits: Noble blue-haired knight; winged pauldrons, polearm"
+      "status": "calibrated",
+      "calibratedDisplayScale": 1.47,
+      "appearanceNotes": "Warhorse-mounted Paladin form of #004 Ares (180cm rider / 240cm total on warhorse)! Base traits: Noble blue-haired knight; winged pauldrons, polearm",
+      "canvas": 1224
     },
     {
       "uid": 37,
@@ -1311,9 +1316,10 @@
         151,
         192
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Warhorse-mounted Paladin form of #005 Lorna (171cm rider / 234cm total on warhorse)! Base traits: Tall silver-green-haired knightess; spear/lance"
+      "status": "calibrated",
+      "calibratedDisplayScale": 1.44,
+      "appearanceNotes": "Warhorse-mounted Paladin form of #005 Lorna (171cm rider / 234cm total on warhorse)! Base traits: Tall silver-green-haired knightess; spear/lance",
+      "canvas": 1224
     },
     {
       "uid": 38,
@@ -1345,9 +1351,10 @@
         172,
         188
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Warhorse-mounted Paladin form of #006 Raiden (188cm rider / 248cm total on warhorse)! Base traits: Towering horned dark-armor heavy knight; giant poleaxe"
+      "status": "calibrated",
+      "calibratedDisplayScale": 1.52,
+      "appearanceNotes": "Warhorse-mounted Paladin form of #006 Raiden (188cm rider / 248cm total on warhorse)! Base traits: Towering horned dark-armor heavy knight; giant poleaxe",
+      "canvas": 1224
     },
     {
       "uid": 40,
