@@ -339,6 +339,9 @@ export class AssetManager {
   private figaniStripCache = new Map<string, HTMLImageElement | null>();
   private hdRegionCache = new Map<string, HTMLCanvasElement>();
   private hdBgImages = new Map<number, HTMLImageElement | 'loading' | 'none'>();
+  private hdPortraitIds = new Set<number>();
+  private hdPortraitVersion = 59;
+  private hdPortraits = new Map<number, HTMLImageElement>();
   private editionMode: EditionMode = detectInitialEditionMode();
 
   constructor() {
@@ -458,6 +461,7 @@ export class AssetManager {
       worldBg,
       endingBg,
       gameoverBg,
+      hdPortraitManifest,
     ] = await Promise.all([
       fetch('assets/gamedata.json').then((r) => r.json() as Promise<GameData>),
       fetch('assets/music.json').then((r) => r.json() as Promise<MusicTrack[]>),
@@ -483,6 +487,9 @@ export class AssetManager {
       loadImage('assets/screens/world.png'),
       loadImage('assets/screens/ending.png'),
       loadImage('assets/screens/gameover.png'),
+      fetch('assets/hd_portraits/manifest.json?v=59')
+        .then((r) => (r.ok ? (r.json() as Promise<{ version?: number; ids?: number[] }>) : null))
+        .catch(() => null),
     ]);
 
     this.gameData = gdRes;
@@ -536,6 +543,23 @@ export class AssetManager {
         .catch(() => {
           // fallback to 4x upscaled classic screen
         });
+    }
+
+    // Register & warm Heavy-Ornament Vanillaware 256x256 HD portraits (HD mode only)
+    if (hdPortraitManifest && Array.isArray(hdPortraitManifest.ids)) {
+      if (typeof hdPortraitManifest.version === 'number') {
+        this.hdPortraitVersion = hdPortraitManifest.version;
+      }
+      for (const pid of hdPortraitManifest.ids) {
+        this.hdPortraitIds.add(pid);
+        loadImage(this.getHdPortraitUrl(pid))
+          .then((img) => {
+            this.hdPortraits.set(pid, img);
+          })
+          .catch(() => {
+            // fallback to 4x upscaled classic portrait
+          });
+      }
     }
 
     onProgress?.('Preparing 16x16 calligraphy glyph sheets...');
@@ -771,6 +795,15 @@ export class AssetManager {
     return this.renderGlyphRunImg(valid, color, heightPx, fallback);
   }
 
+  hasHdPortrait(portraitId: number): boolean {
+    return this.hdPortraitIds.has(portraitId);
+  }
+
+  getHdPortraitUrl(portraitId: number): string {
+    const pad = String(portraitId).padStart(3, '0');
+    return `assets/hd_portraits/p_${pad}.jpg?v=${this.hdPortraitVersion}`;
+  }
+
   /** Draws an 80x80 portrait frame (0..3) from portraits_atlas.png (0-indexed: 0 = Sol). */
   drawPortrait(
     ctx: CanvasRenderingContext2D,
@@ -786,6 +819,15 @@ export class AssetManager {
     const sx = (pid % 4) * 320 + f * 80;
     const sy = Math.floor(pid / 4) * 80;
     if (this.editionMode === 'hd') {
+      const hdPortrait = this.hdPortraits.get(pid);
+      if (hdPortrait && hdPortrait.complete && hdPortrait.naturalWidth > 0) {
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(hdPortrait, 0, 0, hdPortrait.naturalWidth, hdPortrait.naturalHeight, dx, dy, dw, dh);
+        ctx.restore();
+        return;
+      }
       const hdCanvas = this.getHdRegion4x(`portrait:${pid}:${f}`, this.portraitsAtlas, sx, sy, 80, 80);
       ctx.save();
       ctx.imageSmoothingEnabled = true;
@@ -799,7 +841,11 @@ export class AssetManager {
   }
 
   portraitToDataUrl(portraitId: number, frameIdx = 0): string {
-    const key = `${this.editionMode}:${portraitId}:${frameIdx}`;
+    const pid = Math.max(0, Math.min(this.gameData.portraitCount - 1, portraitId));
+    if (this.editionMode === 'hd' && this.hdPortraitIds.has(pid)) {
+      return this.getHdPortraitUrl(pid);
+    }
+    const key = `${this.editionMode}:${pid}:${frameIdx}`;
     const cached = this.portraitUrlCache.get(key);
     if (cached) return cached;
     const size = this.editionMode === 'hd' ? 160 : 80;
@@ -807,7 +853,7 @@ export class AssetManager {
     c.width = size;
     c.height = size;
     const ctx = c.getContext('2d')!;
-    this.drawPortrait(ctx, portraitId, frameIdx, 0, 0, size, size);
+    this.drawPortrait(ctx, pid, frameIdx, 0, 0, size, size);
     const url = c.toDataURL();
     this.portraitUrlCache.set(key, url);
     return url;
