@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 49,
-  "updatedAt": "2026-11-20T19:05:00Z",
+  "updatedAt": "2026-11-20T21:48:00Z",
   "units": [
     {
       "uid": 0,
@@ -835,7 +835,7 @@
       "heightCm": 166,
       "displayScale": 0.85,
       "isRemote": true,
-      "projectileType": "bolt",
+      "projectileType": "sniper_bolt",
       "rangedBurstCount": 3,
       "muzzleAnchor": {
         "x": 0.203,
@@ -940,8 +940,8 @@
       "heightCm": 180,
       "displayScale": 0.9,
       "isRemote": true,
-      "projectileType": "beam",
-      "rangedBurstCount": 3,
+      "projectileType": "cryo_beam",
+      "rangedBurstCount": 1,
       "muzzleAnchor": {
         "x": 0.192,
         "y": 0.583
@@ -1003,20 +1003,20 @@
       "isFlying": true,
       "overallPass": true,
       "heightCm": 190,
-      "displayScale": 1.18,
+      "displayScale": 0.96,
       "flightPattern": "climb_dive",
       "hasMagic": false,
       "omniFrameCount": 12,
       "hitFrames": [
         {
-          "frame": 4,
-          "weight": 0.42,
+          "frame": 3,
+          "weight": 0.45,
           "sfx": "slash",
           "color": "gold"
         },
         {
-          "frame": 6,
-          "weight": 0.58,
+          "frame": 7,
+          "weight": 0.55,
           "sfx": "crit",
           "color": "gold"
         }

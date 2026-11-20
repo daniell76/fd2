@@ -95,7 +95,7 @@ export interface VfxManifestUnitEntry {
   omniFrameCount?: number;
   hitFrames?: VfxHitFrameSpec[];
   isRemote?: boolean;
-  projectileType?: 'bolt' | 'arrow' | 'beam' | 'orb';
+  projectileType?: 'bolt' | 'sniper_bolt' | 'arrow' | 'beam' | 'cryo_beam' | 'orb';
   /** Normalized [0..1] sprite-space coordinates (680x680 frame) where the missile/bolt leaves the weapon on Stage 1. */
   muzzleAnchor?: { x: number; y: number };
   /** Exact firing frame index when the projectile releases on Stage 1. */
@@ -259,7 +259,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=67';
+const VFX_ASSET_VERSION = '?v=68';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -2803,26 +2803,53 @@ export class Modern25DCombatRenderer {
             this.drawElvenSpiritArrow(ctx, tipX, ay, dirX, 1.0, Math.min(255, maxTail));
           }
         }
+      } else if (projectileType === 'cryo_beam') {
+        // Authentic 1995 DOS #045 Beckway (Sniper T2) single roaring cryo-sapphire plasma shockwave cannon discharge!
+        const endX = isHeroAtk ? -220 : W + 220;
+        const st = shotTimes[0] ?? 0.56;
+        if (p >= st && p <= st + 0.42) {
+          const beamP = Math.min(1, (p - st) / 0.28);
+          const bx = mPos.x + (endX - mPos.x) * Math.pow(beamP, 0.92);
+          this.drawCryoPlasmaWave(ctx, bx, mPos.y, dirX, 1.05, Math.min(1, (p - st) / 0.34));
+          if (beamP < 0.65) {
+            const mf = 1 - beamP / 0.65;
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            const grad = ctx.createRadialGradient(mPos.x, mPos.y, 4, mPos.x, mPos.y, 155 * mf + 28);
+            grad.addColorStop(0, `rgba(255, 255, 255, ${0.98 * mf})`);
+            grad.addColorStop(0.32, `rgba(125, 211, 252, ${0.86 * mf})`);
+            grad.addColorStop(0.68, `rgba(37, 99, 235, ${0.48 * mf})`);
+            grad.addColorStop(1, 'rgba(30, 64, 175, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(mPos.x, mPos.y, 155 * mf + 28, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
       } else {
         const endX = isHeroAtk ? -160 : W + 160;
+        const isSniperBolt = projectileType === 'sniper_bolt';
         for (let si = 0; si < shotTimes.length; si++) {
           const st = shotTimes[si];
+          const yJitter = isSniperBolt ? (si - (shotTimes.length - 1) * 0.5) * 9 : 0;
           if (p >= st && p <= st + 0.28) {
             const boltP = Math.min(1, (p - st) / 0.2);
             const bx = mPos.x + (endX - mPos.x) * boltP;
-            this.drawHdProjectile(ctx, bx, mPos.y, dirX, projectileType, 1.15);
+            this.drawHdProjectile(ctx, bx, mPos.y + yJitter, dirX, projectileType, isSniperBolt ? 1.05 : 1.15);
 
-            if (boltP < 0.48) {
-              const mf = 1 - boltP / 0.48;
+            if (boltP < (isSniperBolt ? 0.32 : 0.48)) {
+              const mf = 1 - boltP / (isSniperBolt ? 0.32 : 0.48);
               ctx.save();
               ctx.globalCompositeOperation = 'screen';
-              const grad = ctx.createRadialGradient(mPos.x, mPos.y, 4, mPos.x, mPos.y, 130 * mf + 22);
-              grad.addColorStop(0, `rgba(255, 255, 240, ${0.95 * mf})`);
-              grad.addColorStop(0.4, `rgba(253, 224, 71, ${0.65 * mf})`);
-              grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+              const rad = isSniperBolt ? 58 * mf + 12 : 130 * mf + 22;
+              const grad = ctx.createRadialGradient(mPos.x, mPos.y + yJitter, 2, mPos.x, mPos.y + yJitter, rad);
+              grad.addColorStop(0, `rgba(255, 255, 240, ${(isSniperBolt ? 0.82 : 0.95) * mf})`);
+              grad.addColorStop(0.4, isSniperBolt ? `rgba(226, 232, 240, ${0.48 * mf})` : `rgba(253, 224, 71, ${0.65 * mf})`);
+              grad.addColorStop(1, isSniperBolt ? 'rgba(148, 163, 184, 0)' : 'rgba(245, 158, 11, 0)');
               ctx.fillStyle = grad;
               ctx.beginPath();
-              ctx.arc(mPos.x, mPos.y, 130 * mf + 22, 0, Math.PI * 2);
+              ctx.arc(mPos.x, mPos.y + yJitter, rad, 0, Math.PI * 2);
               ctx.fill();
               ctx.restore();
             }
@@ -2924,9 +2951,11 @@ export class Modern25DCombatRenderer {
             isArrowVolley3
               ? (isLastHit ? (isCrit ? 34 : 20) : 7)
               : (isLastHit ? (isCrit ? 85 : 58) : 34),
-            projectileType === 'arrow'
+            projectileType === 'arrow' || projectileType === 'cryo_beam'
               ? ['#ffffff', '#e0f2fe', '#7dd3fc', '#38bdf8', '#2563eb']
-              : ['#ffffff', '#fde047', '#f59e0b', '#ef4444', '#fb923c'],
+              : projectileType === 'sniper_bolt'
+                ? ['#ffffff', '#e2e8f0', '#cbd5e1', '#fde68a', '#f97316']
+                : ['#ffffff', '#fde047', '#f59e0b', '#ef4444', '#fb923c'],
             isHeroAtk ? -1 : 1,
             -0.2
           );
@@ -3014,6 +3043,39 @@ export class Modern25DCombatRenderer {
           const recoilShiftX = targetSpec.x - targetHomeX;
           this.drawSpiritArrowImpactStreak(ctx, hx + recoilShiftX * 0.45, hy, projDir, bp, hi === hitTimes3.length - 1);
         }
+      } else if (projectileType === 'sniper_bolt') {
+        // Authentic 1995 DOS #040 Celia (Sniper T2) F12..F17 triple heavy crossbow bolt volley:
+        // Three sleek mahogany-shafted barbed steel bolts strike in rapid staggered order and remain
+        // SIMULTANEOUSLY EMBEDDED & VIBRATING vertically stacked in the target's torso!
+        const tightY = impactY + ([-26, 2, 30][hi % 3] ?? 0);
+        const tailLead = [0, 8, -6][hi % 3] ?? 0;
+        if (p3 >= enterAt && p3 < hitAt) {
+          const ap = (p3 - enterAt) / Math.max(0.01, hitAt - enterAt);
+          const startX = isHeroAtk ? W + 100 : -100;
+          const tipX = startX + (impactX - startX) * ap;
+          this.drawSniperCrossbowBolt(ctx, tipX, tightY, projDir, 1.12, true);
+        } else if (p3 >= hitAt) {
+          const holdAge = Math.max(0, p3 - hitAt);
+          const vibFade = Math.max(0, 1 - holdAge / 0.24);
+          const vibY = Math.sin(holdAge * 125 + hi * 1.4) * 3.8 * vibFade;
+          const tailFade = p3 > 0.84 ? Math.max(0, 1 - (p3 - 0.84) / 0.16) : 1;
+          ctx.save();
+          ctx.globalAlpha = tailFade;
+          const pinX = targetSpec.x + (isHeroAtk ? 24 + tailLead : -24 - tailLead);
+          this.drawSniperCrossbowBolt(ctx, pinX, tightY + vibY, projDir, 1.0, false);
+          ctx.restore();
+        }
+      } else if (projectileType === 'cryo_beam') {
+        // Authentic 1995 DOS #045 Beckway (Sniper T2) F18..F20 roaring ice-blue plasma cannon wave!
+        if (p3 >= enterAt && p3 < hitAt) {
+          const ap = (p3 - enterAt) / Math.max(0.01, hitAt - enterAt);
+          const startX = isHeroAtk ? W + 180 : -180;
+          const bx = startX + (impactX - startX) * ap;
+          this.drawCryoPlasmaWave(ctx, bx, hy, projDir, 1.38, ap);
+        } else if (p3 >= hitAt && p3 < hitAt + 0.34) {
+          const bp = (p3 - hitAt) / 0.34;
+          this.drawCryoPlasmaImpact(ctx, impactX + (targetSpec.x - targetHomeX) * 0.45, hy, projDir, bp);
+        }
       } else {
         if (p3 >= enterAt && p3 < hitAt) {
           const ap = (p3 - enterAt) / Math.max(0.01, hitAt - enterAt);
@@ -3040,9 +3102,9 @@ export class Modern25DCombatRenderer {
       ctx.globalCompositeOperation = 'screen';
       const grad = ctx.createRadialGradient(impactX, impactY, 16, impactX, impactY, W * 0.65);
       const a = this.hitStopRemainingMs > 0 ? (isArrowVolley3 ? 0.42 : 0.55) : impactFlashAlpha * (isArrowVolley3 ? 0.36 : 0.45);
-      if (projectileType === 'arrow') {
+      if (projectileType === 'arrow' || projectileType === 'cryo_beam') {
         grad.addColorStop(0, `rgba(240, 249, 255, ${a})`);
-        grad.addColorStop(0.35, `rgba(56, 189, 248, ${a * 0.48})`);
+        grad.addColorStop(0.35, `rgba(56, 189, 248, ${a * (projectileType === 'cryo_beam' ? 0.68 : 0.48)})`);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       } else {
         grad.addColorStop(0, `rgba(255, 252, 220, ${a})`);
@@ -3509,7 +3571,7 @@ export class Modern25DCombatRenderer {
     H: number,
     progress: number,
     dirX: -1 | 1,
-    projectileType: 'bolt' | 'arrow' | 'beam' | 'orb',
+    projectileType: 'bolt' | 'sniper_bolt' | 'arrow' | 'beam' | 'cryo_beam' | 'orb',
     burstCount = 1
   ): void {
     ctx.save();
@@ -3604,6 +3666,56 @@ export class Modern25DCombatRenderer {
 
         this.drawElvenSpiritArrow(ctx, tipX, projY, dirX, 1.08, 300);
       }
+    } else if (projectileType === 'sniper_bolt') {
+      // Authentic 1995 DOS #040 Celia (Sniper T2) tight triple volley of heavy mahogany-shaft iron bolts!
+      const boltYOffs = bCount === 3 ? [-42, 0, 42] : Array.from({ length: bCount }, (_, i) => (bCount === 1 ? 0 : (i / (bCount - 1) - 0.5) * 84));
+      const boltStaggers = bCount === 3 ? [-0.08, 0.0, 0.09] : Array.from({ length: bCount }, (_, i) => (bCount === 1 ? 0 : (i - (bCount - 1) * 0.5) * 0.085));
+      for (let bi = 0; bi < bCount; bi++) {
+        const bp = progress - (boltStaggers[bi] ?? 0);
+        if (bp < -0.22 || bp > 1.25) continue;
+        const projX = startX + (endX - startX) * bp;
+        const projY = H * 0.5 + (boltYOffs[bi % boltYOffs.length] ?? 0);
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const wakeLen = 420;
+        const tailX = projX - dirX * wakeLen;
+        const wg = ctx.createLinearGradient(projX, projY, tailX, projY);
+        wg.addColorStop(0, 'rgba(226, 232, 240, 0.72)');
+        wg.addColorStop(0.32, 'rgba(148, 163, 184, 0.36)');
+        wg.addColorStop(1, 'rgba(100, 116, 139, 0)');
+        ctx.fillStyle = wg;
+        ctx.beginPath();
+        ctx.moveTo(projX - dirX * 10, projY - 3.2);
+        ctx.lineTo(tailX, projY - 0.8);
+        ctx.lineTo(tailX, projY + 0.8);
+        ctx.lineTo(projX - dirX * 10, projY + 3.2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        this.drawSniperCrossbowBolt(ctx, projX, projY, dirX, 1.65, true);
+      }
+    } else if (projectileType === 'cryo_beam') {
+      // Authentic 1995 DOS #045 Beckway (Sniper T2) SINGLE colossal swirling ice-blue plasma cannon beam wave!
+      const projX = startX + (endX - startX) * progress;
+      const projY = H * 0.5;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const wakeLen = 780;
+      const tailX = projX - dirX * wakeLen;
+      const wg = ctx.createLinearGradient(projX, projY, tailX, projY);
+      wg.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+      wg.addColorStop(0.22, 'rgba(186, 230, 253, 0.84)');
+      wg.addColorStop(0.55, 'rgba(56, 189, 248, 0.45)');
+      wg.addColorStop(1, 'rgba(30, 64, 175, 0)');
+      ctx.fillStyle = wg;
+      ctx.beginPath();
+      ctx.moveTo(projX + dirX * 20, projY);
+      ctx.lineTo(tailX, projY - 46);
+      ctx.lineTo(tailX, projY + 46);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      this.drawCryoPlasmaWave(ctx, projX, projY, dirX, 1.75, progress);
     } else {
       const yOffs =
         bCount >= 5
@@ -3898,12 +4010,20 @@ export class Modern25DCombatRenderer {
     x: number,
     y: number,
     dirX: -1 | 1,
-    projectileType: 'bolt' | 'arrow' | 'beam' | 'orb',
+    projectileType: 'bolt' | 'sniper_bolt' | 'arrow' | 'beam' | 'cryo_beam' | 'orb',
     scale = 1.0
   ): void {
     if (projectileType === 'arrow') {
       // Dedicated razor-thin elven spirit arrow (never draw Celia's wide crossbow shock-cone triangle!)
       this.drawElvenSpiritArrow(ctx, x, y, dirX, scale, 220 * scale);
+      return;
+    }
+    if (projectileType === 'sniper_bolt') {
+      this.drawSniperCrossbowBolt(ctx, x, y, dirX, scale, true);
+      return;
+    }
+    if (projectileType === 'cryo_beam') {
+      this.drawCryoPlasmaWave(ctx, x, y, dirX, scale, 0.5);
       return;
     }
 
@@ -4013,6 +4133,260 @@ export class Modern25DCombatRenderer {
       ctx.restore();
     }
 
+    ctx.restore();
+  }
+
+  /**
+   * Authentic 1995 DOS `#040 Celia (Sniper T2)` repeating heavy steel-tipped arbalest bolt (`u_040_attack.png` F11..F17):
+   * Sleek deep mahogany-rust shaft (`#9a3412`), razor-sharp flanged steel broadhead point (`#e2e8f0`),
+   * and triple-ribbed iron-grey feathered tail fletching — clean & tactical, zero orange fireball cone!
+   */
+  private drawSniperCrossbowBolt(
+    ctx: CanvasRenderingContext2D,
+    tipX: number,
+    y: number,
+    dirX: -1 | 1,
+    scale = 1.0,
+    inFlight = true
+  ): void {
+    ctx.save();
+    ctx.translate(tipX, y);
+    ctx.scale(dirX * scale, scale);
+
+    if (inFlight) {
+      // Razor-slim pale silver supersonic slipstream wake (clean steel arrow look from DOS F12/F13!)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const wg = ctx.createLinearGradient(0, 0, -210, 0);
+      wg.addColorStop(0, 'rgba(241, 245, 249, 0.85)');
+      wg.addColorStop(0.25, 'rgba(203, 213, 225, 0.42)');
+      wg.addColorStop(1, 'rgba(148, 163, 184, 0)');
+      ctx.fillStyle = wg;
+      ctx.beginPath();
+      ctx.moveTo(4, 0);
+      ctx.lineTo(-22, -6.5);
+      ctx.lineTo(-210, -1.2);
+      ctx.lineTo(-210, 1.2);
+      ctx.lineTo(-22, 6.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Long slender rust-mahogany wooden sniper shaft (matching DOS F11..F17 `u_040_attack.png` exact tone!)
+    ctx.fillStyle = '#451a03';
+    ctx.fillRect(-132, -3.1, 108, 6.2);
+    ctx.fillStyle = '#b45309';
+    ctx.fillRect(-130, -2.1, 106, 4.2);
+    ctx.fillStyle = '#9a3412';
+    ctx.fillRect(-130, -1.6, 106, 2.2);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(-124, -0.7, 94, 0.9);
+
+    // Metallic steel collar rings holding broadhead & fletching
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(-30, -2.6, 7, 5.2);
+    ctx.fillRect(-108, -2.6, 5, 5.2);
+
+    // Classic DOS silver-grey triple-ribbed metallic feather fletching vanes at tail
+    ctx.fillStyle = '#cbd5e1';
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(-102, -2.2);
+    ctx.lineTo(-132, -8.4);
+    ctx.lineTo(-144, -7.2);
+    ctx.lineTo(-124, -2.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-102, 2.2);
+    ctx.lineTo(-132, 8.4);
+    ctx.lineTo(-144, 7.2);
+    ctx.lineTo(-124, 2.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    // Tiny ribbed dark tick notches matching pixel fletching feathers in DOS F15..F17
+    ctx.strokeStyle = 'rgba(51, 65, 85, 0.65)';
+    ctx.lineWidth = 1.0;
+    for (let tx = -109; tx >= -130; tx -= 5.5) {
+      ctx.beginPath();
+      ctx.moveTo(tx, -2.5);
+      ctx.lineTo(tx - 5, -6.8);
+      ctx.moveTo(tx, 2.5);
+      ctx.lineTo(tx - 5, 6.8);
+      ctx.stroke();
+    }
+
+    if (inFlight) {
+      // Gleaming beveled broadhead silver sniper steel point (only visible while flying; buried inside wound when stuck!)
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath();
+      ctx.moveTo(4, 0);
+      ctx.lineTo(-28, -5.8);
+      ctx.lineTo(-22, 0);
+      ctx.lineTo(-28, 5.8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.0;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(4, 0);
+      ctx.lineTo(-26, -4.2);
+      ctx.lineTo(-22, 0);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // Embedded into enemy target: dark wound shadow ring right at the buried entry collar
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
+      ctx.beginPath();
+      ctx.ellipse(-24, 0, 3.5, 6.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Authentic 1995 DOS `#045 Beckway (Sniper T2)` roaring single cryo-sapphire plasma shock-cannon beam wave
+   * (`u_045_attack.png` F12..F14, F18..F20): blazing ice-white needle core tearing jagged spiraling
+   * azure/sapphire crescent shock-fronds curving dramatically backward (`distinct from base #013's golden beams!`).
+   */
+  private drawCryoPlasmaWave(
+    ctx: CanvasRenderingContext2D,
+    tipX: number,
+    y: number,
+    dirX: -1 | 1,
+    scale = 1.0,
+    phase = 0.5
+  ): void {
+    ctx.save();
+    ctx.translate(tipX, y);
+    ctx.scale(dirX * scale, scale);
+    ctx.globalCompositeOperation = 'screen';
+
+    // 1. Massive outer electric sapphire energy shroud around the beam shaft
+    const bodyLen = 360;
+    const outer = ctx.createLinearGradient(42, 0, -bodyLen, 0);
+    outer.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+    outer.addColorStop(0.18, 'rgba(125, 211, 252, 0.88)');
+    outer.addColorStop(0.55, 'rgba(59, 130, 246, 0.55)');
+    outer.addColorStop(1, 'rgba(30, 64, 175, 0)');
+    ctx.fillStyle = outer;
+    ctx.beginPath();
+    ctx.moveTo(42, 0);
+    ctx.quadraticCurveTo(18, -32, -bodyLen, -14);
+    ctx.lineTo(-bodyLen, 14);
+    ctx.quadraticCurveTo(18, 32, 42, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // 2. Iconic curving ice-blue bow-shockwave umbrella & swept plasma fins (`matching DOS #045 F18 & F19!`)
+    const waveRings = [
+      { ox: 26, rx: 46, ry: 58, alpha: 0.95 },
+      { ox: -38, rx: 44, ry: 48, alpha: 0.78 },
+      { ox: -108, rx: 40, ry: 38, alpha: 0.56 },
+      { ox: -178, rx: 34, ry: 28, alpha: 0.36 },
+    ];
+    for (let wi = 0; wi < waveRings.length; wi++) {
+      const wr = waveRings[wi];
+      const wobble = Math.sin(phase * 18 + wi * 2.1) * 5;
+      ctx.strokeStyle = wi === 0 ? `rgba(224, 242, 254, ${wr.alpha})` : `rgba(96, 165, 250, ${wr.alpha})`;
+      ctx.lineWidth = wi === 0 ? 6.5 : 4.2 - wi * 0.6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(wr.ox - wr.rx * 1.45, -wr.ry + wobble);
+      ctx.quadraticCurveTo(wr.ox + wr.rx * 0.45, -wr.ry * 0.42, wr.ox + 10, 0);
+      ctx.quadraticCurveTo(wr.ox + wr.rx * 0.45, wr.ry * 0.42, wr.ox - wr.rx * 1.45, wr.ry - wobble);
+      ctx.stroke();
+
+      // Jagged crisp cyan plasma barbs flaking backward off each swept shock collar
+      ctx.strokeStyle = `rgba(186, 230, 253, ${wr.alpha * 0.85})`;
+      ctx.lineWidth = 2.0;
+      for (const sgn of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(wr.ox - wr.rx * 0.25, sgn * wr.ry * 0.48);
+        ctx.quadraticCurveTo(wr.ox - wr.rx * 0.9, sgn * (wr.ry * 0.85 + 8), wr.ox - wr.rx * 1.85, sgn * (wr.ry * 0.72));
+        ctx.stroke();
+      }
+    }
+
+    // 3. Blinding opaque-feeling crystalline white-blue plasma beam core
+    const core = ctx.createLinearGradient(34, 0, -bodyLen * 0.92, 0);
+    core.addColorStop(0, '#ffffff');
+    core.addColorStop(0.45, '#e0f2fe');
+    core.addColorStop(0.82, 'rgba(125, 211, 252, 0.55)');
+    core.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.roundRect(-bodyLen * 0.88, -10.5, bodyLen * 0.88 + 30, 21, 10.5);
+    ctx.fill();
+
+    // Rounded leading headlight bloom at bow tip
+    const tipG = ctx.createRadialGradient(24, 0, 3, 24, 0, 56);
+    tipG.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    tipG.addColorStop(0.35, 'rgba(186, 230, 253, 0.9)');
+    tipG.addColorStop(0.7, 'rgba(59, 130, 246, 0.45)');
+    tipG.addColorStop(1, 'rgba(30, 64, 175, 0)');
+    ctx.fillStyle = tipG;
+    ctx.beginPath();
+    ctx.arc(24, 0, 56, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /** Dramatic sapphire plasma shockwave dissipation right after `#045 Beckway`'s beam hits (`DOS F19->F20`). */
+  private drawCryoPlasmaImpact(
+    ctx: CanvasRenderingContext2D,
+    hitX: number,
+    hitY: number,
+    dirX: -1 | 1,
+    bp: number
+  ): void {
+    const t = Math.max(0, Math.min(1, bp));
+    const fade = 1 - t;
+    ctx.save();
+    ctx.translate(hitX, hitY);
+    ctx.scale(dirX, 1);
+    ctx.globalCompositeOperation = 'screen';
+
+    // Collapsing crisp pale ice-blue plasma tail streaking straight into the enemy (`DOS F20!`)
+    const tailLen = Math.max(24, 420 * Math.pow(fade, 1.35));
+    const halfH = Math.max(2, 22 * Math.pow(fade, 0.9));
+    const tg = ctx.createLinearGradient(16, 0, -tailLen, 0);
+    tg.addColorStop(0, `rgba(255, 255, 255, ${0.98 * fade})`);
+    tg.addColorStop(0.35, `rgba(186, 230, 253, ${0.88 * fade})`);
+    tg.addColorStop(0.75, `rgba(59, 130, 246, ${0.45 * fade})`);
+    tg.addColorStop(1, 'rgba(30, 64, 175, 0)');
+    ctx.fillStyle = tg;
+    ctx.beginPath();
+    ctx.moveTo(22, -halfH * 0.4);
+    ctx.lineTo(-tailLen, -halfH * 1.15);
+    ctx.lineTo(-tailLen, halfH * 1.15);
+    ctx.lineTo(22, halfH * 0.4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Expanding elliptical cryo-plasma impact shock ring (`DOS F18/F19 swirl collar!`)
+    const ringR = 26 + t * 145;
+    ctx.strokeStyle = `rgba(186, 230, 253, ${0.9 * fade})`;
+    ctx.lineWidth = Math.max(1.5, 9 * fade);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, ringR * 0.48, ringR, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 95 * (0.4 + 0.8 * t));
+    g.addColorStop(0, `rgba(255, 255, 255, ${0.95 * fade})`);
+    g.addColorStop(0.4, `rgba(125, 211, 252, ${0.72 * fade})`);
+    g.addColorStop(1, 'rgba(37, 99, 235, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, 95 * (0.4 + 0.8 * t), 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
