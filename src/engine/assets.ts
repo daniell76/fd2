@@ -340,7 +340,7 @@ export class AssetManager {
   private hdRegionCache = new Map<string, HTMLCanvasElement>();
   private hdBgImages = new Map<number, HTMLImageElement | 'loading' | 'none'>();
   private hdPortraitIds = new Set<number>();
-  private hdPortraitVersion = 60;
+  private hdPortraitVersion = 61;
   private hdPortraits = new Map<number, HTMLImageElement>();
   private editionMode: EditionMode = detectInitialEditionMode();
 
@@ -487,7 +487,7 @@ export class AssetManager {
       loadImage('assets/screens/world.png'),
       loadImage('assets/screens/ending.png'),
       loadImage('assets/screens/gameover.png'),
-      fetch('assets/hd_portraits/manifest.json?v=60')
+      fetch('assets/hd_portraits/manifest.json?v=61')
         .then((r) => (r.ok ? (r.json() as Promise<{ version?: number; ids?: number[] }>) : null))
         .catch(() => null),
     ]);
