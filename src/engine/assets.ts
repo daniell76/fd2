@@ -340,8 +340,10 @@ export class AssetManager {
   private hdRegionCache = new Map<string, HTMLCanvasElement>();
   private hdBgImages = new Map<number, HTMLImageElement | 'loading' | 'none'>();
   private hdPortraitIds = new Set<number>();
-  private hdPortraitVersion = 62;
+  private hdPortraitAnimIds = new Set<number>();
+  private hdPortraitVersion = 63;
   private hdPortraits = new Map<number, HTMLImageElement>();
+  private hdPortraitStrips = new Map<number, HTMLImageElement>();
   private editionMode: EditionMode = detectInitialEditionMode();
 
   constructor() {
@@ -487,8 +489,8 @@ export class AssetManager {
       loadImage('assets/screens/world.png'),
       loadImage('assets/screens/ending.png'),
       loadImage('assets/screens/gameover.png'),
-      fetch('assets/hd_portraits/manifest.json?v=62')
-        .then((r) => (r.ok ? (r.json() as Promise<{ version?: number; ids?: number[] }>) : null))
+      fetch('assets/hd_portraits/manifest.json?v=63')
+        .then((r) => (r.ok ? (r.json() as Promise<{ version?: number; ids?: number[]; animatedIds?: number[] }>) : null))
         .catch(() => null),
     ]);
 
@@ -545,7 +547,7 @@ export class AssetManager {
         });
     }
 
-    // Register & warm Heavy-Ornament Vanillaware 256x256 HD portraits (HD mode only)
+    // Register & warm Heavy-Ornament / 2D Anime 256x256 HD portraits + 4-frame speaking/blinking strips (HD mode only)
     if (hdPortraitManifest && Array.isArray(hdPortraitManifest.ids)) {
       if (typeof hdPortraitManifest.version === 'number') {
         this.hdPortraitVersion = hdPortraitManifest.version;
@@ -559,6 +561,22 @@ export class AssetManager {
           .catch(() => {
             // fallback to 4x upscaled classic portrait
           });
+      }
+      if (Array.isArray(hdPortraitManifest.animatedIds)) {
+        for (const pid of hdPortraitManifest.animatedIds) {
+          this.hdPortraitAnimIds.add(pid);
+          loadImage(this.getHdPortraitStripUrl(pid))
+            .then((img) => {
+              this.hdPortraitStrips.set(pid, img);
+              // Clear any cached fallback dataURLs for F1..F3 so gallery/DOM refreshes slice the animated strip cleanly
+              for (let f = 0; f < 4; f++) {
+                this.portraitUrlCache.delete(`hd:${pid}:${f}`);
+              }
+            })
+            .catch(() => {
+              // fallback to static p_XXX.jpg
+            });
+        }
       }
     }
 
@@ -804,7 +822,16 @@ export class AssetManager {
     return `assets/hd_portraits/p_${pad}.jpg?v=${this.hdPortraitVersion}`;
   }
 
-  /** Draws an 80x80 portrait frame (0..3) from portraits_atlas.png (0-indexed: 0 = Sol). */
+  getHdPortraitStripUrl(portraitId: number): string {
+    const pad = String(portraitId).padStart(3, '0');
+    return `assets/hd_portraits/s_${pad}.jpg?v=${this.hdPortraitVersion}`;
+  }
+
+  hasHdPortraitStrip(portraitId: number): boolean {
+    return this.hdPortraitAnimIds.has(portraitId);
+  }
+
+  /** Draws an 80x80 portrait frame (0..3: F0 idle, F1 talk-tiny, F2 talk-open, F3 blink) from portraits_atlas.png or HD portrait strip. */
   drawPortrait(
     ctx: CanvasRenderingContext2D,
     portraitId: number,
@@ -819,6 +846,16 @@ export class AssetManager {
     const sx = (pid % 4) * 320 + f * 80;
     const sy = Math.floor(pid / 4) * 80;
     if (this.editionMode === 'hd') {
+      const strip = this.hdPortraitStrips.get(pid);
+      if (strip && strip.complete && strip.naturalWidth >= 4) {
+        const tileW = Math.floor(strip.naturalWidth / 4);
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(strip, f * tileW, 0, tileW, strip.naturalHeight, dx, dy, dw, dh);
+        ctx.restore();
+        return;
+      }
       const hdPortrait = this.hdPortraits.get(pid);
       if (hdPortrait && hdPortrait.complete && hdPortrait.naturalWidth > 0) {
         ctx.save();
@@ -842,10 +879,29 @@ export class AssetManager {
 
   portraitToDataUrl(portraitId: number, frameIdx = 0): string {
     const pid = Math.max(0, Math.min(this.gameData.portraitCount - 1, portraitId));
+    const f = ((frameIdx % 4) + 4) % 4;
     if (this.editionMode === 'hd' && this.hdPortraitIds.has(pid)) {
+      if (f === 0 || !this.hdPortraitAnimIds.has(pid)) {
+        return this.getHdPortraitUrl(pid);
+      }
+      const key = `hd:${pid}:${f}`;
+      const cached = this.portraitUrlCache.get(key);
+      if (cached) return cached;
+      const strip = this.hdPortraitStrips.get(pid);
+      if (strip && strip.complete && strip.naturalWidth >= 4) {
+        const tileW = Math.floor(strip.naturalWidth / 4);
+        const c = document.createElement('canvas');
+        c.width = tileW;
+        c.height = strip.naturalHeight;
+        const ctx = c.getContext('2d')!;
+        ctx.drawImage(strip, f * tileW, 0, tileW, strip.naturalHeight, 0, 0, tileW, strip.naturalHeight);
+        const url = c.toDataURL('image/jpeg', 0.92);
+        this.portraitUrlCache.set(key, url);
+        return url;
+      }
       return this.getHdPortraitUrl(pid);
     }
-    const key = `${this.editionMode}:${pid}:${frameIdx}`;
+    const key = `${this.editionMode}:${pid}:${f}`;
     const cached = this.portraitUrlCache.get(key);
     if (cached) return cached;
     const size = this.editionMode === 'hd' ? 160 : 80;
@@ -853,7 +909,7 @@ export class AssetManager {
     c.width = size;
     c.height = size;
     const ctx = c.getContext('2d')!;
-    this.drawPortrait(ctx, pid, frameIdx, 0, 0, size, size);
+    this.drawPortrait(ctx, pid, f, 0, 0, size, size);
     const url = c.toDataURL();
     this.portraitUrlCache.set(key, url);
     return url;
