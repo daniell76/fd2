@@ -1701,9 +1701,10 @@
         105,
         169
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #000 Thor — MUST keep identical 176cm human/race body scale! Base traits: Young hero prince; blue headband, silver armor, sword"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.96,
+      "appearanceNotes": "Promoted form of #000 Thor — MUST keep identical 176cm human/race body scale! Base traits: Young hero prince; blue headband, silver armor, sword",
+      "canvas": 960
     },
     {
       "uid": 51,
@@ -1735,9 +1736,10 @@
         116,
         169
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #001 Hano — MUST keep identical 184cm human/race body scale! Base traits: Muscular red-haired warrior; crimson headband, battle axe"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.99,
+      "appearanceNotes": "Promoted form of #001 Hano — MUST keep identical 184cm human/race body scale! Base traits: Muscular red-haired warrior; crimson headband, battle axe",
+      "canvas": 960
     },
     {
       "uid": 52,
@@ -1769,9 +1771,10 @@
         118,
         135
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #009 Uni — MUST keep identical 164cm human/race body scale! Base traits: Red-haired mage; flowing gold cloak & staff"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.85,
+      "appearanceNotes": "Promoted form of #009 Uni — MUST keep identical 164cm human/race body scale! Base traits: Red-haired mage; flowing gold cloak & staff",
+      "canvas": 960
     },
     {
       "uid": 53,
@@ -1803,9 +1806,10 @@
         151,
         192
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Colossal horned-plate juggernaut form of #003 Hawat (182cm man, ~205cm w/ towering armor crest & huge shield/axe)! Base traits: Broad burly berserker; deep combat squat, axe"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.28,
+      "appearanceNotes": "Colossal horned-plate juggernaut form of #003 Hawat (182cm man, ~205cm w/ towering armor crest & huge shield/axe)! Base traits: Broad burly berserker; deep combat squat, axe",
+      "canvas": 960
     },
     {
       "uid": 54,
@@ -1837,9 +1841,10 @@
         151,
         193
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Wyvern-mounted Dragon Knight form of #004 Ares (180cm rider / 335cm total on giant wyvern)! Base traits: Noble blue-haired knight; winged pauldrons, polearm"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.76,
+      "appearanceNotes": "Wyvern-mounted Dragon Knight form of #004 Ares (180cm rider / 335cm total on giant wyvern)! Base traits: Noble blue-haired knight; winged pauldrons, polearm",
+      "canvas": 1224
     },
     {
       "uid": 55,
@@ -1871,9 +1876,10 @@
         156,
         187
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Wyvern-mounted Dragon Knight form of #005 Lorna (171cm rider / 328cm total on giant wyvern)! Base traits: Tall silver-green-haired knightess; spear/lance"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.74,
+      "appearanceNotes": "Wyvern-mounted Dragon Knight form of #005 Lorna (171cm rider / 328cm total on giant wyvern)! Base traits: Tall silver-green-haired knightess; spear/lance",
+      "canvas": 1224
     },
     {
       "uid": 56,
@@ -1905,9 +1911,10 @@
         151,
         199
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Wyvern-mounted Dragon Knight form of #006 Raiden (188cm rider / 340cm total on giant wyvern)! Base traits: Towering horned dark-armor heavy knight; giant poleaxe"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.86,
+      "appearanceNotes": "Wyvern-mounted Dragon Knight form of #006 Raiden (188cm rider / 340cm total on giant wyvern)! Base traits: Towering horned dark-armor heavy knight; giant poleaxe",
+      "canvas": 1224
     },
     {
       "uid": 58,
@@ -2177,9 +2184,10 @@
         98,
         116
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #015 Secobang — MUST keep identical 182cm human/race body scale! Base traits: Indigo Black Panther Leopard-Man (豹人); twin feline ears, ZERO human hair"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.0,
+      "appearanceNotes": "Promoted form of #015 Secobang — MUST keep identical 182cm human/race body scale! Base traits: Indigo Black Panther Leopard-Man (豹人); twin feline ears, ZERO human hair",
+      "canvas": 960
     },
     {
       "uid": 68,
