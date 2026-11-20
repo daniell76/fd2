@@ -1386,9 +1386,10 @@
         81,
         136
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #008 Celia — MUST keep identical 166cm human/race body scale! Base traits: Slim brunette archer; hand crossbow (ranged)"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.85,
+      "appearanceNotes": "Promoted form of #008 Celia — MUST keep identical 166cm human/race body scale! Base traits: Slim brunette archer; hand crossbow (ranged)",
+      "canvas": 960
     },
     {
       "uid": 41,
@@ -1420,9 +1421,10 @@
         91,
         136
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #009 Uni — MUST keep identical 164cm human/race body scale! Base traits: Red-haired mage; flowing gold cloak & staff"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.83,
+      "appearanceNotes": "Promoted form of #009 Uni — MUST keep identical 164cm human/race body scale! Base traits: Red-haired mage; flowing gold cloak & staff",
+      "canvas": 960
     },
     {
       "uid": 42,
@@ -1454,9 +1456,10 @@
         85,
         133
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #010 Marin — MUST keep identical 162cm human/race body scale! Base traits: Petite pink-haired cleric; lavender robes & rod"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.83,
+      "appearanceNotes": "Promoted form of #010 Marin — MUST keep identical 162cm human/race body scale! Base traits: Petite pink-haired cleric; lavender robes & rod",
+      "canvas": 960
     },
     {
       "uid": 43,
@@ -1488,9 +1491,10 @@
         78,
         135
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #011 Sophia — MUST keep identical 165cm human/race body scale! Base traits: Blonde ponytail cleric; terracotta/crimson robes & rod"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.84,
+      "appearanceNotes": "Promoted form of #011 Sophia — MUST keep identical 165cm human/race body scale! Base traits: Blonde ponytail cleric; terracotta/crimson robes & rod",
+      "canvas": 960
     },
     {
       "uid": 44,
@@ -1522,9 +1526,10 @@
         107,
         123
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #012 Kelly — MUST keep identical 166cm human/race body scale! Base traits: Golden-ponytail martial artist; indigo martial coat"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.8,
+      "appearanceNotes": "Promoted form of #012 Kelly — MUST keep identical 166cm human/race body scale! Base traits: Golden-ponytail martial artist; indigo martial coat",
+      "canvas": 960
     },
     {
       "uid": 45,
@@ -1556,9 +1561,10 @@
         128,
         132
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Kneeling Elf Sniper form of #013 Beckway (180cm elf, crouched bracing giant shoulder cannon!) Base traits: Blonde Elf gunner; pointed ears, backpack aether cannon (ranged)"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.9,
+      "appearanceNotes": "Kneeling Elf Sniper form of #013 Beckway (180cm elf, crouched bracing giant shoulder cannon!) Base traits: Blonde Elf gunner; pointed ears, backpack aether cannon (ranged)",
+      "canvas": 960
     },
     {
       "uid": 46,
@@ -1590,9 +1596,10 @@
         99,
         137
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #014 Shan — MUST keep identical 168cm human/race body scale! Base traits: Long blue-haired Elf mage; pointed ears, amethyst staff"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.85,
+      "appearanceNotes": "Promoted form of #014 Shan — MUST keep identical 168cm human/race body scale! Base traits: Long blue-haired Elf mage; pointed ears, amethyst staff",
+      "canvas": 960
     },
     {
       "uid": 47,
@@ -1624,9 +1631,10 @@
         99,
         121
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #015 Secobang — MUST keep identical 182cm human/race body scale! Base traits: Indigo Black Panther Leopard-Man (豹人); twin feline ears, ZERO human hair"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.96,
+      "appearanceNotes": "Promoted form of #015 Secobang — MUST keep identical 182cm human/race body scale! Base traits: Indigo Black Panther Leopard-Man (豹人); twin feline ears, ZERO human hair",
+      "canvas": 960
     },
     {
       "uid": 49,
@@ -1658,9 +1666,10 @@
         162,
         165
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted dual-blade winged Dragonkin form of #017 Miasdod (190cm)! Base traits: Crimson winged Dragonkin (龍人); ruby scales, silver armor"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.18,
+      "appearanceNotes": "Promoted dual-blade winged Dragonkin form of #017 Miasdod (190cm)! Base traits: Crimson winged Dragonkin (龍人); ruby scales, silver armor",
+      "canvas": 1120
     },
     {
       "uid": 50,
