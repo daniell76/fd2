@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 57,
-  "updatedAt": "2026-11-20T23:32:00Z",
+  "updatedAt": "2026-11-21T01:30:00Z",
   "units": [
     {
       "uid": 0,
@@ -1137,7 +1137,7 @@
       "heightCm": 180,
       "displayScale": 1.76,
       "mountHeightCm": 335,
-      "flightPattern": "climb_dive"
+      "flightPattern": "soar_plunge"
     },
     {
       "uid": 55,
@@ -1192,7 +1192,15 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 182,
-      "displayScale": 1.0
+      "displayScale": 1.0,
+      "stationaryBeam": {
+        "originAnchor": {
+          "x": 0.415,
+          "y": 0.556
+        },
+        "color": "gold",
+        "thickness": 116
+      }
     },
     {
       "uid": 96,

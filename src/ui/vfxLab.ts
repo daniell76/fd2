@@ -259,7 +259,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=69';
+const VFX_ASSET_VERSION = '?v=70';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -1325,12 +1325,20 @@ export class Modern25DCombatRenderer {
             if (this.config.enableHitStopAndSparks) {
               this.hitStopRemainingMs = 75;
             }
+            const sparkPal =
+              beamColor === 'gold'
+                ? ['#ffffff', '#fef9c3', '#fde047', '#f59e0b', '#ea580c']
+                : beamColor === 'crimson'
+                  ? ['#ffffff', '#fee2e2', '#fb923c', '#ef4444', '#dc2626']
+                  : beamColor === 'emerald'
+                    ? ['#ffffff', '#d1fae5', '#6ee7b7', '#10b981', '#059669']
+                    : ['#ffffff', '#e0f2fe', '#7dd3fc', '#38bdf8', '#2563eb'];
             this.spawnImpactSparks(
               targetHitX,
               targetHitY,
               banditHomeY,
               85,
-              ['#ffffff', '#e0f2fe', '#7dd3fc', '#38bdf8', '#2563eb'],
+              sparkPal,
               -1,
               -0.42
             );
@@ -1340,12 +1348,20 @@ export class Modern25DCombatRenderer {
           });
           if (p > 0.34) {
             this.fireOnce('beam_impact_2', () => {
+              const sparkPal2 =
+                beamColor === 'gold'
+                  ? ['#ffffff', '#fef08a', '#facc15', '#f59e0b']
+                  : beamColor === 'crimson'
+                    ? ['#ffffff', '#fed7aa', '#f97316', '#ef4444']
+                    : beamColor === 'emerald'
+                      ? ['#ffffff', '#a7f3d0', '#34d399', '#10b981']
+                      : ['#ffffff', '#bae6fd', '#38bdf8', '#60a5fa'];
               this.spawnImpactSparks(
                 targetHitX - 18,
                 targetHitY - 12,
                 banditHomeY,
                 65,
-                ['#ffffff', '#bae6fd', '#38bdf8', '#60a5fa'],
+                sparkPal2,
                 -1,
                 -0.38
               );
