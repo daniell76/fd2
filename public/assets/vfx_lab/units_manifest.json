@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 64,
-  "updatedAt": "2026-11-21T18:22:00Z",
+  "updatedAt": "2026-11-21T22:18:00Z",
   "units": [
     {
       "uid": 0,
@@ -386,7 +386,14 @@
       ],
       "overallPass": true,
       "heightCm": 170,
-      "displayScale": 0.95
+      "displayScale": 0.95,
+      "rangedSkill": {
+        "nameZh": "音速刃",
+        "nameEn": "Sonic Crescent",
+        "mode": "sonic_crescent",
+        "frameCount": 6,
+        "isRemote": true
+      }
     },
     {
       "uid": 19,
@@ -402,7 +409,14 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 188,
-      "displayScale": 0.99
+      "displayScale": 0.99,
+      "rangedSkill": {
+        "nameZh": "淒煌斬",
+        "nameEn": "Radiant Blade Flash",
+        "mode": "radiant_blade_cone",
+        "frameCount": 6,
+        "isRemote": false
+      }
     },
     {
       "uid": 20,
@@ -543,7 +557,14 @@
       "magicNameEn": "Flame Dragon",
       "overallPass": true,
       "heightCm": 180,
-      "displayScale": 1.02
+      "displayScale": 1.02,
+      "rangedSkill": {
+        "nameZh": "影流斬",
+        "nameEn": "Shadow Crescent Wave",
+        "mode": "shadow_wave",
+        "frameCount": 6,
+        "isRemote": false
+      }
     },
     {
       "uid": 26,
@@ -712,7 +733,14 @@
           "sfx": "crit",
           "color": "gold"
         }
-      ]
+      ],
+      "rangedSkill": {
+        "nameZh": "熾炎刀",
+        "nameEn": "Blazing Flame-Blade",
+        "mode": "flame_blade_beam",
+        "frameCount": 6,
+        "isRemote": true
+      }
     },
     {
       "uid": 33,
@@ -746,7 +774,14 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 185,
-      "displayScale": 1.03
+      "displayScale": 1.03,
+      "rangedSkill": {
+        "nameZh": "天火劍柱",
+        "nameEn": "Sky-Pillar Judgment",
+        "mode": "sky_pillar",
+        "frameCount": 6,
+        "isRemote": true
+      }
     },
     {
       "uid": 35,
@@ -1043,7 +1078,7 @@
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_050",
       "isFlying": false,
-      "hasMagic": false,
+      "hasMagic": true,
       "overallPass": true,
       "heightCm": 176,
       "displayScale": 0.96,
@@ -1073,7 +1108,17 @@
           "sfx": "crit",
           "color": "azure"
         }
-      ]
+      ],
+      "rangedSkill": {
+        "nameZh": "英雄詠唱",
+        "nameEn": "Heroic Spell Chant",
+        "mode": "hero_chant",
+        "frameCount": 6,
+        "isRemote": false
+      },
+      "magicElement": "holy",
+      "magicNameZh": "英雄詠唱 · 聖光裁決",
+      "magicNameEn": "Heroic Chant · Divine Flash"
     },
     {
       "uid": 51,
