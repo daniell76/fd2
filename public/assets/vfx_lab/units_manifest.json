@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 64,
-  "updatedAt": "2026-11-21T14:15:00Z",
+  "updatedAt": "2026-11-21T15:56:00Z",
   "units": [
     {
       "uid": 0,
@@ -1283,11 +1283,11 @@
       "displayScale": 0.84,
       "stationaryBeam": {
         "originAnchor": {
-          "x": 0.44,
-          "y": 0.5
+          "x": 0.455,
+          "y": 0.575
         },
         "color": "gold",
-        "thickness": 108
+        "thickness": 112
       }
     },
     {
