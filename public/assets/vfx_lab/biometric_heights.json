@@ -1946,9 +1946,10 @@
         81,
         136
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #008 Celia — MUST keep identical 166cm human/race body scale! Base traits: Slim brunette archer; hand crossbow (ranged)"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.86,
+      "appearanceNotes": "Promoted form of #008 Celia — MUST keep identical 166cm human/race body scale! Base traits: Slim brunette archer; hand crossbow (ranged)",
+      "canvas": 960
     },
     {
       "uid": 59,
@@ -1980,9 +1981,10 @@
         91,
         136
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #009 Uni — MUST keep identical 164cm human/race body scale! Base traits: Red-haired mage; flowing gold cloak & staff"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.84,
+      "appearanceNotes": "Promoted form of #009 Uni — MUST keep identical 164cm human/race body scale! Base traits: Red-haired mage; flowing gold cloak & staff",
+      "canvas": 960
     },
     {
       "uid": 60,
@@ -2014,9 +2016,10 @@
         85,
         133
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #010 Marin — MUST keep identical 162cm human/race body scale! Base traits: Petite pink-haired cleric; lavender robes & rod"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.83,
+      "appearanceNotes": "Promoted form of #010 Marin — MUST keep identical 162cm human/race body scale! Base traits: Petite pink-haired cleric; lavender robes & rod",
+      "canvas": 960
     },
     {
       "uid": 61,
@@ -2048,9 +2051,10 @@
         78,
         135
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #011 Sophia — MUST keep identical 165cm human/race body scale! Base traits: Blonde ponytail cleric; terracotta/crimson robes & rod"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.85,
+      "appearanceNotes": "Promoted form of #011 Sophia — MUST keep identical 165cm human/race body scale! Base traits: Blonde ponytail cleric; terracotta/crimson robes & rod",
+      "canvas": 960
     },
     {
       "uid": 62,
@@ -2082,9 +2086,10 @@
         107,
         123
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #012 Kelly — MUST keep identical 166cm human/race body scale! Base traits: Golden-ponytail martial artist; indigo martial coat"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.84,
+      "appearanceNotes": "Promoted form of #012 Kelly — MUST keep identical 166cm human/race body scale! Base traits: Golden-ponytail martial artist; indigo martial coat",
+      "canvas": 960
     },
     {
       "uid": 63,
@@ -2116,9 +2121,10 @@
         128,
         132
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Kneeling Elf Sniper form of #013 Beckway (180cm elf, crouched bracing giant shoulder cannon!) Base traits: Blonde Elf gunner; pointed ears, backpack aether cannon (ranged)"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.94,
+      "appearanceNotes": "Kneeling Elf Sniper form of #013 Beckway (180cm elf, crouched bracing giant shoulder cannon!) Base traits: Blonde Elf gunner; pointed ears, backpack aether cannon (ranged)",
+      "canvas": 960
     },
     {
       "uid": 64,
@@ -2150,9 +2156,10 @@
         99,
         137
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Promoted form of #014 Shan — MUST keep identical 168cm human/race body scale! Base traits: Long blue-haired Elf mage; pointed ears, amethyst staff"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 0.9,
+      "appearanceNotes": "Promoted form of #014 Shan — MUST keep identical 168cm human/race body scale! Base traits: Long blue-haired Elf mage; pointed ears, amethyst staff",
+      "canvas": 960
     },
     {
       "uid": 65,
