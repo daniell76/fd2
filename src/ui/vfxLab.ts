@@ -109,10 +109,12 @@ export interface VfxManifestUnitEntry {
   isFlying?: boolean;
   /** Authentic 1995 DOS FIGANI.DAT aerial prelude trajectory for Dragon Knights & Dragonkin. */
   flightPattern?: FlightPattern;
-  /** Authentic stationary long-range beam/energy wave (e.g., #022 Karis Kamehameha Ki-Wave, Dragon Breath, Gaia Cannon): attacker stays planted at home position while a thick volumetric beam connects originAnchor diagonally up-left onto the enemy! */
+  /** Authentic stationary long-range beam/energy wave (e.g., #022 Karis Kamehameha Ki-Wave, #065 Secobang gold beam, or #044/#062 Kelly 'qi_splash' rising golden dragon-fan blast matching DOS FIGANI.DAT F7-F9!). */
   stationaryBeam?: {
     originAnchor: { x: number; y: number };
     color: 'azure' | 'gold' | 'crimson' | 'emerald';
+    /** 'beam' = continuous Kamehameha cylinder (Karis / Secobang). 'qi_splash' = explosive wide upward-left fan-shaped jagged Qi splash & trailing streaks (Kelly Fighter/Martial Master!). */
+    style?: 'beam' | 'qi_splash';
     thickness?: number;
   };
   /** Canonical standing height (cm) used for cross-character proportional biometric scaling (`1.80 world-px / cm`). */
@@ -259,7 +261,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=75';
+const VFX_ASSET_VERSION = '?v=76';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -1171,6 +1173,7 @@ export class Modern25DCombatRenderer {
       progress: number;
       chargeOnly?: boolean;
       color: 'azure' | 'gold' | 'crimson' | 'emerald';
+      style: 'beam' | 'qi_splash';
       thickness: number;
     } | null = null;
     const thorDrawsInFront = true;
@@ -1201,6 +1204,7 @@ export class Modern25DCombatRenderer {
           y: thorSpec.y + (rightStationaryBeam.originAnchor.y - 648 / 680) * thorDispSize * thorSpec.scaleY,
         });
         const beamColor = rightStationaryBeam.color;
+        const beamStyle: 'beam' | 'qi_splash' = rightStationaryBeam.style ?? 'beam';
         const beamThick = rightStationaryBeam.thickness ?? 116;
 
         if (localT < 500) {
@@ -1208,9 +1212,9 @@ export class Modern25DCombatRenderer {
           const p = localT / 500;
           const ease = 1 - Math.pow(1 - p, 3);
           if (srcMode === 'omni_video') {
-            this.setContinuousFrame(thorSpec, p * 1.25, rightOmniMax);
+            this.setContinuousFrame(thorSpec, p * (beamStyle === 'qi_splash' ? 2.1 : 1.25), rightOmniMax);
           } else if (srcMode === 'nb2_6frame') {
-            this.setContinuousFrame(thorSpec, p * 1.05, 5);
+            this.setContinuousFrame(thorSpec, p * (beamStyle === 'qi_splash' ? 2.1 : 1.05), 5);
           } else {
             thorSpec.primaryIdx = p < 0.35 ? 0 : 1;
           }
@@ -1233,10 +1237,11 @@ export class Modern25DCombatRenderer {
             progress: p * 0.45,
             chargeOnly: true,
             color: beamColor,
+            style: beamStyle,
             thickness: beamThick,
           };
         } else if (localT < 880) {
-          // 2. Hadouken Launch Sphere Charge IN PLACE + Optional Critical Cut-In (F1 -> F2)
+          // 2. Hadouken Launch Sphere Charge IN PLACE + Optional Critical Cut-In (F1 -> F2/F4 crouch)
           const p = (localT - 500) / 380;
           const ease = 1 - Math.pow(1 - p, 2);
           if (this.config.enableAnimeCutIn && this.scenario === 'thor_crit') {
@@ -1244,9 +1249,18 @@ export class Modern25DCombatRenderer {
             cutInUnit = 'thor';
           }
           if (srcMode === 'omni_video') {
-            this.setContinuousFrame(thorSpec, 1.25 + p * 2.1, rightOmniMax);
+            if (beamStyle === 'qi_splash') {
+              // Authentic DOS #044/#062 Kelly crouch spark frame (`omni_3` = F4) held briefly before explosive uppercut!
+              this.setContinuousFrame(thorSpec, 2.1 + p * 0.9, rightOmniMax);
+            } else {
+              this.setContinuousFrame(thorSpec, 1.25 + p * 2.1, rightOmniMax);
+            }
           } else if (srcMode === 'nb2_6frame') {
-            this.setContinuousFrame(thorSpec, 1.05 + p * 1.15, 5);
+            if (beamStyle === 'qi_splash') {
+              this.setContinuousFrame(thorSpec, 2.1 + p * 0.9, 5);
+            } else {
+              this.setContinuousFrame(thorSpec, 1.05 + p * 1.15, 5);
+            }
           } else {
             thorSpec.primaryIdx = 1;
           }
@@ -1263,18 +1277,30 @@ export class Modern25DCombatRenderer {
             progress: 0.45 + p * 0.55,
             chargeOnly: true,
             color: beamColor,
+            style: beamStyle,
             thickness: beamThick,
           };
           this.fireOnce('beam_charge_dust', () => {
             this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.45, 12);
           });
         } else if (localT < 1720) {
-          // 3. MASSIVE THICK UP-LEFT (↖) KAMEHAMEHA KI BEAM ACROSS ENTIRE BATTLEFIELD!
-          // Karis remains STATIONARY at thorHomeX with intense ground-brace recoil & skid dust!
+          // 3. MASSIVE UP-LEFT (↖) KI DISCHARGE ACROSS BATTLEFIELD (`beam` tube OR Kelly `qi_splash` rising fan cone!)
+          // Attacker remains STATIONARY at thorHomeX with intense ground-brace recoil & skid dust!
           const p = (localT - 880) / 840;
           const isFading = p > 0.78;
           if (srcMode === 'omni_video') {
-            if (p < 0.72) {
+            if (beamStyle === 'qi_splash') {
+              // Authentic DOS F7 -> F8 -> F9 -> F10: instant F5 golden uppercut splash -> bloom -> fading streaks -> crisp F6 stance!
+              if (p < 0.22) {
+                thorSpec.primaryIdx = Math.min(rightOmniMax, 4);
+              } else if (p < 0.44) {
+                thorSpec.primaryIdx = Math.min(rightOmniMax, 5);
+              } else if (p < 0.68) {
+                thorSpec.primaryIdx = Math.min(rightOmniMax, 6);
+              } else {
+                thorSpec.primaryIdx = Math.min(rightOmniMax, 7);
+              }
+            } else if (p < 0.72) {
               this.setContinuousFrame(thorSpec, 4.0 + Math.sin(p * Math.PI * 6) * 0.5 + 0.5, rightOmniMax);
             } else if (p < 0.88) {
               this.setContinuousFrame(thorSpec, 6.0 + ((p - 0.72) / 0.16) * 1.5, rightOmniMax);
@@ -1282,7 +1308,9 @@ export class Modern25DCombatRenderer {
               this.setContinuousFrame(thorSpec, 7.5 + ((p - 0.88) / 0.12) * 1.5, rightOmniMax);
             }
           } else if (srcMode === 'nb2_6frame') {
-            if (p < 0.74) {
+            if (beamStyle === 'qi_splash') {
+              thorSpec.primaryIdx = p < 0.56 ? 4 : 5;
+            } else if (p < 0.74) {
               thorSpec.primaryIdx = 3;
             } else if (p < 0.9) {
               thorSpec.primaryIdx = 4;
@@ -1309,6 +1337,7 @@ export class Modern25DCombatRenderer {
             progress: p,
             chargeOnly: false,
             color: beamColor,
+            style: beamStyle,
             thickness: beamThick,
           };
 
@@ -2465,20 +2494,35 @@ export class Modern25DCombatRenderer {
       this.drawBladeChargeAura(ctx, thorSpec.x + 55, thorSpec.y - 420, (t - thorStart) / 820);
     }
 
-    // Authentic Full-Screen Thick Diagonal Stationary Ki / Energy Beam (e.g. #022 Karis Kamehameha!)
+    // Authentic Full-Screen Diagonal Stationary Ki Beam (`beam`) OR Rising Fan-Splash Wave (`qi_splash`, e.g. #044/#062 Kelly!)
     if (stationaryBeamState) {
-      this.drawStationaryKiBeam(
-        ctx,
-        stationaryBeamState.originX,
-        stationaryBeamState.originY,
-        stationaryBeamState.targetX,
-        stationaryBeamState.targetY,
-        stationaryBeamState.progress,
-        Boolean(stationaryBeamState.chargeOnly),
-        stationaryBeamState.color,
-        stationaryBeamState.thickness,
-        t
-      );
+      if (stationaryBeamState.style === 'qi_splash') {
+        this.drawStationaryKiSplash(
+          ctx,
+          stationaryBeamState.originX,
+          stationaryBeamState.originY,
+          stationaryBeamState.targetX,
+          stationaryBeamState.targetY,
+          stationaryBeamState.progress,
+          Boolean(stationaryBeamState.chargeOnly),
+          stationaryBeamState.color,
+          stationaryBeamState.thickness,
+          t
+        );
+      } else {
+        this.drawStationaryKiBeam(
+          ctx,
+          stationaryBeamState.originX,
+          stationaryBeamState.originY,
+          stationaryBeamState.targetX,
+          stationaryBeamState.targetY,
+          stationaryBeamState.progress,
+          Boolean(stationaryBeamState.chargeOnly),
+          stationaryBeamState.color,
+          stationaryBeamState.thickness,
+          t
+        );
+      }
     }
 
     // Volumetric Crescent Slash Shaders aligned with the diagonal swing plane!
@@ -2619,6 +2663,7 @@ export class Modern25DCombatRenderer {
       const fireOmni = actorUnit.rangedFireFrame?.omni ?? Math.min(actorMaxIdx, 5);
       const fireNb6 = actorUnit.rangedFireFrame?.nb6 ?? 3;
       const isArrowVolley = projectileType === 'arrow' && burstCount >= 2;
+      const isSniperVolley = projectileType === 'sniper_bolt' && burstCount >= 2;
 
       // Exact 1995 DOS #023 Loran (u_023_attack.png):
       //   - Frames 1..4 (p < 0.44): draw & tension build
@@ -2648,11 +2693,28 @@ export class Modern25DCombatRenderer {
               };
             });
 
+      // Authentic 1995 DOS #040/#058 Celia (`u_058_attack.png` F7 -> F8):
+      //   ALL 3 heavy steel-tipped arbalest bolts erupt ALMOST SIMULTANEOUSLY in one razor-tight overlapping
+      //   salvo pack (`~24ms` stagger, 48ms total spread!) — NOT slow one-by-one shots!
+      const sniperLeadRelease = 0.52;
+      const sniperVolleySpec: Array<{ yOffPx: number; releaseT: number; tipLeadPx: number }> =
+        Array.from({ length: burstCount }, (_, i) => {
+          const order = burstCount === 3 ? [1, 0, 2][i] : i;
+          const frac = burstCount === 1 ? 0 : order / (burstCount - 1) - 0.5;
+          return {
+            yOffPx: Math.round(frac * 24),
+            releaseT: sniperLeadRelease + i * (0.044 / Math.max(1, burstCount - 1)),
+            tipLeadPx: burstCount === 3 ? [18, 4, -8][i] : Math.round((1 - Math.abs(frac) * 2) * 14),
+          };
+        });
+
       const shotTimes = isArrowVolley
         ? arrowVolleySpec.map((s) => s.releaseT)
-        : burstCount === 1
-          ? [0.56]
-          : Array.from({ length: burstCount }, (_, i) => 0.36 + i * (0.42 / Math.max(1, burstCount - 1)));
+        : isSniperVolley
+          ? sniperVolleySpec.map((s) => s.releaseT)
+          : burstCount === 1
+            ? [0.56]
+            : Array.from({ length: burstCount }, (_, i) => 0.36 + i * (0.42 / Math.max(1, burstCount - 1)));
       const firstShot = shotTimes[0];
 
       if (isArrowVolley) {
@@ -2679,6 +2741,27 @@ export class Modern25DCombatRenderer {
           }
         } else {
           actorSpec.primaryIdx = p < 0.25 ? 0 : p < arrowLeadRelease ? 1 : 2;
+        }
+      } else if (isSniperVolley) {
+        // Authentic 1995 DOS #040/#058 Celia (`u_058_attack.png`): hold crisp F5 muzzle burst on simultaneous salvo launch, then drop smoothly to F6 reload!
+        if (srcMode === 'omni_video') {
+          if (p < sniperLeadRelease - 0.04) {
+            this.setContinuousFrame(actorSpec, (p / Math.max(0.1, sniperLeadRelease - 0.04)) * Math.max(1, fireOmni - 1), actorMaxIdx);
+          } else if (p < sniperLeadRelease + 0.24) {
+            actorSpec.primaryIdx = p < sniperLeadRelease + 0.11 ? fireOmni : Math.min(actorMaxIdx, fireOmni + 1);
+          } else {
+            actorSpec.primaryIdx = Math.min(actorMaxIdx, Math.max(fireOmni + 2, actorMaxIdx - 1));
+          }
+        } else if (srcMode === 'nb2_6frame') {
+          if (p < sniperLeadRelease - 0.04) {
+            this.setContinuousFrame(actorSpec, (p / Math.max(0.1, sniperLeadRelease - 0.04)) * Math.max(1, fireNb6 - 1), 5);
+          } else if (p < sniperLeadRelease + 0.24) {
+            actorSpec.primaryIdx = fireNb6;
+          } else {
+            actorSpec.primaryIdx = 5;
+          }
+        } else {
+          actorSpec.primaryIdx = p < 0.25 ? 0 : p < sniperLeadRelease + 0.24 ? 1 : 2;
         }
       } else if (srcMode === 'omni_video') {
         if (p < firstShot - 0.02) {
@@ -2848,20 +2931,28 @@ export class Modern25DCombatRenderer {
         const isSniperBolt = projectileType === 'sniper_bolt';
         for (let si = 0; si < shotTimes.length; si++) {
           const st = shotTimes[si];
-          const yJitter = isSniperBolt ? (si - (shotTimes.length - 1) * 0.5) * 9 : 0;
-          if (p >= st && p <= st + 0.28) {
-            const boltP = Math.min(1, (p - st) / 0.2);
-            const bx = mPos.x + (endX - mPos.x) * boltP;
-            this.drawHdProjectile(ctx, bx, mPos.y + yJitter, dirX, projectileType, isSniperBolt ? 1.05 : 1.15);
+          const yJitter = isSniperVolley
+            ? sniperVolleySpec[si].yOffPx
+            : isSniperBolt
+              ? (si - (shotTimes.length - 1) * 0.5) * 9
+              : 0;
+          const leadPx = isSniperVolley ? sniperVolleySpec[si].tipLeadPx : 0;
+          const travelDur = isSniperVolley ? 0.28 : 0.2;
+          const windowDur = isSniperVolley ? 0.34 : 0.28;
+          if (p >= st && p <= st + windowDur) {
+            const boltP = Math.min(1.05, (p - st) / travelDur);
+            const startX = mPos.x + dirX * leadPx;
+            const bx = startX + (endX - startX) * boltP;
+            this.drawHdProjectile(ctx, bx, mPos.y + yJitter, dirX, projectileType, isSniperBolt ? 1.08 : 1.15);
 
-            if (boltP < (isSniperBolt ? 0.32 : 0.48)) {
-              const mf = 1 - boltP / (isSniperBolt ? 0.32 : 0.48);
+            if (boltP < (isSniperBolt ? 0.28 : 0.48)) {
+              const mf = 1 - boltP / (isSniperBolt ? 0.28 : 0.48);
               ctx.save();
               ctx.globalCompositeOperation = 'screen';
-              const rad = isSniperBolt ? 58 * mf + 12 : 130 * mf + 22;
+              const rad = isSniperBolt ? 52 * mf + 12 : 130 * mf + 22;
               const grad = ctx.createRadialGradient(mPos.x, mPos.y + yJitter, 2, mPos.x, mPos.y + yJitter, rad);
-              grad.addColorStop(0, `rgba(255, 255, 240, ${(isSniperBolt ? 0.82 : 0.95) * mf})`);
-              grad.addColorStop(0.4, isSniperBolt ? `rgba(226, 232, 240, ${0.48 * mf})` : `rgba(253, 224, 71, ${0.65 * mf})`);
+              grad.addColorStop(0, `rgba(255, 255, 240, ${(isSniperBolt ? 0.78 : 0.95) * mf})`);
+              grad.addColorStop(0.4, isSniperBolt ? `rgba(253, 224, 71, ${0.44 * mf})` : `rgba(253, 224, 71, ${0.65 * mf})`);
               grad.addColorStop(1, isSniperBolt ? 'rgba(148, 163, 184, 0)' : 'rgba(245, 158, 11, 0)');
               ctx.fillStyle = grad;
               ctx.beginPath();
@@ -2912,17 +3003,20 @@ export class Modern25DCombatRenderer {
     };
 
     const isArrowVolley3 = projectileType === 'arrow' && burstCount >= 2;
+    const isSniperVolley3 = projectileType === 'sniper_bolt' && burstCount >= 2;
     // Authentic 1995 DOS #023 Loran Stage 3 target barrage (`u_023_attack.png` f16..f23):
     // 5 exact hits (`f17..f21`), each `delay=2` DOS ticks (~55ms apart, `Δp3 = 0.056` -> 224ms blistering rapid barrage!)
-    // Organic scatter matching exact DOS pixel coordinates `y = [79, 61, 68, 40, 54]` & `x = [81, 91, 70, 88, 80]`,
-    // centered cleanly across the target's torso/chest/shoulder!
+    // And authentic 1995 DOS #040/#058 Celia triple bolt volley (`u_058_attack.png` f12..f14):
+    // 3 rapid consecutive impacts ~50ms apart (`Δp3 = 0.055`) right after launching together as a tight salvo!
     const hitTimes3 = isArrowVolley3
       ? burstCount === 5
         ? [0.15, 0.206, 0.262, 0.318, 0.374]
         : Array.from({ length: burstCount }, (_, i) => 0.15 + i * Math.min(0.06, 0.26 / Math.max(1, burstCount - 1)))
-      : burstCount === 1
-        ? [0.19]
-        : Array.from({ length: burstCount }, (_, i) => 0.14 + i * ((burstCount >= 5 ? 0.42 : 0.36) / Math.max(1, burstCount - 1)));
+      : isSniperVolley3
+        ? Array.from({ length: burstCount }, (_, i) => 0.16 + i * (burstCount === 3 ? 0.055 : Math.min(0.06, 0.18 / Math.max(1, burstCount - 1))))
+        : burstCount === 1
+          ? [0.19]
+          : Array.from({ length: burstCount }, (_, i) => 0.14 + i * ((burstCount >= 5 ? 0.42 : 0.36) / Math.max(1, burstCount - 1)));
     const yOffsets3 = isArrowVolley3 && burstCount === 5
       ? [44, 0, 20, -52, -16]
       : burstCount >= 5
@@ -2956,7 +3050,7 @@ export class Modern25DCombatRenderer {
           if (this.config.enableHitStopAndSparks) {
             this.hitStopRemainingMs = isLastHit
               ? (isCrit ? 88 : 60)
-              : isArrowVolley3
+              : isArrowVolley3 || isSniperVolley3
                 ? 12
                 : 28;
           }
@@ -3034,7 +3128,7 @@ export class Modern25DCombatRenderer {
     );
 
     // Render all arriving projectiles streaking in horizontally from the edge into the target's torso!
-    const approachSpan = isArrowVolley3 ? 0.115 : 0.17;
+    const approachSpan = isArrowVolley3 ? 0.115 : isSniperVolley3 ? 0.13 : 0.17;
     const projDir: -1 | 1 = isHeroAtk ? -1 : 1;
     for (let hi = 0; hi < hitTimes3.length; hi++) {
       const hitAt = hitTimes3[hi];
@@ -3063,7 +3157,7 @@ export class Modern25DCombatRenderer {
         // Authentic 1995 DOS #040 Celia (Sniper T2) F12..F17 triple heavy crossbow bolt volley:
         // Three sleek mahogany-shafted barbed steel bolts strike in rapid staggered order and remain
         // SIMULTANEOUSLY EMBEDDED & VIBRATING vertically stacked in the target's torso!
-        const tightY = impactY + ([-26, 2, 30][hi % 3] ?? 0);
+        const tightY = impactY + ([-18, 0, 18][hi % 3] ?? 0);
         const tailLead = [0, 8, -6][hi % 3] ?? 0;
         if (p3 >= enterAt && p3 < hitAt) {
           const ap = (p3 - enterAt) / Math.max(0.01, hitAt - enterAt);
@@ -3683,9 +3777,9 @@ export class Modern25DCombatRenderer {
         this.drawElvenSpiritArrow(ctx, tipX, projY, dirX, 1.08, 300);
       }
     } else if (projectileType === 'sniper_bolt') {
-      // Authentic 1995 DOS #040 Celia (Sniper T2) tight triple volley of heavy mahogany-shaft iron bolts!
-      const boltYOffs = bCount === 3 ? [-42, 0, 42] : Array.from({ length: bCount }, (_, i) => (bCount === 1 ? 0 : (i / (bCount - 1) - 0.5) * 84));
-      const boltStaggers = bCount === 3 ? [-0.08, 0.0, 0.09] : Array.from({ length: bCount }, (_, i) => (bCount === 1 ? 0 : (i - (bCount - 1) * 0.5) * 0.085));
+      // Authentic 1995 DOS #040/#058 Celia (Sniper/Sharpshooter) ultra-tight almost-simultaneous triple bolt salvo!
+      const boltYOffs = bCount === 3 ? [-20, 0, 20] : Array.from({ length: bCount }, (_, i) => (bCount === 1 ? 0 : (i / (bCount - 1) - 0.5) * 44));
+      const boltStaggers = bCount === 3 ? [-0.028, 0.0, 0.032] : Array.from({ length: bCount }, (_, i) => (bCount === 1 ? 0 : (i - (bCount - 1) * 0.5) * 0.032));
       for (let bi = 0; bi < bCount; bi++) {
         const bp = progress - (boltStaggers[bi] ?? 0);
         if (bp < -0.22 || bp > 1.25) continue;
@@ -5043,6 +5137,195 @@ export class Modern25DCombatRenderer {
         ctx.stroke();
       }
       ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Authentic 1995 DOS `#044/#062 Kelly (Fighter / Martial Master)` wide explosive fan-shaped
+   * golden Qi shockwave splash (`u_044/u_062_attack.png` F7 -> F8 -> F9):
+   * Instead of a static straight laser tube, bursts outward from the attacker's braced fist in a
+   * sweeping diagonal upper-left (↖) blade-fan spray of jagged golden-amber speed-streaks that
+   * tear straight across & past the enemy, then fracture and dissipate into trailing outer embers!
+   */
+  private drawStationaryKiSplash(
+    ctx: CanvasRenderingContext2D,
+    originX: number,
+    originY: number,
+    targetX: number,
+    targetY: number,
+    progress: number,
+    chargeOnly: boolean,
+    color: 'azure' | 'gold' | 'crimson' | 'emerald',
+    thickness: number,
+    t: number
+  ): void {
+    const pal =
+      color === 'gold'
+        ? { outer: '234, 88, 12', mid: '245, 158, 11', bright: '253, 224, 71', light: '254, 249, 195' }
+        : color === 'crimson'
+          ? { outer: '185, 28, 28', mid: '239, 68, 68', bright: '251, 146, 60', light: '254, 240, 138' }
+          : color === 'emerald'
+            ? { outer: '4, 120, 87', mid: '16, 185, 129', bright: '110, 231, 183', light: '209, 250, 229' }
+            : { outer: '29, 78, 216', mid: '56, 189, 248', bright: '125, 211, 252', light: '224, 242, 254' };
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+
+    if (chargeOnly) {
+      // Crisp, restrained floor-spark & rising golden tension flare right beside Kelly's crouched stance (no chunky beam ball!)
+      const p = Math.max(0, Math.min(1, progress));
+      const g = ctx.createRadialGradient(originX, originY + 55, 2, originX, originY + 55, 42 + p * 68);
+      g.addColorStop(0, `rgba(255, 255, 255, ${0.28 * p})`);
+      g.addColorStop(0.35, `rgba(${pal.bright}, ${0.32 * p})`);
+      g.addColorStop(1, `rgba(${pal.outer}, 0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(originX, originY + 55, 42 + p * 68, 0, Math.PI * 2);
+      ctx.fill();
+      if (p > 0.45) {
+        const sp = (p - 0.45) / 0.55;
+        for (let i = 0; i < 6; i++) {
+          const ang = Math.PI * 0.92 + ((i - 2.5) * 0.14);
+          const r0 = 26 + ((i * 19 + t * 0.18) % 34);
+          const len = 28 + (i % 3) * 18;
+          ctx.strokeStyle = i % 2 === 0 ? `rgba(${pal.light}, ${0.58 * sp})` : `rgba(${pal.bright}, ${0.46 * sp})`;
+          ctx.lineWidth = 2.0 + (i % 2);
+          ctx.beginPath();
+          ctx.moveTo(originX + Math.cos(ang) * r0, originY + 42 + Math.sin(ang) * r0);
+          ctx.lineTo(originX + Math.cos(ang) * (r0 + len), originY + 42 + Math.sin(ang) * (r0 + len));
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+      return;
+    }
+
+    const p = Math.max(0, Math.min(1, progress));
+    const dx = targetX - originX;
+    const dy = targetY - originY;
+    const totalLen = Math.max(80, Math.hypot(dx, dy));
+    const angle = Math.atan2(dy, dx);
+    const sweepSpan = totalLen * 1.48; // Fires cleanly past the enemy into top-left edge like DOS F7-F9!
+
+    // Authentic DOS F7 -> F8 -> F9 timing:
+    //  0.00..0.14 : explosive radial fan burst snapping all the way across enemy
+    //  0.14..0.52 : peak wide roaring jagged golden fan cone blasting diagonally up-left
+    //  0.52..1.00 : core clears rapidly while outer jagged golden needle-streaks shoot free past the target & dissipate!
+    const coreEnv =
+      p < 0.10
+        ? p / 0.10
+        : p < 0.40
+          ? 1.0 - (p - 0.10) * 0.45
+          : Math.max(0, 0.865 * (1 - (p - 0.40) / 0.24));
+    const reach = Math.min(1, Math.pow(p / 0.16, 0.72));
+    const tailRelease = p < 0.36 ? 0 : Math.min(1, (p - 0.36) / 0.64);
+    const fanHalfSpread = 0.46; // ~±26 deg wide triangular dragon-wave fan (matches Kelly F5 artwork + DOS F7!)
+
+    ctx.save();
+    ctx.translate(originX, originY + 12);
+    ctx.rotate(angle);
+
+    // 1. Soft atmospheric fan-shaped golden glow envelope (kept restrained so jagged amber/gold spears pop cleanly like DOS F7!)
+    if (coreEnv > 0.02) {
+      const fanReach = sweepSpan * (0.38 + reach * 0.62);
+      const flare = ctx.createRadialGradient(-10, 0, 12, 0, 0, fanReach);
+      flare.addColorStop(0, `rgba(255, 255, 235, ${0.52 * coreEnv})`);
+      flare.addColorStop(0.24, `rgba(${pal.light}, ${0.38 * coreEnv})`);
+      flare.addColorStop(0.52, `rgba(${pal.mid}, ${0.26 * coreEnv})`);
+      flare.addColorStop(0.82, `rgba(${pal.outer}, ${0.14 * coreEnv})`);
+      flare.addColorStop(1, `rgba(${pal.outer}, 0)`);
+      ctx.fillStyle = flare;
+      ctx.beginPath();
+      ctx.moveTo(-20, -thickness * 0.28);
+      ctx.lineTo(fanReach, -Math.tan(fanHalfSpread * 1.05) * fanReach - thickness * 0.16);
+      ctx.lineTo(fanReach, Math.tan(fanHalfSpread * 0.95) * fanReach + thickness * 0.16);
+      ctx.lineTo(-20, thickness * 0.32);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 2. Jagged feathered blade-fan wedges (`DOS F7` solid golden-to-orange splash cones!)
+    const rayCount = 26;
+    for (let i = 0; i < rayCount; i++) {
+      const frac = i / (rayCount - 1) - 0.5; // -0.5 .. +0.5
+      // Pseudo-deterministic variance so every ray feels sharp, hand-drawn & explosive!
+      const h1 = Math.sin(i * 12.9898 + 4.1) * 43758.5453;
+      const rnd1 = h1 - Math.floor(h1);
+      const h2 = Math.sin(i * 78.233 + 1.7) * 23421.631;
+      const rnd2 = h2 - Math.floor(h2);
+      const rayAng = frac * fanHalfSpread * 2.05 + (rnd1 - 0.5) * 0.045;
+      const baseLen = sweepSpan * (0.72 + rnd2 * 0.42 - Math.abs(frac) * 0.22);
+
+      // On F7 (coreEnv > 0), crisp blazing white-gold-to-deep-amber flame blades launch straight from origin!
+      if (coreEnv > 0.02) {
+        const curTip = baseLen * Math.min(1, reach * (0.9 + rnd1 * 0.28));
+        const rStart = 4 + rnd1 * 34;
+        const wNear = (i % 3 === 0 ? 15 : 8.5) * (0.72 + (1 - Math.abs(frac)) * 0.55);
+        const wFar = (i % 2 === 0 ? 6 : 3.5);
+        const grad = ctx.createLinearGradient(rStart, 0, curTip, 0);
+        grad.addColorStop(0, `rgba(255, 250, 215, ${0.78 * coreEnv})`);
+        grad.addColorStop(0.24, `rgba(${pal.bright}, ${0.82 * coreEnv})`);
+        grad.addColorStop(0.54, `rgba(${pal.mid}, ${0.86 * coreEnv})`);
+        grad.addColorStop(0.84, `rgba(${pal.outer}, ${0.76 * coreEnv})`);
+        grad.addColorStop(1, `rgba(${pal.outer}, 0)`);
+        ctx.save();
+        ctx.rotate(rayAng);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(rStart, -wNear * 0.5);
+        ctx.lineTo(curTip, -wFar * 0.18);
+        ctx.lineTo(curTip + 24, 0);
+        ctx.lineTo(curTip, wFar * 0.18);
+        ctx.lineTo(rStart, wNear * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 3. `DOS F8 -> F9` trailing jagged golden-amber dissipation streaks racing outward past enemy!
+      if (p >= 0.26) {
+        const sp = Math.min(1, (p - 0.26) / 0.74);
+        const travel = sweepSpan * (0.28 + rnd1 * 0.24 + sp * (0.68 + rnd2 * 0.25));
+        const needleLen = (155 + rnd2 * 155) * (1 - sp * 0.76);
+        const alpha = (1 - Math.pow(sp, 1.35)) * (i % 2 === 0 ? 0.92 : 0.68);
+        if (alpha > 0.04 && needleLen > 12) {
+          ctx.save();
+          ctx.rotate(rayAng);
+          const sg = ctx.createLinearGradient(travel - needleLen, 0, travel, 0);
+          sg.addColorStop(0, `rgba(${pal.outer}, 0)`);
+          sg.addColorStop(0.35, `rgba(${pal.mid}, ${alpha * 0.85})`);
+          sg.addColorStop(0.78, `rgba(${pal.bright}, ${alpha})`);
+          sg.addColorStop(1, `rgba(255, 255, 255, ${alpha * (1 - tailRelease * 0.6)})`);
+          ctx.fillStyle = sg;
+          const nw = (3.4 + (i % 3) * 1.9) * (1 - sp * 0.45);
+          ctx.beginPath();
+          ctx.moveTo(travel - needleLen, 0);
+          ctx.lineTo(travel - needleLen * 0.18, -nw);
+          ctx.lineTo(travel + 12, 0);
+          ctx.lineTo(travel - needleLen * 0.18, nw);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+    ctx.restore();
+
+    // 4. Crisp enemy torso radial impact burst (peaks cleanly as fan front hits at p ~ 0.14..0.52!)
+    if (p >= 0.06 && p <= 0.64) {
+      const hitFade = p < 0.18 ? (p - 0.06) / 0.12 : Math.max(0, 1 - (p - 0.18) / 0.46);
+      const splashR = thickness * (1.25 + (1 - hitFade) * 0.55);
+      const ig = ctx.createRadialGradient(targetX, targetY, 4, targetX, targetY, splashR);
+      ig.addColorStop(0, `rgba(255, 255, 255, ${0.92 * hitFade})`);
+      ig.addColorStop(0.32, `rgba(${pal.light}, ${0.78 * hitFade})`);
+      ig.addColorStop(0.65, `rgba(${pal.bright}, ${0.42 * hitFade})`);
+      ig.addColorStop(1, `rgba(${pal.outer}, 0)`);
+      ctx.fillStyle = ig;
+      ctx.beginPath();
+      ctx.arc(targetX, targetY, splashR, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     ctx.restore();

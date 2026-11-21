@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 64,
-  "updatedAt": "2026-11-21T16:25:00Z",
+  "updatedAt": "2026-11-21T18:22:00Z",
   "units": [
     {
       "uid": 0,
@@ -922,7 +922,16 @@
       "overallPass": true,
       "heightCm": 166,
       "displayScale": 0.8,
-      "hasMagic": false
+      "hasMagic": false,
+      "stationaryBeam": {
+        "originAnchor": {
+          "x": 0.465,
+          "y": 0.662
+        },
+        "color": "gold",
+        "style": "qi_splash",
+        "thickness": 118
+      }
     },
     {
       "uid": 45,
@@ -1283,11 +1292,12 @@
       "displayScale": 0.84,
       "stationaryBeam": {
         "originAnchor": {
-          "x": 0.455,
-          "y": 0.575
+          "x": 0.423,
+          "y": 0.642
         },
         "color": "gold",
-        "thickness": 112
+        "style": "qi_splash",
+        "thickness": 118
       }
     },
     {
@@ -1310,8 +1320,8 @@
       "projectileType": "cryo_beam",
       "rangedBurstCount": 1,
       "muzzleAnchor": {
-        "x": 0.229,
-        "y": 0.572
+        "x": 0.276,
+        "y": 0.589
       },
       "rangedFireFrame": {
         "nb6": 4,
