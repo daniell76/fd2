@@ -138,6 +138,8 @@ export interface VfxManifestUnitEntry {
     frameCount: number;
     isRemote: boolean;
   };
+  /** Optional dedicated 2026 HD 6-frame spell-chanting strip (`u_XXX/chant_0..5.webp` + `chant_sheet.jpg`). */
+  hasChantAnim?: boolean;
   overallPass?: boolean;
 }
 
@@ -199,6 +201,7 @@ interface VfxLabAssets {
   thorOmniPoses: HTMLImageElement[];
   banditOmniPoses: HTMLImageElement[];
   thorRangedPoses: HTMLImageElement[];
+  thorChantPoses: HTMLImageElement[];
   thorRangedProj: HTMLImageElement | null;
   thorSheetRaw: HTMLImageElement;
   banditSheetRaw: HTMLImageElement;
@@ -256,6 +259,7 @@ const vfxAssetsCache: VfxLabAssets = {
   thorOmniPoses: [],
   banditOmniPoses: [],
   thorRangedPoses: [],
+  thorChantPoses: [],
   thorRangedProj: null,
   thorSheetRaw: new Image(),
   banditSheetRaw: new Image(),
@@ -279,7 +283,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=81';
+const VFX_ASSET_VERSION = '?v=82';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -450,7 +454,7 @@ export async function loadUnitSlotIntoVfxAssets(
   const cb = VFX_ASSET_VERSION;
   const omniCount = Math.max(10, entry.omniFrameCount ?? 10);
   const omniIndices = Array.from({ length: omniCount }, (_, i) => i);
-  const [nb6, omni, rangedPoses, rangedProj, cutIn, cIdle, cAtk] = await Promise.all([
+  const [nb6, omni, rangedPoses, chantPoses, rangedProj, cutIn, cIdle, cAtk] = await Promise.all([
     Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/nb6_${i}.webp${cb}`))),
     Promise.all(omniIndices.map((i) => loadImg(`${entry.dir}/omni_${i}.webp${cb}`))),
     side === 'player' && entry.rangedSkill
@@ -458,6 +462,11 @@ export async function loadUnitSlotIntoVfxAssets(
           Array.from({ length: entry.rangedSkill.frameCount }, (_, i) =>
             loadImg(`${entry.dir}/ranged_${i}.webp${cb}`).catch(() => null)
           )
+        ).then((arr) => arr.filter((x): x is HTMLImageElement => Boolean(x)))
+      : Promise.resolve([] as HTMLImageElement[]),
+    side === 'player' && entry.hasChantAnim
+      ? Promise.all(
+          [0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/chant_${i}.webp${cb}`).catch(() => null))
         ).then((arr) => arr.filter((x): x is HTMLImageElement => Boolean(x)))
       : Promise.resolve([] as HTMLImageElement[]),
     side === 'player' &&
@@ -476,6 +485,7 @@ export async function loadUnitSlotIntoVfxAssets(
     target.thorPoses = [nb6[0], nb6[2], nb6[3]];
     target.thorOmniPoses = omni;
     target.thorRangedPoses = rangedPoses;
+    target.thorChantPoses = chantPoses;
     target.thorRangedProj = rangedProj;
     target.classicThorIdle = cIdle;
     target.classicThorAtk = cAtk;
@@ -4508,9 +4518,16 @@ export class Modern25DCombatRenderer {
       : (caster.magicNameZh ?? (element === 'holy' ? '聖光審判' : element === 'fire' ? '炎龍術' : '星辰秘法'));
 
     const srcMode = this.config.animSource;
+    const useDedicatedChant = this.vfxAssets.thorChantPoses.length >= 6;
     const useHeroChantStrip =
-      caster.rangedSkill?.mode === 'hero_chant' && this.vfxAssets.thorRangedPoses.length >= 6;
-    const casterPoses = useHeroChantStrip ? this.vfxAssets.thorRangedPoses : this.getActivePoseList('thor');
+      !useDedicatedChant &&
+      caster.rangedSkill?.mode === 'hero_chant' &&
+      this.vfxAssets.thorRangedPoses.length >= 6;
+    const casterPoses = useDedicatedChant
+      ? this.vfxAssets.thorChantPoses
+      : useHeroChantStrip
+        ? this.vfxAssets.thorRangedPoses
+        : this.getActivePoseList('thor');
     const targetPoses = this.getActivePoseList('bandit');
     const casterMaxIdx = Math.max(1, casterPoses.length - 1);
 
@@ -4538,7 +4555,7 @@ export class Modern25DCombatRenderer {
         dashDirY: 0,
       };
 
-      if (useHeroChantStrip) {
+      if (useDedicatedChant || useHeroChantStrip) {
         this.setContinuousFrame(casterSpec, Math.min(5, p * 5.25), 5);
       } else if (srcMode === 'omni_video') {
         this.setContinuousFrame(casterSpec, Math.min(casterMaxIdx, p * (casterMaxIdx + 0.4)), casterMaxIdx);
@@ -7436,6 +7453,16 @@ export async function mountVfxLabInGallery(
           </div>
           <div id="vfx-focus-ranged-strip" style="display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 8px; overflow-x: auto;"></div>
         </div>
+
+        <!-- Dedicated Spell-Chanting Strip (chant_0..5.webp + chant_sheet.jpg) -->
+        <div id="vfx-focus-chant-panel" style="display: none; background: #120b1f; padding: 14px; border-radius: 10px; border: 1.5px solid rgba(192, 132, 252, 0.55); flex-direction: column; gap: 10px;">
+          <div id="vfx-focus-chant-title" style="font-size: 13px; font-weight: 800; color: #e9d5ff;"></div>
+          <div>
+            <div class="mono-tag" style="font-size: 11px; color: #d8b4fe; margin-bottom: 4px;">✨ HD Dedicated Spell-Chant Sheet (chant_sheet.jpg)</div>
+            <img id="vfx-focus-chant-sheet" loading="lazy" style="width: 100%; max-width: 720px; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #ffffff;" />
+          </div>
+          <div id="vfx-focus-chant-strip" style="display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 8px; overflow-x: auto;"></div>
+        </div>
       </div>
 
       <!-- REFACTORED UNITS QUICK-JUMP VISUAL ROSTER GRID -->
@@ -7662,6 +7689,40 @@ export async function mountVfxLabInGallery(
         }
       } else {
         rangedPanel.style.display = 'none';
+      }
+    }
+
+    const chantPanel = container.querySelector('#vfx-focus-chant-panel') as HTMLDivElement | null;
+    if (chantPanel) {
+      if (u.hasChantAnim) {
+        chantPanel.style.display = 'flex';
+        const cTitle = container.querySelector('#vfx-focus-chant-title') as HTMLDivElement | null;
+        if (cTitle) {
+          const spZh = u.magicNameZh ?? '魔法詠唱';
+          const spEn = u.magicNameEn ?? 'Spell Chant';
+          cTitle.textContent = `✨ ${tr(
+            `專屬法術詠唱動畫：${spZh} (6 幀 · chant_0..5.webp)`,
+            `专属法术咏唱动画：${spZh} (6 帧 · chant_0..5.webp)`,
+            `Dedicated Spell-Chant Animation: ${spEn} (6F · chant_0..5.webp)`
+          )}`;
+        }
+        const cSheet = container.querySelector('#vfx-focus-chant-sheet') as HTMLImageElement | null;
+        if (cSheet) cSheet.src = `${u.dir}/chant_sheet.jpg${cb}`;
+        const cStrip = container.querySelector('#vfx-focus-chant-strip') as HTMLDivElement | null;
+        if (cStrip) {
+          cStrip.innerHTML = [0, 1, 2, 3, 4, 5]
+            .map(
+              (i) => `
+            <div style="background: #1a112b; border: 1px solid #c084fc; border-radius: 6px; padding: 6px; text-align: center;">
+              <img src="${u.dir}/chant_${i}.webp${cb}" loading="lazy" style="width: 100%; height: 84px; object-fit: contain; display: block;" />
+              <div class="mono-tag" style="font-size: 10.5px; color: #e9d5ff; margin-top: 4px;">Chant F${i + 1}</div>
+            </div>
+          `
+            )
+            .join('');
+        }
+      } else {
+        chantPanel.style.display = 'none';
       }
     }
 

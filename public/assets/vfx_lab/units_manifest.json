@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 64,
-  "updatedAt": "2026-11-22T13:49:00Z",
+  "updatedAt": "2026-11-22T19:54:13Z",
   "units": [
     {
       "uid": 0,
@@ -193,7 +193,8 @@
       "magicNameEn": "Flame Dragon",
       "overallPass": true,
       "heightCm": 164,
-      "displayScale": 0.85
+      "displayScale": 0.85,
+      "hasChantAnim": true
     },
     {
       "uid": 10,
@@ -212,7 +213,8 @@
       "magicNameEn": "Holy Radiance",
       "overallPass": true,
       "heightCm": 162,
-      "displayScale": 0.84
+      "displayScale": 0.84,
+      "hasChantAnim": true
     },
     {
       "uid": 11,
@@ -231,7 +233,8 @@
       "magicNameEn": "Holy Radiance",
       "overallPass": true,
       "heightCm": 165,
-      "displayScale": 0.95
+      "displayScale": 0.95,
+      "hasChantAnim": true
     },
     {
       "uid": 12,
@@ -306,7 +309,8 @@
       "magicNameEn": "Thunderstorm",
       "overallPass": true,
       "heightCm": 168,
-      "displayScale": 0.98
+      "displayScale": 0.98,
+      "hasChantAnim": true
     },
     {
       "uid": 15,
@@ -453,7 +457,8 @@
       "magicNameEn": "Holy Bolt",
       "overallPass": true,
       "heightCm": 174,
-      "displayScale": 1.0
+      "displayScale": 1.0,
+      "hasChantAnim": true
     },
     {
       "uid": 22,
@@ -523,7 +528,8 @@
       "magicNameEn": "Divine Grace",
       "overallPass": true,
       "heightCm": 184,
-      "displayScale": 1.08
+      "displayScale": 1.08,
+      "hasChantAnim": true
     },
     {
       "uid": 25,
@@ -564,7 +570,8 @@
         "mode": "shadow_wave",
         "frameCount": 6,
         "isRemote": false
-      }
+      },
+      "hasChantAnim": true
     },
     {
       "uid": 26,
@@ -635,7 +642,8 @@
       "magicNameEn": "Demon Blade",
       "overallPass": true,
       "heightCm": 210,
-      "displayScale": 1.42
+      "displayScale": 1.42,
+      "hasChantAnim": true
     },
     {
       "uid": 29,
@@ -655,7 +663,8 @@
       "magicNameEn": "Quake Rift",
       "overallPass": true,
       "heightCm": 168,
-      "displayScale": 0.99
+      "displayScale": 0.99,
+      "hasChantAnim": true
     },
     {
       "uid": 30,
@@ -900,7 +909,8 @@
       "hasMagic": true,
       "magicElement": "fire",
       "magicNameZh": "炎龍術",
-      "magicNameEn": "Flame Dragon"
+      "magicNameEn": "Flame Dragon",
+      "hasChantAnim": true
     },
     {
       "uid": 42,
@@ -920,7 +930,8 @@
       "hasMagic": true,
       "magicElement": "holy",
       "magicNameZh": "聖光審判",
-      "magicNameEn": "Holy Radiance"
+      "magicNameEn": "Holy Radiance",
+      "hasChantAnim": true
     },
     {
       "uid": 43,
@@ -940,7 +951,8 @@
       "hasMagic": true,
       "magicElement": "holy",
       "magicNameZh": "聖光審判",
-      "magicNameEn": "Holy Radiance"
+      "magicNameEn": "Holy Radiance",
+      "hasChantAnim": true
     },
     {
       "uid": 44,
@@ -1014,7 +1026,8 @@
       "hasMagic": true,
       "magicElement": "thunder",
       "magicNameZh": "轟雷術",
-      "magicNameEn": "Thunderstorm"
+      "magicNameEn": "Thunderstorm",
+      "hasChantAnim": true
     },
     {
       "uid": 47,
@@ -1132,10 +1145,14 @@
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_051",
       "isFlying": false,
-      "hasMagic": false,
+      "hasMagic": true,
       "overallPass": true,
       "heightCm": 184,
-      "displayScale": 0.99
+      "displayScale": 0.99,
+      "hasChantAnim": true,
+      "magicElement": "holy",
+      "magicNameZh": "魔鎧術 · 再生術",
+      "magicNameEn": "Armor Ward · Regenerate"
     },
     {
       "uid": 52,
@@ -1155,7 +1172,8 @@
       "displayScale": 0.85,
       "magicElement": "arcane",
       "magicNameZh": "星靈召喚",
-      "magicNameEn": "Spirit Pact"
+      "magicNameEn": "Spirit Pact",
+      "hasChantAnim": true
     },
     {
       "uid": 53,
@@ -1169,10 +1187,14 @@
       "cutinFacing": "left",
       "dir": "assets/vfx_lab/units/u_053",
       "isFlying": false,
-      "hasMagic": false,
+      "hasMagic": true,
       "overallPass": true,
       "heightCm": 182,
-      "displayScale": 1.28
+      "displayScale": 1.28,
+      "hasChantAnim": true,
+      "magicElement": "holy",
+      "magicNameZh": "風行術 · 再生術",
+      "magicNameEn": "Wind Step · Regenerate"
     },
     {
       "uid": 54,
@@ -1277,7 +1299,8 @@
       "displayScale": 0.84,
       "magicElement": "holy",
       "magicNameZh": "天界聖光",
-      "magicNameEn": "Seraphic Radiance"
+      "magicNameEn": "Seraphic Radiance",
+      "hasChantAnim": true
     },
     {
       "uid": 60,
@@ -1297,7 +1320,8 @@
       "displayScale": 0.83,
       "magicElement": "holy",
       "magicNameZh": "神聖光環",
-      "magicNameEn": "Rose-Gold Halo"
+      "magicNameEn": "Rose-Gold Halo",
+      "hasChantAnim": true
     },
     {
       "uid": 61,
@@ -1317,7 +1341,8 @@
       "displayScale": 0.85,
       "magicElement": "holy",
       "magicNameZh": "聖陽審判",
-      "magicNameEn": "Solar Judgment"
+      "magicNameEn": "Solar Judgment",
+      "hasChantAnim": true
     },
     {
       "uid": 62,
@@ -1391,7 +1416,8 @@
       "displayScale": 0.9,
       "magicElement": "holy",
       "magicNameZh": "星輝天光",
-      "magicNameEn": "Astral Starlight"
+      "magicNameEn": "Astral Starlight",
+      "hasChantAnim": true
     },
     {
       "uid": 65,
