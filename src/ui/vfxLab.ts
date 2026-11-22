@@ -279,7 +279,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=80';
+const VFX_ASSET_VERSION = '?v=81';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -460,7 +460,8 @@ export async function loadUnitSlotIntoVfxAssets(
           )
         ).then((arr) => arr.filter((x): x is HTMLImageElement => Boolean(x)))
       : Promise.resolve([] as HTMLImageElement[]),
-    side === 'player' && entry.rangedSkill?.mode === 'sonic_crescent'
+    side === 'player' &&
+    (entry.rangedSkill?.mode === 'sonic_crescent' || entry.rangedSkill?.mode === 'flame_blade_beam')
       ? loadImg(`${entry.dir}/ranged_proj.webp${cb}`).catch(() => null)
       : Promise.resolve(null),
     loadImg(`${entry.dir}/cutin.jpg${cb}`).catch(() => null),
@@ -3607,6 +3608,64 @@ export class Modern25DCombatRenderer {
       ctx.restore();
     };
 
+    // Helper 3: draw #032 Thor (Sword Saint) roaring ABSTRACTED FLAME-DRAGON head (`u_032/ranged_proj.webp`)
+    // seamlessly grafted onto our turbulent organic blazing fire-beam shaft + jagged dragon-fire tail!
+    const drawFlameDragonMissile = (
+      snoutX: number,
+      tailX: number,
+      cy: number,
+      halfH: number,
+      alpha: number,
+      tMs: number,
+      pinTailToBlade = false
+    ) => {
+      const a = Math.max(0, Math.min(1, alpha));
+      if (a <= 0.01) return;
+      const dImg = this.vfxAssets.thorRangedProj;
+      if (dImg && dImg.complete && dImg.naturalWidth > 0) {
+        // Aspect 880x491: glowing right shaft spans roughly middle 42% height -> scale dragon height generously!
+        const dragonH = Math.round(halfH * 3.85);
+        const dragonW = Math.round(dragonH * (dImg.naturalWidth / dImg.naturalHeight));
+        const headLeft = snoutX - dragonW * 0.06;
+        const headTop = cy - dragonH * 0.494;
+        // Start continuous roaring horizontal beam tucked cleanly INSIDE the dragon throat (`x = headLeft + 0.46 * dragonW`)
+        const throatX = headLeft + dragonW * 0.48;
+        if (tailX > throatX + 24) {
+          drawFlameBladeQiBeam(throatX, tailX, cy, halfH * 0.88, a, tMs, pinTailToBlade);
+        }
+        // Rich opaque fiery dragon head (crystal-sharp claws/fangs/cyan eye even over sunlit meadow!)
+        ctx.save();
+        if (pinTailToBlade) {
+          // Clip dragon plume cleanly right at Thor's sword launch plane so it erupts forward, never behind his cape!
+          ctx.beginPath();
+          ctx.rect(-800, -200, tailX + 836, H + 400);
+          ctx.clip();
+        }
+        ctx.globalAlpha = a;
+        // Subtle animated vibration flicker matching roaring live dragon flames
+        const vibY = Math.sin(tMs * 0.045) * 3.5;
+        const stretchX = 1 + Math.sin(tMs * 0.06) * 0.018;
+        ctx.drawImage(dImg, headLeft, headTop + vibY, dragonW * stretchX, dragonH);
+        // Additive blazing bloom pass intensifying the molten core, glowing cyan eye & soaring fire whiskers
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = a * 0.48;
+        ctx.drawImage(dImg, headLeft - 4, headTop + vibY, dragonW * stretchX, dragonH);
+        // Incandescent ambient aura halo wrapping the roaring mouth fireball
+        const mx = headLeft + dragonW * 0.21;
+        const mg = ctx.createRadialGradient(mx, cy + 4, 8, mx, cy + 4, dragonH * 0.46);
+        mg.addColorStop(0, `rgba(255, 252, 224, ${0.44 * a})`);
+        mg.addColorStop(0.42, `rgba(253, 224, 71, ${0.24 * a})`);
+        mg.addColorStop(1, 'rgba(234, 88, 12, 0)');
+        ctx.fillStyle = mg;
+        ctx.beginPath();
+        ctx.arc(mx, cy + 4, dragonH * 0.46, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else {
+        drawFlameBladeQiBeam(snoutX, tailX, cy, halfH, a, tMs, pinTailToBlade);
+      }
+    };
+
     // -------------------------------------------------------------------------
     // A. UNIFIED MELEE/CLOSE SKILLS: #019 Rodman (`radiant_blade_cone`) & #025 Shadow (`shadow_wave`)
     // -------------------------------------------------------------------------
@@ -4155,34 +4214,46 @@ export class Modern25DCombatRenderer {
       this.renderCombatantWithBlend(ctx, poses, spec, '#38bdf8', heroDisp);
 
       if (sk.mode === 'sonic_crescent' && p >= 0.80) {
-        // Launch Midi's EXACT painted F5 sonic wave sprite seamlessly the instant F5 -> F6 switches!
-        const fly = (p - 0.80) / 0.20;
+        // Launch Midi's EXACT painted F5 sonic wave sprite at blistering transit speed (~6.8 px/ms!)
+        const launchMs = localT - s1End * 0.80; // 0..236ms
         const srcX = hx + (129 / 680 - 0.5) * heroDisp;
         const srcY = hy + (285 / 680 - 648 / 680) * heroDisp;
         const projW = (445 / 680) * heroDisp;
         const projH = (358 / 680) * heroDisp;
-        const slideX = srcX - Math.pow(fly, 1.08) * (srcX + projW * 0.92);
-        drawSonicWaveProj(slideX, srcY - fly * 12, projW * (1 + fly * 0.08), projH * (1 + fly * 0.08), 1.0, fly > 0.06);
+        const slideX = srcX - launchMs * 6.8;
+        if (slideX + projW > -140) {
+          drawSonicWaveProj(slideX, srcY - launchMs * 0.04, projW * 1.04, projH * 1.04, 1.0, launchMs > 18);
+        }
       } else if (sk.mode === 'flame_blade_beam' && p >= 0.52) {
-        // #032 Thor (Sword Saint): Launch the blazing rounded-nose jagged-tail `熾炎刀` Qi missile left off attack screen!
-        const lp = Math.min(1, (p - 0.52) / 0.48);
+        // #032 Thor (Sword Saint): Blazing FLAME-DRAGON head Qi missile blasting straight left at ~6.8 px/ms!
+        const flyMs = localT - s1End * 0.52; // 0..566ms
         const bladeX = hx - heroDisp * 0.14;
-        const beamCy = hy - heroDisp * 0.25;
-        const frontX = bladeX - 40 - Math.pow(lp, 0.88) * (bladeX + 520);
-        const tailDetached = lp > 0.52;
-        const tailSlide = tailDetached ? ((lp - 0.52) / 0.48) : 0;
-        const tailX = tailDetached ? bladeX - tailSlide * (bladeX + 220) : bladeX;
-        const beamH = 74 + Math.sin(Math.min(1, lp * 2.2) * Math.PI * 0.5) * 34;
-        drawFlameBladeQiBeam(frontX, tailX, beamCy, beamH, lp < 0.08 ? lp / 0.08 : 1, localT, !tailDetached);
+        const beamCy = hy - heroDisp * 0.27;
+        const snoutX = bladeX - 40 - flyMs * 6.8;
+        const tailDetachMs = 175; // Brief roar anchored at blade then whip-launches free off left border!
+        const tailDetached = flyMs > tailDetachMs;
+        const tailX = tailDetached ? bladeX - (flyMs - tailDetachMs) * 6.8 : bladeX;
+        const beamH = 82;
+        if (tailX > -320) {
+          drawFlameDragonMissile(
+            snoutX,
+            tailX,
+            beamCy,
+            beamH,
+            flyMs < 35 ? flyMs / 35 : 1,
+            localT,
+            !tailDetached
+          );
+        }
         // Subtle glowing ring shockburst right around the blade launch point on emission!
-        if (lp < 0.62) {
-          const rp = lp / 0.62;
+        if (flyMs < 240) {
+          const rp = flyMs / 240;
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
-          ctx.strokeStyle = `rgba(253, 224, 71, ${(1 - rp) * 0.85})`;
+          ctx.strokeStyle = `rgba(253, 224, 71, ${(1 - rp) * 0.88})`;
           ctx.lineWidth = 6 * (1 - rp * 0.6);
           ctx.beginPath();
-          ctx.ellipse(bladeX - 18, beamCy, 18 + rp * 54, 48 + rp * 115, 0, 0, Math.PI * 2);
+          ctx.ellipse(bladeX - 18, beamCy, 18 + rp * 58, 48 + rp * 125, 0, 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
         }
@@ -4195,8 +4266,9 @@ export class Modern25DCombatRenderer {
     }
 
     if (localT < s2End) {
-      // STAGE 2: High-Speed Transit Bridge
-      const bp = (localT - s1End) / (s2End - s1End);
+      // STAGE 2: High-Speed Transit Bridge (~340ms total, speed ~7.0 px/ms!)
+      const s2Ms = localT - s1End;
+      const bp = s2Ms / (s2End - s1End);
       this.activeStageBadge = isEn
         ? `[2/3 Skill Transit: ${skillName}] ${heroTerrain.en} → ${enemyTerrain.en}`
         : `[2/3 劍氣過場：${skillName}] ${heroTerrain.zh} → ${enemyTerrain.zh}`;
@@ -4219,13 +4291,13 @@ export class Modern25DCombatRenderer {
       if (sk.mode === 'sonic_crescent') {
         const pw = 600;
         const ph = Math.round(pw * (358 / 445));
-        const sx = W + 60 - bp * (W + pw + 180);
+        const sx = W + 60 - s2Ms * 6.8;
         drawSonicWaveProj(sx, H * 0.5 - ph * 0.5, pw, ph, 1, true);
       } else if (sk.mode === 'flame_blade_beam') {
-        // Rounded blazing Qi comet head soaring right -> left with torn jagged fiery dragon tail!
-        const frontX = W * (0.98 - bp * 1.48);
-        const tailX = frontX + W * 0.92;
-        drawFlameBladeQiBeam(frontX, tailX, H * 0.5, 118, 1, localT, false);
+        // Abstracted roaring flame-dragon head streaking across transit at matching 6.8 px/ms!
+        const snoutX = W + 80 - s2Ms * 6.8;
+        const tailX = snoutX + 1280;
+        drawFlameDragonMissile(snoutX, tailX, H * 0.5, 108, 1, localT, false);
       } else {
         // Vertical roaring amber energy pulse signaling incoming sky pillar
         ctx.globalCompositeOperation = 'screen';
@@ -4241,14 +4313,18 @@ export class Modern25DCombatRenderer {
       return;
     }
 
-    // STAGE 3: Target Solo Impact (`#018` F5 sonic wave slice / `#032` blazing Qi comet-beam / `#034` sky pillar!)
-    const p3 = Math.min(1, (localT - s2End) / Math.max(1, totalDur - s2End));
+    // STAGE 3: Target Solo Impact (`#018` F5 sonic wave slice / `#032` blazing flame-dragon Qi beam / `#034` sky pillar!)
+    const s3Dur = Math.max(1, totalDur - s2End); // 1260ms
+    const s3Ms = Math.max(0, localT - s2End);
+    const p3 = Math.min(1, s3Ms / s3Dur);
     this.activeStageBadge = isEn
       ? `[3/3 Impact: ${skillName}] ${target.nameEn} · ${enemyTerrain.en}`
       : `[3/3 目標受擊：${skillName}] ${target.nameZh} · ${enemyTerrain.zh}`;
     const tx = W * 0.36;
     const ty = H * 0.72;
-    const hitAt = sk.mode === 'sky_pillar' ? 0.30 : sk.mode === 'sonic_crescent' ? 0.34 : 0.22;
+    // Exact missile speed = 6.8 px/ms matching Stage 2 transit!
+    // Leading edge enters W + 60 at t=0 and collides with Bandit (tx = 576) at ~160ms (p3 ~ 0.127)!
+    const hitAt = sk.mode === 'sky_pillar' ? 0.30 : 0.125;
     const hp = p3 >= hitAt ? Math.min(1, (p3 - hitAt) / (1 - hitAt)) : 0;
     const recoil = p3 >= hitAt ? Math.sin(Math.min(1, hp * 2.1) * Math.PI) * 58 : 0;
     const enemySpec: PoseRenderSpec = {
@@ -4307,40 +4383,67 @@ export class Modern25DCombatRenderer {
     this.renderCombatantWithBlend(ctx, targetPoses, enemySpec, '#ef4444', targetDisp);
 
     if (sk.mode === 'sonic_crescent') {
-      // Midi's EXACT painted F5 jagged ice-blue/gold sonic wave tearing straight through Bandit!
+      // Midi's EXACT painted F5 sonic wave at IDENTICAL Stage-2 blistering speed (6.8 px/ms)!
       const pw = Math.round(heroDisp * (445 / 680) * 1.24);
       const ph = Math.round(heroDisp * (358 / 680) * 1.24);
-      const waveLeft = W * 0.96 - (p3 / 0.88) * (W * 0.96 + pw + 80);
-      const fade = p3 < 0.78 ? 1 : Math.max(0, 1 - (p3 - 0.78) / 0.18);
-      if (p3 < 0.96) {
-        drawSonicWaveProj(waveLeft, ty - ph + 28, pw, ph, fade, true);
+      const waveLeft = W + 60 - s3Ms * 6.8;
+      if (waveLeft + pw > -200) {
+        drawSonicWaveProj(waveLeft, ty - ph + 28, pw, ph, 1.0, true);
+      }
+      // Sharp glowing after-slash sonic wake ringing across Bandit immediately after passage!
+      if (s3Ms >= 150 && s3Ms < 620) {
+        const wf = 1 - (s3Ms - 150) / 470;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const wg = ctx.createLinearGradient(tx - 260, ty - 205, tx + 290, ty - 140);
+        wg.addColorStop(0, 'rgba(125,211,252,0)');
+        wg.addColorStop(0.35, `rgba(224,242,254,${0.85 * wf})`);
+        wg.addColorStop(0.5, `rgba(253,224,71,${0.95 * wf})`);
+        wg.addColorStop(0.7, `rgba(125,211,252,${0.65 * wf})`);
+        wg.addColorStop(1, 'rgba(56,189,248,0)');
+        ctx.fillStyle = wg;
+        ctx.beginPath();
+        ctx.moveTo(tx - 270, ty - 180);
+        ctx.lineTo(tx, ty - 180 - 16 * wf);
+        ctx.lineTo(tx + 310, ty - 180);
+        ctx.lineTo(tx, ty - 180 + 16 * wf);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
       }
     } else if (sk.mode === 'flame_blade_beam') {
-      // Organic roaring horizontal Qi comet blade-wave (`DOS u_032_ranged F9..F13` — rounded comet nose + torn spiky flame tail!)
-      if (p3 < 0.90) {
-        const noseT = Math.min(1, p3 / 0.36);
-        const frontX = W + 90 - noseT * (W + 460);
-        const tailT = p3 < 0.34 ? 0 : Math.min(1, (p3 - 0.34) / 0.52);
-        const tailX = W + 180 - tailT * (W + 560);
-        const cy = ty - 185;
-        const halfH = 124 * (p3 < 0.62 ? 1 : Math.max(0.45, 1 - (p3 - 0.62) / 0.34));
-        const alphaFade = p3 > 0.78 ? Math.max(0, 1 - (p3 - 0.78) / 0.12) : 1;
-        drawFlameBladeQiBeam(frontX, tailX, cy, halfH, alphaFade, localT, false);
-        // Roaring chest impact shock-corona right around Bandit while Qi stream hits!
-        if (p3 >= hitAt && p3 < 0.70) {
-          const impFade = Math.sin(((p3 - hitAt) / (0.70 - hitAt)) * Math.PI);
-          ctx.save();
-          ctx.globalCompositeOperation = 'screen';
-          const cg = ctx.createRadialGradient(tx + 12, cy, 12, tx + 12, cy, 240);
-          cg.addColorStop(0, `rgba(255, 255, 240, ${0.78 * impFade})`);
-          cg.addColorStop(0.4, `rgba(253, 224, 71, ${0.46 * impFade})`);
-          cg.addColorStop(1, 'rgba(234, 88, 12, 0)');
-          ctx.fillStyle = cg;
+      // #032 Thor SS roaring FLAME-DRAGON head + golden Qi shaft whipping right -> left at 6.8 px/ms!
+      const snoutX = W + 90 - s3Ms * 6.8;
+      const tailX = snoutX + 1280;
+      const cy = ty - 190;
+      if (tailX > -360) {
+        drawFlameDragonMissile(snoutX, tailX, cy, 108, 1.0, localT, false);
+      }
+      // Roaring fiery impact corona lingering across Bandit after the flame dragon tears right through!
+      if (s3Ms >= 150 && s3Ms < 780) {
+        const impFade = Math.max(0, 1 - (s3Ms - 150) / 630);
+        const rad = 180 + (1 - impFade) * 140;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const cg = ctx.createRadialGradient(tx + 12, cy, 10, tx + 12, cy, rad);
+        cg.addColorStop(0, `rgba(255, 255, 240, ${0.88 * impFade})`);
+        cg.addColorStop(0.36, `rgba(253, 224, 71, ${0.58 * impFade})`);
+        cg.addColorStop(0.72, `rgba(234, 88, 12, ${0.28 * impFade})`);
+        cg.addColorStop(1, 'rgba(234, 88, 12, 0)');
+        ctx.fillStyle = cg;
+        ctx.beginPath();
+        ctx.arc(tx + 12, cy, rad, 0, Math.PI * 2);
+        ctx.fill();
+        // Rapidly expanding fiery ring shockwave around dragon chomp site
+        if (s3Ms < 460) {
+          const rp = (s3Ms - 150) / 310;
+          ctx.strokeStyle = `rgba(253, 224, 71, ${(1 - rp) * 0.85})`;
+          ctx.lineWidth = 8 * (1 - rp * 0.7);
           ctx.beginPath();
-          ctx.arc(tx + 12, cy, 240, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
+          ctx.arc(tx + 10, cy, 65 + rp * 255, 0, Math.PI * 2);
+          ctx.stroke();
         }
+        ctx.restore();
       }
     } else if (sk.mode === 'sky_pillar' && p3 >= 0.28) {
       // Massive vertical golden light pillar crashing from the sky onto enemy (DOS F14..F16!)
