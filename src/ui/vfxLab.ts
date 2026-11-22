@@ -277,7 +277,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=77';
+const VFX_ASSET_VERSION = '?v=78';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -674,6 +674,7 @@ export class Modern25DCombatRenderer {
     if (this.scenario === 'hero_skill') {
       const sk = this.vfxAssets.rightUnit.rangedSkill;
       if (sk?.mode === 'hero_chant') return 3150;
+      if (sk?.mode === 'radiant_blade_cone') return 2950;
       return sk?.isRemote ? 2950 : 2550;
     }
     const heroFlyExtra = this.hasLongFlyPrelude(this.vfxAssets.rightUnit)
@@ -3330,7 +3331,8 @@ export class Modern25DCombatRenderer {
     // A. UNIFIED MELEE/CLOSE SKILLS: #019 Rodman (`radiant_blade_cone`) & #025 Shadow (`shadow_wave`)
     // -------------------------------------------------------------------------
     if (!sk.isRemote) {
-      const totalDur = 2350;
+      const isRadiantCone = sk.mode === 'radiant_blade_cone';
+      const totalDur = isRadiantCone ? 2780 : 2350;
       const p = Math.min(1, localT / totalDur);
       const banditHomeX = W * 0.27;
       const banditHomeY = H * 0.68;
@@ -3366,55 +3368,89 @@ export class Modern25DCombatRenderer {
       };
 
       let camShake = 0;
-      let camZoom = 1.0 + Math.sin(Math.min(1, p * 1.35) * Math.PI) * 0.07;
+      let camZoom = 1.0 + Math.sin(Math.min(1, p * 1.35) * Math.PI) * (isRadiantCone ? 0.11 : 0.07);
       let strobeIdx = -1; // >=0 during #019 rapid gold/blue wave pulse!
+      let r19ChargeP = -1; // 0..1 during overhead solar ignition windup (F2..F3)
+      let r19StrikeP = -1; // 0..1 during grand climax strobe release (F4 <-> F5)
+      let r19AfterP = -1; // 0..1 cooling aftermath ember fade (F6)
+      let r19DimAlpha = 0;
       let cutInP = -1;
 
-      if (sk.mode === 'radiant_blade_cone') {
-        if (this.config.enableAnimeCutIn && p >= 0.08 && p <= 0.36) {
-          cutInP = (p - 0.08) / 0.28;
+      if (isRadiantCone) {
+        if (this.config.enableAnimeCutIn && p >= 0.06 && p <= 0.32) {
+          cutInP = (p - 0.06) / 0.26;
         }
-        if (p < 0.14) {
+        if (p < 0.12) {
           heroSpec.primaryIdx = 0;
-        } else if (p < 0.28) {
+          r19DimAlpha = (p / 0.12) * 0.30;
+        } else if (p < 0.26) {
           heroSpec.primaryIdx = 1;
-        } else if (p < 0.42) {
+          r19ChargeP = ((p - 0.12) / 0.32);
+          r19DimAlpha = 0.30 + ((p - 0.12) / 0.14) * 0.20;
+          this.fireOnce('r19_ignite_sfx', () => {
+            this.sound.playSfx('bank:49:1');
+          });
+        } else if (p < 0.44) {
           heroSpec.primaryIdx = 2;
-        } else if (p < 0.80) {
-          // Alternating GOLD (F4, idx 3) <-> ELECTRIC ICE-BLUE (F5, idx 4) matching DOS u_019_ranged F7..F14!
-          const sp = (p - 0.42) / 0.38;
-          const toggle = Math.floor(sp * 8) % 2;
+          r19ChargeP = (p - 0.12) / 0.32;
+          r19DimAlpha = 0.50 + ((p - 0.26) / 0.18) * 0.10;
+          camShake = 2.6 * ((p - 0.26) / 0.18);
+          this.fireOnce('r19_charge_sparks', () => {
+            this.spawnImpactSparks(
+              heroHomeX + 35,
+              heroHomeY - 265,
+              heroHomeY,
+              24,
+              ['#ffffff', '#fef08a', '#f59e0b', '#fb923c'],
+              0,
+              -0.9
+            );
+          });
+        } else if (p < 0.82) {
+          // Alternating GOLD (F4, idx 3) <-> ELECTRIC SAPPHIRE-WHITE (F5, idx 4) matching DOS u_019_ranged F7..F14!
+          const sp = (p - 0.44) / 0.38;
+          r19StrikeP = sp;
+          const toggle = Math.floor(sp * 10) % 2;
           heroSpec.primaryIdx = toggle === 0 ? 3 : 4;
           strobeIdx = toggle;
-          const strikeX = banditHomeX + 195;
-          const strikeY = banditHomeY + 115;
-          const slide = Math.min(1, sp * 6);
+          r19DimAlpha = 0.62 * (1 - sp * 0.18);
+          const strikeX = banditHomeX + 205;
+          const strikeY = banditHomeY + 112;
+          const slide = Math.min(1, sp * 7.5);
           heroSpec.x = heroHomeX + (strikeX - heroHomeX) * slide;
           heroSpec.y = heroHomeY + (strikeY - heroHomeY) * slide;
+          heroSpec.afterimages = slide < 0.98 ? 4 : 0;
           const hitPulse = Math.sin(((sp * 4) % 1) * Math.PI);
-          enemySpec.x = banditHomeX - hitPulse * 34;
-          enemySpec.y = banditHomeY - hitPulse * 12;
-          enemySpec.flashWhite = toggle === 0 ? 0.68 : 0.88;
-          camShake = 9 * (1 - sp * 0.4);
+          enemySpec.x = banditHomeX - hitPulse * 46;
+          enemySpec.y = banditHomeY - hitPulse * 16;
+          enemySpec.flashWhite = toggle === 0 ? 0.72 : 0.94;
+          camShake = 14 * (1 - sp * 0.35);
           const hitTick = Math.min(3, Math.floor(sp * 4));
           this.fireOnce(`r19_hit_${hitTick}`, () => {
             this.sound.playSfx(hitTick === 3 ? 'crit' : 'bank:50:1');
+            if (hitTick === 3) {
+              this.hitStopRemainingMs = 65;
+            }
             this.spawnImpactSparks(
-              banditHomeX + 20,
-              banditHomeY - 190,
+              banditHomeX + 18,
+              banditHomeY - 195,
               banditHomeY,
-              hitTick === 3 ? 42 : 20,
-              toggle === 0 ? ['#ffffff', '#fde047', '#f59e0b'] : ['#ffffff', '#e0f2fe', '#38bdf8'],
+              hitTick === 3 ? 52 : 28,
+              toggle === 0
+                ? ['#ffffff', '#fef08a', '#fde047', '#f59e0b']
+                : ['#ffffff', '#e0f2fe', '#7dd3fc', '#38bdf8'],
               -1,
-              -0.3
+              -0.32
             );
             this.banditTargetHp = Math.max(0, this.banditTargetHp - 7);
           });
         } else {
-          const ep = (p - 0.80) / 0.20;
+          const ep = (p - 0.82) / 0.18;
+          r19AfterP = ep;
+          r19DimAlpha = 0.48 * (1 - ep);
           heroSpec.primaryIdx = 5;
-          const strikeX = banditHomeX + 195;
-          const strikeY = banditHomeY + 115;
+          const strikeX = banditHomeX + 205;
+          const strikeY = banditHomeY + 112;
           heroSpec.x = strikeX + (heroHomeX - strikeX) * ep;
           heroSpec.y = strikeY + (heroHomeY - strikeY) * ep;
         }
@@ -3468,25 +3504,247 @@ export class Modern25DCombatRenderer {
       ctx.scale(camZoom, camZoom);
       ctx.translate(-W * 0.5, -H * 0.5);
       this.drawTerrainBackdrop(ctx, W, H, enemyBgId, 0, 0, banditHomeY);
+
+      // Dramatic darkened atmosphere sky backdrop during #019 淒煌斬 so golden/sapphire flare shines epic!
+      if (isRadiantCone && r19DimAlpha > 0.01) {
+        const skyDim = ctx.createRadialGradient(
+          strobeIdx >= 0 ? banditHomeX + 100 : heroSpec.x,
+          strobeIdx >= 0 ? banditHomeY - 110 : heroSpec.y - 180,
+          140,
+          W * 0.5,
+          H * 0.5,
+          W * 0.85
+        );
+        skyDim.addColorStop(0, `rgba(10, 14, 34, ${r19DimAlpha * 0.52})`);
+        skyDim.addColorStop(1, `rgba(3, 6, 18, ${r19DimAlpha})`);
+        ctx.fillStyle = skyDim;
+        ctx.fillRect(-140, -140, W + 280, H + 280);
+      }
+
       this.drawGroundShadow(ctx, enemySpec.x, enemySpec.y, 210);
       this.drawGroundShadow(ctx, heroSpec.x, heroSpec.y, 230);
+
+      // #019 Stage A (F2..F3): Towering vertical solar ignition column & pulsing ground pressure rings behind Rodman!
+      if (isRadiantCone && r19ChargeP >= 0) {
+        const cp = Math.min(1, r19ChargeP);
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        // Expanding horizontal ground wind/qi rings beneath Rodman's stance
+        for (let r = 0; r < 3; r++) {
+          const rp = (cp * 2.2 + r * 0.33) % 1;
+          const rad = 75 + rp * 195;
+          ctx.save();
+          ctx.translate(heroSpec.x + 8, heroSpec.y - 16);
+          ctx.scale(1, 0.27);
+          ctx.strokeStyle =
+            r % 2 === 0
+              ? `rgba(253, 224, 71, ${(1 - rp) * 0.72 * cp})`
+              : `rgba(254, 249, 195, ${(1 - rp) * 0.65 * cp})`;
+          ctx.lineWidth = 6 - rp * 3.5;
+          ctx.beginPath();
+          ctx.arc(0, 0, rad, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+        // Sky-piercing solar ignition beam radiating up from Rodman's raised greatsword
+        const bx = heroSpec.x + 36;
+        const bw = (38 + cp * 110) * (0.85 + 0.15 * Math.sin(localT * 0.03));
+        const colGrad = ctx.createLinearGradient(bx - bw, 0, bx + bw, 0);
+        colGrad.addColorStop(0, 'rgba(245, 158, 11, 0)');
+        colGrad.addColorStop(0.28, `rgba(251, 191, 36, ${0.32 * cp})`);
+        colGrad.addColorStop(0.5, `rgba(255, 251, 220, ${0.68 * cp})`);
+        colGrad.addColorStop(0.72, `rgba(251, 191, 36, ${0.32 * cp})`);
+        colGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        ctx.fillStyle = colGrad;
+        ctx.fillRect(bx - bw, -120, bw * 2, heroSpec.y - 110);
+        // Subtle crackling radial flare rays converging into raised greatsword core
+        const bladeX = heroSpec.x + 65;
+        const bladeY = heroSpec.y - 295;
+        const starGrad = ctx.createRadialGradient(bladeX, bladeY, 6, bladeX, bladeY, 170 * cp);
+        starGrad.addColorStop(0, `rgba(255, 255, 245, ${0.88 * cp})`);
+        starGrad.addColorStop(0.35, `rgba(253, 224, 71, ${0.52 * cp})`);
+        starGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        ctx.fillStyle = starGrad;
+        ctx.beginPath();
+        ctx.arc(bladeX, bladeY, 170 * cp, 0, Math.PI * 2);
+        ctx.fill();
+        for (let k = 0; k < 10; k++) {
+          const ang = (k * Math.PI * 2) / 10 + localT * 0.005;
+          const rIn = 18 + ((1 - ((cp * 2.5 + k * 0.19) % 1)) * 165);
+          const rOut = rIn + 48;
+          ctx.strokeStyle = k % 2 === 0 ? `rgba(254, 240, 138, ${0.62 * cp})` : `rgba(125, 211, 252, ${0.42 * cp})`;
+          ctx.lineWidth = k % 2 === 0 ? 3.2 : 2.0;
+          ctx.beginPath();
+          ctx.moveTo(bladeX + Math.cos(ang) * rIn, bladeY + Math.sin(ang) * rIn);
+          ctx.lineTo(bladeX + Math.cos(ang) * rOut, bladeY + Math.sin(ang) * rOut);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // #019 Stage B BACKDROP (behind enemy & Rodman): Twin shockwave rings + epic fan sunrays
+      if (isRadiantCone && strobeIdx >= 0 && r19StrikeP >= 0) {
+        const sp = r19StrikeP;
+        const isGold = strobeIdx === 0;
+        const impX = banditHomeX + 32;
+        const impY = banditHomeY - 175;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        // Dramatic sky-filling directional starburst spikes fanning from behind Bandit/blade
+        const burstGrad = ctx.createRadialGradient(impX, impY, 14, impX, impY, 540);
+        burstGrad.addColorStop(0, isGold ? 'rgba(255, 255, 235, 0.78)' : 'rgba(240, 249, 255, 0.82)');
+        burstGrad.addColorStop(0.28, isGold ? 'rgba(253, 224, 71, 0.44)' : 'rgba(56, 189, 248, 0.48)');
+        burstGrad.addColorStop(0.65, isGold ? 'rgba(234, 88, 12, 0.16)' : 'rgba(37, 99, 235, 0.18)');
+        burstGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = burstGrad;
+        ctx.beginPath();
+        ctx.arc(impX, impY, 540, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Twin sweeping ground crater rings pulsing out under combatants
+        for (let r = 0; r < 2; r++) {
+          const rp = (sp * 3.2 + r * 0.5) % 1;
+          const rw = 120 + rp * 440;
+          ctx.save();
+          ctx.translate(banditHomeX + 90, banditHomeY + 28);
+          ctx.scale(1, 0.25);
+          ctx.strokeStyle = isGold
+            ? `rgba(253, 224, 71, ${(1 - rp) * 0.82})`
+            : `rgba(125, 211, 252, ${(1 - rp) * 0.86})`;
+          ctx.lineWidth = 10 * (1 - rp * 0.65);
+          ctx.beginPath();
+          ctx.arc(0, 0, rw, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+
       this.renderCombatantWithBlend(ctx, targetPoses, enemySpec, '#ef4444', targetDisp);
+
       if (strobeIdx >= 0) {
-        // Wide golden/blue radiant cone radiating behind enemy chest matching DOS F7..F14!
+        const isGold = strobeIdx === 0;
+        // Colossal golden/sapphire fan blast radiating diagonally past Bandit to edge of viewport!
         this.drawStationaryKiSplash(
           ctx,
-          heroSpec.x - 140,
-          heroSpec.y - 210,
+          heroSpec.x - 135,
+          heroSpec.y - 195,
           banditHomeX + 10,
-          banditHomeY - 195,
-          0.18 + ((localT % 280) / 280) * 0.16,
+          banditHomeY - 185,
+          0.16 + ((localT % 240) / 240) * 0.18,
           false,
-          strobeIdx === 0 ? 'gold' : 'azure',
-          104,
+          isGold ? 'gold' : 'azure',
+          152,
           localT
         );
       }
-      this.renderCombatantWithBlend(ctx, poses, heroSpec, '#38bdf8', heroDisp);
+
+      this.renderCombatantWithBlend(
+        ctx,
+        poses,
+        heroSpec,
+        strobeIdx === 0 ? '#fde047' : '#38bdf8',
+        heroDisp
+      );
+
+      // #019 Stage B FOREGROUND: Sky-cleaving diagonal cross-slash spears & crackling lightning bolts!
+      if (isRadiantCone && strobeIdx >= 0 && r19StrikeP >= 0) {
+        const sp = r19StrikeP;
+        const isGold = strobeIdx === 0;
+        const impX = banditHomeX + 18;
+        const impY = banditHomeY - 175;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        // Razor-tapered diagonal diamond blade slash smears cutting sharply across Bandit (tapered needle tips, no blunt rods!)
+        const slashSpecs = [
+          { dx: 365, dy: -215, w: 12, a: 0.86 },
+          { dx: -335, dy: -195, w: 9, a: 0.74 },
+          { dx: 410, dy: -52, w: 8, a: 0.62 },
+        ];
+        const flicker = 0.75 + 0.25 * Math.sin(localT * 0.08);
+        const phaseTick = Math.floor(sp * 10);
+        for (let si = 0; si < slashSpecs.length; si++) {
+          const s = slashSpecs[si];
+          const rotOff = Math.sin(phaseTick * 2.3 + si * 1.7) * 26;
+          const x1 = impX - s.dx * 0.72;
+          const y1 = impY - s.dy * 0.72 + rotOff;
+          const x2 = impX + s.dx * 0.68;
+          const y2 = impY + s.dy * 0.68 - rotOff;
+          const len = Math.max(1, Math.hypot(x2 - x1, y2 - y1));
+          const nx = -(y2 - y1) / len;
+          const ny = (x2 - x1) / len;
+          const mx = (x1 + x2) * 0.5;
+          const my = (y1 + y2) * 0.5;
+          // Soft outer luminous diamond sheath
+          const outW = s.w * 1.7;
+          ctx.fillStyle = isGold
+            ? `rgba(245, 158, 11, ${s.a * 0.52 * flicker})`
+            : `rgba(56, 189, 248, ${s.a * 0.58 * flicker})`;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(mx + nx * outW, my + ny * outW);
+          ctx.lineTo(x2, y2);
+          ctx.lineTo(mx - nx * outW, my - ny * outW);
+          ctx.closePath();
+          ctx.fill();
+          // Crisp incandescent razor core
+          const inW = s.w * 0.48;
+          ctx.fillStyle = isGold
+            ? `rgba(255, 253, 224, ${s.a * 0.92 * flicker})`
+            : `rgba(240, 249, 255, ${s.a * 0.95 * flicker})`;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(mx + nx * inW, my + ny * inW);
+          ctx.lineTo(x2, y2);
+          ctx.lineTo(mx - nx * inW, my - ny * inW);
+          ctx.closePath();
+          ctx.fill();
+        }
+        // Jagged vertical lightning lance descending from the sky onto the impact locus
+        for (let b = 0; b < 2; b++) {
+          const bx0 = impX + (b === 0 ? -42 : 58) + Math.sin(phaseTick * 3.1 + b) * 35;
+          ctx.beginPath();
+          const segs = 9;
+          for (let k = 0; k <= segs; k++) {
+            const u = k / segs;
+            const py = -40 + (banditHomeY - 40 + 40) * u;
+            const j = k === 0 || k === segs ? 0 : Math.sin(k * 4.7 + phaseTick * 2.9 + b * 1.9) * 36;
+            const px = bx0 + j;
+            if (k === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.strokeStyle = isGold ? 'rgba(253, 224, 71, 0.72)' : 'rgba(56, 189, 248, 0.78)';
+          ctx.lineWidth = b === 0 ? 14 : 9;
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.94)';
+          ctx.lineWidth = b === 0 ? 4.5 : 2.8;
+          ctx.stroke();
+        }
+        // Subtle crisp screen-edge strobe flash pulse on frame switch
+        const pulseA = Math.max(0, 1 - ((sp * 10) % 1) * 2.8) * 0.20;
+        if (pulseA > 0.01) {
+          ctx.fillStyle = isGold
+            ? `rgba(254, 243, 199, ${pulseA})`
+            : `rgba(224, 242, 254, ${pulseA})`;
+          ctx.fillRect(-120, -120, W + 240, H + 240);
+        }
+        ctx.restore();
+      } else if (isRadiantCone && r19AfterP >= 0) {
+        // Cooling golden aftermath glow fading around the battle scar
+        const fade = Math.max(0, 1 - r19AfterP);
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const ag = ctx.createRadialGradient(banditHomeX + 18, banditHomeY - 175, 10, banditHomeX + 18, banditHomeY - 175, 290);
+        ag.addColorStop(0, `rgba(254, 240, 138, ${0.42 * fade})`);
+        ag.addColorStop(0.5, `rgba(125, 211, 252, ${0.22 * fade})`);
+        ag.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = ag;
+        ctx.beginPath();
+        ctx.arc(banditHomeX + 18, banditHomeY - 175, 290, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
       this.drawDustAndSparks(ctx);
       ctx.restore();
       if (cutInP >= 0 && cutInP <= 1) {
