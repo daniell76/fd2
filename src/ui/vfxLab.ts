@@ -199,6 +199,7 @@ interface VfxLabAssets {
   thorOmniPoses: HTMLImageElement[];
   banditOmniPoses: HTMLImageElement[];
   thorRangedPoses: HTMLImageElement[];
+  thorRangedProj: HTMLImageElement | null;
   thorSheetRaw: HTMLImageElement;
   banditSheetRaw: HTMLImageElement;
   clashKeyArt: HTMLImageElement;
@@ -255,6 +256,7 @@ const vfxAssetsCache: VfxLabAssets = {
   thorOmniPoses: [],
   banditOmniPoses: [],
   thorRangedPoses: [],
+  thorRangedProj: null,
   thorSheetRaw: new Image(),
   banditSheetRaw: new Image(),
   clashKeyArt: new Image(),
@@ -277,7 +279,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=79';
+const VFX_ASSET_VERSION = '?v=80';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -448,7 +450,7 @@ export async function loadUnitSlotIntoVfxAssets(
   const cb = VFX_ASSET_VERSION;
   const omniCount = Math.max(10, entry.omniFrameCount ?? 10);
   const omniIndices = Array.from({ length: omniCount }, (_, i) => i);
-  const [nb6, omni, rangedPoses, cutIn, cIdle, cAtk] = await Promise.all([
+  const [nb6, omni, rangedPoses, rangedProj, cutIn, cIdle, cAtk] = await Promise.all([
     Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/nb6_${i}.webp${cb}`))),
     Promise.all(omniIndices.map((i) => loadImg(`${entry.dir}/omni_${i}.webp${cb}`))),
     side === 'player' && entry.rangedSkill
@@ -458,6 +460,9 @@ export async function loadUnitSlotIntoVfxAssets(
           )
         ).then((arr) => arr.filter((x): x is HTMLImageElement => Boolean(x)))
       : Promise.resolve([] as HTMLImageElement[]),
+    side === 'player' && entry.rangedSkill?.mode === 'sonic_crescent'
+      ? loadImg(`${entry.dir}/ranged_proj.webp${cb}`).catch(() => null)
+      : Promise.resolve(null),
     loadImg(`${entry.dir}/cutin.jpg${cb}`).catch(() => null),
     assets.loadUnitFigAni(entry.uid, 'idle').catch(() => null),
     assets.loadUnitFigAni(entry.uid, 'attack').catch(() => null),
@@ -470,6 +475,7 @@ export async function loadUnitSlotIntoVfxAssets(
     target.thorPoses = [nb6[0], nb6[2], nb6[3]];
     target.thorOmniPoses = omni;
     target.thorRangedPoses = rangedPoses;
+    target.thorRangedProj = rangedProj;
     target.classicThorIdle = cIdle;
     target.classicThorAtk = cAtk;
   } else {
@@ -3299,31 +3305,305 @@ export class Modern25DCombatRenderer {
     const targetDisp = Math.round(610 * (target.displayScale ?? 1));
     const targetPoses = this.getActivePoseList('bandit');
 
-    // Helper: draw authentic glowing sonic crescent blade wave (for #018 Midi 音速刃)
-    const drawSonicCrescent = (cx: number, cy: number, radius: number, alpha: number) => {
+    // Helper 1: draw #018 Midi's EXACT F5 jagged ice-blue/gold sonic blade-wave (`ranged_proj.webp`)
+    // extracted directly from u_018/ranged_4.webp (with leading fire-gold aura glow, trailing wake ghost & sparks!).
+    const drawSonicWaveProj = (
+      destX: number,
+      destY: number,
+      dispW: number,
+      dispH: number,
+      alpha: number,
+      showTrail = true
+    ) => {
+      const a = Math.max(0, Math.min(1, alpha));
+      if (a <= 0.01) return;
+      const projImg = this.vfxAssets.thorRangedProj;
+      ctx.save();
+      if (projImg && projImg.complete && projImg.naturalWidth > 0) {
+        // Luminous golden-cyan bow halo behind the painted wave front edge
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const glowCx = destX + dispW * 0.20;
+        const glowCy = destY + dispH * 0.72;
+        const gGlow = ctx.createRadialGradient(glowCx, glowCy, 10, glowCx, glowCy, dispW * 0.56);
+        gGlow.addColorStop(0, `rgba(255, 248, 210, ${0.42 * a})`);
+        gGlow.addColorStop(0.38, `rgba(253, 224, 71, ${0.28 * a})`);
+        gGlow.addColorStop(0.68, `rgba(56, 189, 248, ${0.22 * a})`);
+        gGlow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = gGlow;
+        ctx.beginPath();
+        ctx.arc(glowCx, glowCy, dispW * 0.56, 0, Math.PI * 2);
+        ctx.fill();
+        if (showTrail) {
+          // Soft icy-blue high-speed afterimage echoes streaming right behind the cutting wave
+          for (let g = 2; g >= 1; g--) {
+            ctx.globalAlpha = a * (0.30 / g);
+            ctx.drawImage(projImg, destX + g * 46, destY + g * 3, dispW * (1 + g * 0.03), dispH);
+          }
+        }
+        ctx.restore();
+        // Crisp actual F5 painted blade wave (matches u_018/ranged_4.webp 1:1!)
+        ctx.globalAlpha = a;
+        ctx.drawImage(projImg, destX, destY, dispW, dispH);
+        // Subtle crisp energy flicker highlight in additive pass so edges sing over any backdrop
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = a * 0.42;
+        ctx.drawImage(projImg, destX - 2, destY, dispW, dispH);
+        // Flying hot ember / frost flecks trailing off the leading gold-flame rim
+        for (let k = 0; k < 10; k++) {
+          const u = k / 9;
+          const sx = destX + dispW * (0.04 + u * 0.65) + Math.sin(localT * 0.04 + k * 2.1) * 14;
+          const sy = destY + dispH * (0.90 - Math.sin(u * Math.PI * 0.52) * 0.84) + Math.cos(localT * 0.05 + k) * 9;
+          const len = 18 + (k % 3) * 16;
+          ctx.strokeStyle = k % 2 === 0 ? `rgba(253, 224, 71, ${0.82 * a})` : `rgba(186, 230, 253, ${0.78 * a})`;
+          ctx.lineWidth = k % 2 === 0 ? 3 : 2;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx + len, sy + (k % 2 === 0 ? -4 : 4));
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else {
+        // Fallback if sprite still decoding
+        const rad = dispH * 0.5;
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = a;
+        ctx.translate(destX + rad, destY + rad);
+        const g = ctx.createRadialGradient(rad * 0.12, 0, rad * 0.45, 0, 0, rad * 1.08);
+        g.addColorStop(0, 'rgba(255,255,255,0)');
+        g.addColorStop(0.65, 'rgba(186,230,253,0.92)');
+        g.addColorStop(0.9, 'rgba(253,224,71,0.95)');
+        g.addColorStop(1, 'rgba(249,115,22,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, rad, Math.PI * 0.56, Math.PI * 1.46);
+        ctx.arc(rad * 0.46, 0, rad * 0.78, Math.PI * 1.38, Math.PI * 0.62, true);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    };
+
+    // Helper 2: draw #032 Thor (Sword Saint) organic roaring `熾炎刀` blazing Qi-beam missile!
+    // Authentic homage to 1995 DOS `u_032_ranged.png` F9..F13: rounded incandescent comet nose pointing LEFT,
+    // sweeping serrated flame-crown edge, turbulent billowing Qi shaft with braided golden-white ribbons,
+    // and torn asymmetrical jagged dragon-fire shark-tooth tail (zero flat rectangular edges!).
+    const drawFlameBladeQiBeam = (
+      frontX: number,
+      tailX: number,
+      cy: number,
+      halfH: number,
+      alpha: number,
+      tMs: number,
+      pinTailToBlade = false
+    ) => {
+      const a = Math.max(0, Math.min(1, alpha));
+      if (a <= 0.01 || tailX <= frontX + 12) return;
+      const bodyLen = tailX - frontX;
+      const noseRx = Math.min(halfH * 1.35, bodyLen * 0.45);
+      const phase = tMs * 0.022;
+
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
-      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-      ctx.translate(cx, cy);
-      // Outer fiery gold rim crescent sweeping left-facing bow
-      const g = ctx.createRadialGradient(radius * 0.12, 0, radius * 0.45, 0, 0, radius * 1.08);
-      g.addColorStop(0, 'rgba(255, 255, 255, 0)');
-      g.addColorStop(0.55, 'rgba(56, 189, 248, 0.35)');
-      g.addColorStop(0.76, 'rgba(224, 242, 254, 0.92)');
-      g.addColorStop(0.90, 'rgba(253, 224, 71, 0.95)');
-      g.addColorStop(1, 'rgba(249, 115, 22, 0)');
-      ctx.fillStyle = g;
+      ctx.globalAlpha = a;
+
+      // Helper to trace an organic turbulent beam contour (rounded bow nose LEFT -> wavy body -> jagged spiked flame tail RIGHT!)
+      const traceQiSilhouette = (
+        hScale: number,
+        nosePad: number,
+        tailStretch: number,
+        ripAmp: number,
+        tailTeeth: number,
+        phaseShift: number
+      ) => {
+        const hh = halfH * hScale;
+        const fx = frontX - nosePad;
+        const bowEnd = Math.min(tailX, fx + noseRx * hScale);
+        const topSegs = 26;
+        const botSegs = 26;
+        ctx.beginPath();
+        // Rounded fiery parabolic comet head (bottom -> nose tip -> top, sweeping curving bow!)
+        for (let i = 0; i <= 16; i++) {
+          const ang = Math.PI * 0.5 + (i / 16) * Math.PI; // +90° (bottom) -> 180° (left nose) -> 270° (top)
+          const r = 1 + Math.sin(i * 1.9 + phase * 1.4 + phaseShift) * 0.045 * (i > 1 && i < 15 ? 1 : 0);
+          const px = fx + noseRx * hScale + Math.cos(ang) * (noseRx * hScale) * r;
+          const py = cy + Math.sin(ang) * hh * r;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        // Top turbulent licking fire border from bowEnd -> tailX
+        for (let i = 1; i <= topSegs; i++) {
+          const u = i / topSegs;
+          const px = bowEnd + (tailX - bowEnd) * u;
+          const taper = pinTailToBlade
+            ? 1 - Math.pow(u, 2.2) * 0.52
+            : 1 - Math.pow(u, 3.0) * 0.24;
+          const wave =
+            Math.sin(u * 14 - phase * 1.3 + phaseShift) * ripAmp * 0.55 +
+            Math.sin(u * 31 - phase * 2.4 + phaseShift * 1.7) * ripAmp * 0.45;
+          // Licking fire crest flares up more near head collar & tail edge
+          const flare = Math.sin(u * Math.PI) * 0.14 + (u < 0.22 ? (0.22 - u) * 0.35 : 0);
+          ctx.lineTo(px, cy - hh * (taper + flare) - wave);
+        }
+        // Jagged asymmetrical serrated shark-tooth flame tail (replaces blunt flat right wall!)
+        const teeth = tailTeeth;
+        for (let ti = 0; ti <= teeth; ti++) {
+          const v = ti / teeth; // 0 (top) -> 1 (bottom)
+          const yBase = cy - hh * (pinTailToBlade ? 0.48 : 0.78) + v * hh * (pinTailToBlade ? 0.96 : 1.56);
+          const centerEnv = 1 - Math.pow(Math.abs(v - 0.5) * 2, 1.8) * 0.42;
+          const spikeLen =
+            ti % 2 === 0
+              ? tailStretch * centerEnv * (0.45 + 0.55 * Math.abs(Math.sin(ti * 2.13 + phase * 0.7 + phaseShift)))
+              : -tailStretch * 0.38 * (0.4 + 0.6 * Math.abs(Math.cos(ti * 1.67 + phase * 0.9)));
+          ctx.lineTo(tailX + spikeLen, yBase);
+        }
+        // Bottom turbulent licking fire border returning from tailX -> bowEnd
+        for (let i = botSegs - 1; i >= 0; i--) {
+          const u = i / botSegs;
+          const px = bowEnd + (tailX - bowEnd) * u;
+          const taper = pinTailToBlade
+            ? 1 - Math.pow(u, 2.2) * 0.52
+            : 1 - Math.pow(u, 3.0) * 0.24;
+          const wave =
+            Math.sin(u * 15 - phase * 1.4 + phaseShift + 1.4) * ripAmp * 0.55 +
+            Math.cos(u * 29 - phase * 2.2 + phaseShift) * ripAmp * 0.45;
+          const flare = Math.sin(u * Math.PI) * 0.14 + (u < 0.22 ? (0.22 - u) * 0.35 : 0);
+          ctx.lineTo(px, cy + hh * (taper + flare) + wave);
+        }
+        ctx.closePath();
+      };
+
+      // Layer 1: Soft wide crimson-orange burning atmospheric haze enveloping comet head & plume
+      const noseGlow = ctx.createRadialGradient(
+        frontX + noseRx * 0.65,
+        cy,
+        halfH * 0.12,
+        frontX + noseRx * 0.65,
+        cy,
+        halfH * 2.35
+      );
+      noseGlow.addColorStop(0, 'rgba(255, 251, 224, 0.78)');
+      noseGlow.addColorStop(0.28, 'rgba(253, 224, 71, 0.52)');
+      noseGlow.addColorStop(0.58, 'rgba(234, 88, 12, 0.28)');
+      noseGlow.addColorStop(1, 'rgba(154, 52, 18, 0)');
+      ctx.fillStyle = noseGlow;
       ctx.beginPath();
-      ctx.arc(0, 0, radius, Math.PI * 0.56, Math.PI * 1.46);
-      ctx.arc(radius * 0.46, 0, radius * 0.78, Math.PI * 1.38, Math.PI * 0.62, true);
-      ctx.closePath();
+      ctx.ellipse(frontX + noseRx * 0.65, cy, halfH * 2.2, halfH * 1.9, 0, 0, Math.PI * 2);
       ctx.fill();
-      // Razor pure-white leading arc rim
-      ctx.strokeStyle = 'rgba(255, 252, 225, 0.95)';
-      ctx.lineWidth = Math.max(4, radius * 0.045);
-      ctx.beginPath();
-      ctx.arc(0, 0, radius * 0.96, Math.PI * 0.65, Math.PI * 1.38);
-      ctx.stroke();
+
+      // Layer 2: Outer roaring crimson-amber serrated Qi fire plume
+      const outerGrad = ctx.createLinearGradient(0, cy - halfH * 1.5, 0, cy + halfH * 1.5);
+      outerGrad.addColorStop(0, 'rgba(185, 28, 28, 0.10)');
+      outerGrad.addColorStop(0.18, 'rgba(234, 88, 12, 0.88)');
+      outerGrad.addColorStop(0.5, 'rgba(249, 115, 22, 0.96)');
+      outerGrad.addColorStop(0.82, 'rgba(234, 88, 12, 0.88)');
+      outerGrad.addColorStop(1, 'rgba(185, 28, 28, 0.10)');
+      traceQiSilhouette(1.24, 18, pinTailToBlade ? 65 : 195, halfH * 0.18, 24, 0);
+      ctx.fillStyle = outerGrad;
+      ctx.fill();
+
+      // Layer 3: Mid glowing solar-gold body shell
+      const midGrad = ctx.createLinearGradient(0, cy - halfH, 0, cy + halfH);
+      midGrad.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
+      midGrad.addColorStop(0.22, 'rgba(253, 224, 71, 0.95)');
+      midGrad.addColorStop(0.5, 'rgba(254, 249, 195, 1)');
+      midGrad.addColorStop(0.78, 'rgba(253, 224, 71, 0.95)');
+      midGrad.addColorStop(1, 'rgba(245, 158, 11, 0.25)');
+      traceQiSilhouette(0.88, 8, pinTailToBlade ? 42 : 138, halfH * 0.12, 20, 1.3);
+      ctx.fillStyle = midGrad;
+      ctx.fill();
+
+      // Layer 4: Blinding pure white-cream incandescent Qi plasma core (DOS F9..F11 core!)
+      traceQiSilhouette(0.56, 2, pinTailToBlade ? 22 : 85, halfH * 0.08, 16, 2.7);
+      ctx.fillStyle = 'rgba(255, 255, 244, 0.98)';
+      ctx.fill();
+
+      // Layer 5: Authentic swept-back bow-shock crescent collar & fiery comet nose horns!
+      ctx.lineCap = 'round';
+      for (let side of [-1, 1]) {
+        ctx.strokeStyle = 'rgba(253, 224, 71, 0.86)';
+        ctx.lineWidth = Math.max(4, halfH * 0.09);
+        ctx.beginPath();
+        ctx.moveTo(frontX - 10, cy + side * halfH * 0.12);
+        ctx.quadraticCurveTo(
+          frontX + noseRx * 0.45,
+          cy + side * halfH * 1.18,
+          frontX + noseRx * 2.15,
+          cy + side * halfH * 1.48
+        );
+        ctx.stroke();
+        // Thin crackling sky-cyan rim accent tying straight back to Thor's blue-gold F4 vertical wall!
+        ctx.strokeStyle = 'rgba(125, 211, 252, 0.55)';
+        ctx.lineWidth = Math.max(2, halfH * 0.032);
+        ctx.beginPath();
+        ctx.moveTo(frontX + noseRx * 0.15, cy + side * halfH * 0.52);
+        ctx.quadraticCurveTo(
+          frontX + noseRx * 0.85,
+          cy + side * halfH * 1.24,
+          frontX + noseRx * 2.55,
+          cy + side * halfH * 1.22
+        );
+        ctx.stroke();
+      }
+
+      // Layer 6: Organic fiery bow-shock licks sweeping back along the curved rounded dome nose (never a flat vertical column!)
+      for (let s = 0; s < 13; s++) {
+        const v = (s / 12) * 2 - 1; // -1 (top) -> +1 (bottom)
+        const ang = Math.PI + v * Math.PI * 0.44;
+        const arcX = frontX + noseRx * (0.95 + Math.cos(ang) * 0.85);
+        const fy = cy + Math.sin(ang) * halfH * 0.96;
+        const jitter = 0.45 + 0.55 * Math.abs(Math.sin(s * 3.17 + phase * 1.4));
+        const slen = (32 + (s % 3) * 26) * jitter * (1 - Math.abs(v) * 0.35);
+        ctx.fillStyle =
+          s % 2 === 0 ? 'rgba(249, 115, 22, 0.42)' : 'rgba(253, 224, 71, 0.36)';
+        ctx.beginPath();
+        ctx.moveTo(arcX, fy - 4.5);
+        ctx.lineTo(arcX + slen, fy + v * 5);
+        ctx.lineTo(arcX, fy + 4.5);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Layer 7: Swirling braided double-helix Qi energy ribbons weaving smoothly down the shaft!
+      const ribSpan = Math.max(40, bodyLen - noseRx * 0.5);
+      for (let h = 0; h < 2; h++) {
+        ctx.beginPath();
+        const steps = 28;
+        for (let i = 0; i <= steps; i++) {
+          const u = i / steps;
+          const rx = frontX + noseRx * 0.45 + ribSpan * u;
+          const amp = halfH * (0.58 - u * (pinTailToBlade ? 0.28 : 0.06));
+          const ry = cy + Math.sin(u * Math.PI * 5 - phase * 1.8 + h * Math.PI) * amp;
+          if (i === 0) ctx.moveTo(rx, ry);
+          else ctx.lineTo(rx, ry);
+        }
+        ctx.strokeStyle = h === 0 ? 'rgba(255, 250, 220, 0.72)' : 'rgba(251, 146, 60, 0.65)';
+        ctx.lineWidth = h === 0 ? 5.5 : 4.0;
+        ctx.stroke();
+      }
+
+      // Layer 8: Detached tapered flame-spear embers & Qi wisps streaking back past the jagged tail!
+      const sparkCount = pinTailToBlade ? 9 : 16;
+      for (let k = 0; k < sparkCount; k++) {
+        const f = ((k * 0.37 + phase * 0.09) % 1);
+        const sx = tailX - 25 + f * (pinTailToBlade ? 90 : 280);
+        const sy = cy + Math.sin(k * 4.3 + phase * 0.4) * halfH * 1.25;
+        const slen = (32 + (k % 4) * 28) * (1 - f * 0.7);
+        ctx.fillStyle =
+          k % 3 === 0
+            ? `rgba(255, 252, 220, ${(1 - f) * 0.92})`
+            : k % 3 === 1
+              ? `rgba(253, 224, 71, ${(1 - f) * 0.85})`
+              : `rgba(249, 115, 22, ${(1 - f) * 0.78})`;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + slen * 0.35, sy - 3.2);
+        ctx.lineTo(sx + slen, sy);
+        ctx.lineTo(sx + slen * 0.35, sy + 3.2);
+        ctx.closePath();
+        ctx.fill();
+      }
       ctx.restore();
     };
 
@@ -3807,10 +4087,105 @@ export class Modern25DCombatRenderer {
       ctx.save();
       this.drawTerrainBackdrop(ctx, W, H, heroBgId, 0, 0, hy);
       this.drawGroundShadow(ctx, hx, hy, 225);
+
+      // #032 Thor (Sword Saint — 熾炎刀) Stage 1 vertical sky-pillar curtain bridging cleanly off top of canvas!
+      if (sk.mode === 'flame_blade_beam' && p >= 0.44 && p < 0.86) {
+        const wallL = hx + (296 / 960 - 0.5) * heroDisp;
+        const wallR = hx + (563 / 960 - 0.5) * heroDisp;
+        const wallTop = hy + (438 / 960 - 648 / 680) * heroDisp;
+        const wSpan = wallR - wallL;
+        const fadeOut = p < 0.66 ? 1 : Math.max(0, 1 - (p - 0.66) / 0.20);
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        if (p < 0.66) {
+          const topY = -40;
+          const overlapY = wallTop + 56;
+          const vg = ctx.createLinearGradient(wallL - 18, 0, wallR + 18, 0);
+          vg.addColorStop(0, 'rgba(56, 189, 248, 0)');
+          vg.addColorStop(0.09, 'rgba(56, 189, 248, 0.85)');
+          vg.addColorStop(0.18, 'rgba(253, 224, 71, 0.90)');
+          vg.addColorStop(0.50, 'rgba(255, 253, 232, 0.95)');
+          vg.addColorStop(0.82, 'rgba(253, 224, 71, 0.90)');
+          vg.addColorStop(0.91, 'rgba(56, 189, 248, 0.85)');
+          vg.addColorStop(1, 'rgba(56, 189, 248, 0)');
+          ctx.fillStyle = vg;
+          ctx.fillRect(wallL - 18, topY, wSpan + 36, wallTop - topY + 10);
+          // Smooth stepped fade downward into ranged_3.webp feathered top so bridge seam disappears
+          for (let f = 0; f < 4; f++) {
+            ctx.save();
+            ctx.globalAlpha = 0.72 * (1 - f / 4);
+            ctx.fillRect(wallL - 14, wallTop + 10 + f * 9, wSpan + 28, 9);
+            ctx.restore();
+          }
+          // Crackling side electric ripples along both left and right curtains
+          for (const ex of [wallL + 3, wallR - 3]) {
+            ctx.beginPath();
+            for (let s = 0; s <= 12; s++) {
+              const py = topY + ((overlapY - topY) * s) / 12;
+              const jit = Math.sin(s * 2.9 + localT * 0.045) * 6;
+              if (s === 0) ctx.moveTo(ex + jit, py);
+              else ctx.lineTo(ex + jit, py);
+            }
+            ctx.strokeStyle = 'rgba(125, 211, 252, 0.92)';
+            ctx.lineWidth = 4.5;
+            ctx.stroke();
+          }
+        } else {
+          // Receding jagged electric sapphire-white/gold pillar shards flaring skyward on F5!
+          const sp = (p - 0.66) / 0.20;
+          const shards = 11;
+          for (let i = 0; i < shards; i++) {
+            const sx = wallL + (i / (shards - 1)) * wSpan;
+            const shH = (1 - sp * 0.72) * (wallTop + 60) * (0.45 + 0.55 * Math.abs(Math.sin(i * 1.9 + sp * 4)));
+            ctx.fillStyle =
+              i % 2 === 0
+                ? `rgba(254, 249, 195, ${0.72 * fadeOut})`
+                : `rgba(125, 211, 252, ${0.78 * fadeOut})`;
+            ctx.beginPath();
+            ctx.moveTo(sx - 12, wallTop + 34);
+            ctx.lineTo(sx, wallTop + 34 - shH);
+            ctx.lineTo(sx + 12, wallTop + 34);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
       this.renderCombatantWithBlend(ctx, poses, spec, '#38bdf8', heroDisp);
-      if (sk.mode === 'sonic_crescent' && p >= 0.78) {
-        const fly = (p - 0.78) / 0.22;
-        drawSonicCrescent(hx - 180 - fly * (W * 0.78), hy - 200, 180 + fly * 35, Math.min(1, fly * 3.5));
+
+      if (sk.mode === 'sonic_crescent' && p >= 0.80) {
+        // Launch Midi's EXACT painted F5 sonic wave sprite seamlessly the instant F5 -> F6 switches!
+        const fly = (p - 0.80) / 0.20;
+        const srcX = hx + (129 / 680 - 0.5) * heroDisp;
+        const srcY = hy + (285 / 680 - 648 / 680) * heroDisp;
+        const projW = (445 / 680) * heroDisp;
+        const projH = (358 / 680) * heroDisp;
+        const slideX = srcX - Math.pow(fly, 1.08) * (srcX + projW * 0.92);
+        drawSonicWaveProj(slideX, srcY - fly * 12, projW * (1 + fly * 0.08), projH * (1 + fly * 0.08), 1.0, fly > 0.06);
+      } else if (sk.mode === 'flame_blade_beam' && p >= 0.52) {
+        // #032 Thor (Sword Saint): Launch the blazing rounded-nose jagged-tail `熾炎刀` Qi missile left off attack screen!
+        const lp = Math.min(1, (p - 0.52) / 0.48);
+        const bladeX = hx - heroDisp * 0.14;
+        const beamCy = hy - heroDisp * 0.25;
+        const frontX = bladeX - 40 - Math.pow(lp, 0.88) * (bladeX + 520);
+        const tailDetached = lp > 0.52;
+        const tailSlide = tailDetached ? ((lp - 0.52) / 0.48) : 0;
+        const tailX = tailDetached ? bladeX - tailSlide * (bladeX + 220) : bladeX;
+        const beamH = 74 + Math.sin(Math.min(1, lp * 2.2) * Math.PI * 0.5) * 34;
+        drawFlameBladeQiBeam(frontX, tailX, beamCy, beamH, lp < 0.08 ? lp / 0.08 : 1, localT, !tailDetached);
+        // Subtle glowing ring shockburst right around the blade launch point on emission!
+        if (lp < 0.62) {
+          const rp = lp / 0.62;
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          ctx.strokeStyle = `rgba(253, 224, 71, ${(1 - rp) * 0.85})`;
+          ctx.lineWidth = 6 * (1 - rp * 0.6);
+          ctx.beginPath();
+          ctx.ellipse(bladeX - 18, beamCy, 18 + rp * 54, 48 + rp * 115, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
       }
       this.drawDustAndSparks(ctx);
       ctx.restore();
@@ -3840,21 +4215,20 @@ export class Modern25DCombatRenderer {
         ctx.fillStyle = speedCol;
         ctx.fillRect(((W - bp * W * 1.9 + i * 190) % (W + 400)) - 200, y, 220 + (i % 4) * 90, 2 + (i % 3));
       }
+      ctx.globalCompositeOperation = 'source-over';
       if (sk.mode === 'sonic_crescent') {
-        drawSonicCrescent(W * (1.05 - bp * 1.15), H * 0.5, 220, 1);
+        const pw = 600;
+        const ph = Math.round(pw * (358 / 445));
+        const sx = W + 60 - bp * (W + pw + 180);
+        drawSonicWaveProj(sx, H * 0.5 - ph * 0.5, pw, ph, 1, true);
       } else if (sk.mode === 'flame_blade_beam') {
-        const frontX = W * (1.05 - bp * 1.25);
-        const bh = 128;
-        const fg = ctx.createLinearGradient(0, H * 0.5 - bh, 0, H * 0.5 + bh);
-        fg.addColorStop(0, 'rgba(234,88,12,0)');
-        fg.addColorStop(0.22, 'rgba(245,158,11,0.92)');
-        fg.addColorStop(0.5, 'rgba(255,255,235,1)');
-        fg.addColorStop(0.78, 'rgba(245,158,11,0.92)');
-        fg.addColorStop(1, 'rgba(234,88,12,0)');
-        ctx.fillStyle = fg;
-        ctx.fillRect(frontX, H * 0.5 - bh, W + 400, bh * 2);
+        // Rounded blazing Qi comet head soaring right -> left with torn jagged fiery dragon tail!
+        const frontX = W * (0.98 - bp * 1.48);
+        const tailX = frontX + W * 0.92;
+        drawFlameBladeQiBeam(frontX, tailX, H * 0.5, 118, 1, localT, false);
       } else {
         // Vertical roaring amber energy pulse signaling incoming sky pillar
+        ctx.globalCompositeOperation = 'screen';
         const rg = ctx.createRadialGradient(W * 0.5, H * (0.85 - bp * 0.6), 20, W * 0.5, H * 0.5, 340);
         rg.addColorStop(0, 'rgba(255,255,240,0.95)');
         rg.addColorStop(0.4, 'rgba(253,224,71,0.65)');
@@ -3867,14 +4241,14 @@ export class Modern25DCombatRenderer {
       return;
     }
 
-    // STAGE 3: Target Solo Impact (`#018` crescent slice / `#032` blazing horizontal beam / `#034` sky pillar!)
+    // STAGE 3: Target Solo Impact (`#018` F5 sonic wave slice / `#032` blazing Qi comet-beam / `#034` sky pillar!)
     const p3 = Math.min(1, (localT - s2End) / Math.max(1, totalDur - s2End));
     this.activeStageBadge = isEn
       ? `[3/3 Impact: ${skillName}] ${target.nameEn} · ${enemyTerrain.en}`
       : `[3/3 目標受擊：${skillName}] ${target.nameZh} · ${enemyTerrain.zh}`;
     const tx = W * 0.36;
     const ty = H * 0.72;
-    const hitAt = sk.mode === 'sky_pillar' ? 0.30 : 0.18;
+    const hitAt = sk.mode === 'sky_pillar' ? 0.30 : sk.mode === 'sonic_crescent' ? 0.34 : 0.22;
     const hp = p3 >= hitAt ? Math.min(1, (p3 - hitAt) / (1 - hitAt)) : 0;
     const recoil = p3 >= hitAt ? Math.sin(Math.min(1, hp * 2.1) * Math.PI) * 58 : 0;
     const enemySpec: PoseRenderSpec = {
@@ -3933,29 +4307,38 @@ export class Modern25DCombatRenderer {
     this.renderCombatantWithBlend(ctx, targetPoses, enemySpec, '#ef4444', targetDisp);
 
     if (sk.mode === 'sonic_crescent') {
-      const cx = W * (0.98 - p3 * 1.18);
-      drawSonicCrescent(cx, ty - 175, 240, p3 < 0.82 ? 1 : Math.max(0, 1 - (p3 - 0.82) / 0.18));
+      // Midi's EXACT painted F5 jagged ice-blue/gold sonic wave tearing straight through Bandit!
+      const pw = Math.round(heroDisp * (445 / 680) * 1.24);
+      const ph = Math.round(heroDisp * (358 / 680) * 1.24);
+      const waveLeft = W * 0.96 - (p3 / 0.88) * (W * 0.96 + pw + 80);
+      const fade = p3 < 0.78 ? 1 : Math.max(0, 1 - (p3 - 0.78) / 0.18);
+      if (p3 < 0.96) {
+        drawSonicWaveProj(waveLeft, ty - ph + 28, pw, ph, fade, true);
+      }
     } else if (sk.mode === 'flame_blade_beam') {
-      // Full-screen roaring horizontal white-gold-amber flame beam (DOS u_032_ranged F9..F13!)
-      if (p3 < 0.82) {
-        const beamRight = p3 < 0.52 ? W + 40 : W * (1 - (p3 - 0.52) / 0.30);
-        const beamLeft = p3 < 0.18 ? W * (1 - p3 / 0.18) : -40;
-        const beamW = Math.max(0, beamRight - beamLeft);
-        if (beamW > 4) {
-          const cy = ty - 190;
-          const bh = 148 * (p3 < 0.58 ? 1 : Math.max(0.25, 1 - (p3 - 0.58) / 0.24));
+      // Organic roaring horizontal Qi comet blade-wave (`DOS u_032_ranged F9..F13` — rounded comet nose + torn spiky flame tail!)
+      if (p3 < 0.90) {
+        const noseT = Math.min(1, p3 / 0.36);
+        const frontX = W + 90 - noseT * (W + 460);
+        const tailT = p3 < 0.34 ? 0 : Math.min(1, (p3 - 0.34) / 0.52);
+        const tailX = W + 180 - tailT * (W + 560);
+        const cy = ty - 185;
+        const halfH = 124 * (p3 < 0.62 ? 1 : Math.max(0.45, 1 - (p3 - 0.62) / 0.34));
+        const alphaFade = p3 > 0.78 ? Math.max(0, 1 - (p3 - 0.78) / 0.12) : 1;
+        drawFlameBladeQiBeam(frontX, tailX, cy, halfH, alphaFade, localT, false);
+        // Roaring chest impact shock-corona right around Bandit while Qi stream hits!
+        if (p3 >= hitAt && p3 < 0.70) {
+          const impFade = Math.sin(((p3 - hitAt) / (0.70 - hitAt)) * Math.PI);
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
-          const bg = ctx.createLinearGradient(0, cy - bh, 0, cy + bh);
-          bg.addColorStop(0, 'rgba(180,45,6,0)');
-          bg.addColorStop(0.18, 'rgba(234,88,12,0.92)');
-          bg.addColorStop(0.36, 'rgba(253,224,71,0.98)');
-          bg.addColorStop(0.50, 'rgba(255,255,245,1)');
-          bg.addColorStop(0.64, 'rgba(253,224,71,0.98)');
-          bg.addColorStop(0.82, 'rgba(234,88,12,0.92)');
-          bg.addColorStop(1, 'rgba(180,45,6,0)');
-          ctx.fillStyle = bg;
-          ctx.fillRect(beamLeft, cy - bh, beamW, bh * 2);
+          const cg = ctx.createRadialGradient(tx + 12, cy, 12, tx + 12, cy, 240);
+          cg.addColorStop(0, `rgba(255, 255, 240, ${0.78 * impFade})`);
+          cg.addColorStop(0.4, `rgba(253, 224, 71, ${0.46 * impFade})`);
+          cg.addColorStop(1, 'rgba(234, 88, 12, 0)');
+          ctx.fillStyle = cg;
+          ctx.beginPath();
+          ctx.arc(tx + 12, cy, 240, 0, Math.PI * 2);
+          ctx.fill();
           ctx.restore();
         }
       }
