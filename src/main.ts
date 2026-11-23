@@ -3299,6 +3299,18 @@ class FlameDragonWebApp {
       const occupied = this.activeUnits.some((u) => u.x === tx && u.y === ty);
       const canLand = caster.moveMode === 'fly' ? tinfo.bonusIdx !== 5 : tinfo.moveCostFoot < 99;
       if (canLand && !occupied) {
+        if (!this.cutscene.isInstantMode()) {
+          await this.cutscene.playCasterChantOnlyCutscene(
+            caster,
+            spell,
+            null,
+            this.chapter,
+            document.getElementById('cutscene-backdrop')!,
+            document.getElementById('cutscene-canvas') as HTMLCanvasElement,
+            document.getElementById('btn-skip-cutscene') as HTMLButtonElement,
+            Boolean(options?.fromItem)
+          );
+        }
         caster.x = tx;
         caster.y = ty;
         await this.director.playSparklesOnUnits([caster]);
@@ -3328,12 +3340,22 @@ class FlameDragonWebApp {
 
     const res = resolveSpellCast(caster, spell, tx, ty, this.chapter, this.activeUnits, this.assets.gameData, options);
 
-    // Exact `FD2.EXE` (`L54292..L54403`) Cutaway vs. On-Map Spell Routing:
-    // - ONLY spells with `hasCutawayAnim` (`0..9`, `24`, `28..35`) enter the 320x200 cutaway stage when animations are ON!
-    // - Earthquakes (`10..12`), Heals/Buffs/Cures (`13..22`), and `25..27` (`行動/毒擊/麻痺`) ALWAYS execute directly on the tactical map!
-    const useCutawayStage = Boolean(spell.hasCutawayAnim) && !this.cutscene.isInstantMode() && res.affected.length > 0;
+    // Spell Cutaway & On-Map Routing:
+    // - Attack cutaway spells (#00..#09) & Seraph (#32): full Stage A chant -> Stage B cutaway strike per target.
+    // - Support/debuff summons (#33 風妖精, #34 破壞神, #35 暗邪鬼): Stage A chant + 1 full-screen summon cutaway,
+    //   then return to tactical map for multi-target heal/buff/status bouncing digits!
+    // - Mass earth attacks (#10..#12 碎岩/地震/裂地), heals/buffs/cures (#13..#22), & status (#25..#27):
+    //   play regular caster magic casting cutaway (Stage A ONLY), then switch straight back to the tactical map
+    //   to execute the authentic original map effect (`earthquake shake` / `FDOTHER[6]` sprite + bouncing numbers)!
+    const instant = this.cutscene.isInstantMode();
+    const isAttackCutaway = spell.id >= 0 && spell.id <= 9;
+    const isSeraphSummon = spell.id === 32;
+    const isSupportSummon = spell.id >= 33 && spell.id <= 35;
+    const backdropEl = document.getElementById('cutscene-backdrop')!;
+    const stageCanvas = document.getElementById('cutscene-canvas') as HTMLCanvasElement;
+    const skipBtn = document.getElementById('btn-skip-cutscene') as HTMLButtonElement;
 
-    if (useCutawayStage) {
+    if (!instant && res.affected.length > 0 && (isAttackCutaway || isSeraphSummon)) {
       await this.cutscene.playMagicCutscene(
         caster,
         spell,
@@ -3344,11 +3366,43 @@ class FlameDragonWebApp {
           preHp: preHpById.get(entry.unit.runtimeId) ?? entry.unit.hp,
         })),
         this.chapter,
-        document.getElementById('cutscene-backdrop')!,
-        document.getElementById('cutscene-canvas') as HTMLCanvasElement,
-        document.getElementById('btn-skip-cutscene') as HTMLButtonElement
+        backdropEl,
+        stageCanvas,
+        skipBtn
       );
+    } else if (!instant && res.affected.length > 0 && isSupportSummon) {
+      const lead = res.affected[0];
+      await this.cutscene.playMagicCutscene(
+        caster,
+        spell,
+        [
+          {
+            unit: lead.unit,
+            amount: lead.amount,
+            isHeal: lead.isHeal,
+            preHp: preHpById.get(lead.unit.runtimeId) ?? lead.unit.hp,
+          },
+        ],
+        this.chapter,
+        backdropEl,
+        stageCanvas,
+        skipBtn
+      );
+      await this.playOnMapSpellAndNumbersAnim(spell, res.affected);
     } else {
+      if (!instant && res.affected.length > 0) {
+        const first = res.affected[0];
+        await this.cutscene.playCasterChantOnlyCutscene(
+          caster,
+          spell,
+          { unit: first.unit, preHp: preHpById.get(first.unit.runtimeId) ?? first.unit.hp },
+          this.chapter,
+          backdropEl,
+          stageCanvas,
+          skipBtn,
+          Boolean(options?.fromItem)
+        );
+      }
       await this.playOnMapSpellAndNumbersAnim(spell, res.affected);
     }
 

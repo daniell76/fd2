@@ -10,6 +10,10 @@
  * volumetric additive blooms, tapered lightning splines, and curved plasma beams.
  */
 
+export const HD_SPELL_ASSET_VERSION = '?v=90';
+
+export type HdSpellLayer = 'both' | 'behind' | 'front';
+
 export interface HdSpellEntry {
   id: number;
   nameZh: string;
@@ -45,10 +49,11 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     sfxBank: 82,
     element: 'fire',
     hitTimesMs: [380, 680],
-    durationMs: 1180,
+    durationMs: 1380,
+    paintedSprite: 'fx_fire_pillar_red.webp',
     accentColor: '#fb923c',
-    summaryZh: '火球隕落 → 熔岩焰池 → 烈焰光柱衝天 (sp_018/020)',
-    summaryEn: 'Falling ember streak → lava pool → rising flame pillar (sp_018/020)',
+    summaryZh: '7道交錯火柱：墜落火花 → 熔岩圓陣 → 手繪焰柱升空飛散 (sp_018/020)',
+    summaryEn: '7 staggered rising flame pillars wrapping behind & ahead of target (sp_018/020)',
   },
   {
     id: 1,
@@ -60,11 +65,13 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     dosHeroStrip: 21,
     sfxBank: 82,
     element: 'fire',
-    hitTimesMs: [310, 760],
-    durationMs: 1320,
+    hitTimesMs: [280, 620, 960],
+    durationMs: 1480,
+    paintedSprite: 'fx_fire_pillar_blue.webp',
+    secondarySprite: 'fx_fire_pillar_red.webp',
     accentColor: '#f97316',
-    summaryZh: '二段極熱雙擊：先白藍高溫光柱 → 再赤紅煉獄爆炎 (sp_019/021)',
-    summaryEn: 'Twin thermal strike: blue-white plasma pillar → crimson inferno (sp_019/021)',
+    summaryZh: '8道藍白/赤紅交錯橢圓環陣包圍目標同時衝天 (sp_019/021)',
+    summaryEn: '8 alternating blue & crimson inferno pillars forming a 360° ring (sp_019/021)',
   },
   {
     id: 2,
@@ -95,10 +102,12 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     sfxBank: 84,
     element: 'fire',
     hitTimesMs: [280, 560, 860],
-    durationMs: 1400,
+    durationMs: 1580,
+    paintedSprite: 'fx_solar_beam_gold.webp',
+    secondarySprite: 'fx_solar_beam_blue.webp',
     accentColor: '#ef4444',
-    summaryZh: '星焰起爆 → 巨型斜向天降太陽烈焰光束轟擊 (sp_039/043)',
-    summaryEn: 'Ignition ring → colossal diagonal orbital solar fire beam (sp_039/043)',
+    summaryZh: '12波斜向連襲：6發流星爆環交替3道蒼藍天火與3道金焰光束 (sp_039/043)',
+    summaryEn: '12 staggered diagonal meteors alternating ice-blue & golden orbital beams (sp_039/043)',
   },
   {
     id: 4,
@@ -110,11 +119,12 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     dosHeroStrip: 23,
     sfxBank: 85,
     element: 'thunder',
-    hitTimesMs: [280, 660],
-    durationMs: 1120,
+    hitTimesMs: [240, 560, 880],
+    durationMs: 1240,
+    paintedSprite: 'fx_bolt_thin.webp',
     accentColor: '#38bdf8',
-    summaryZh: '雙發高壓裂閃青白電弧直劈目標 (sp_022/023)',
-    summaryEn: 'Twin jagged cyan-white forked lightning bolts (sp_022/023)',
+    summaryZh: '6道交錯裂閃疾電連劈，落地電芒回彈衝天 (sp_022/023)',
+    summaryEn: '6 staggered forked whip-lightning bolts rebounding skyward (sp_022/023)',
   },
   {
     id: 5,
@@ -126,11 +136,13 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     dosHeroStrip: 25,
     sfxBank: 86,
     element: 'thunder',
-    hitTimesMs: [260, 680],
-    durationMs: 1200,
+    hitTimesMs: [220, 540, 880],
+    durationMs: 1320,
+    paintedSprite: 'fx_bolt_heavy.webp',
+    secondarySprite: 'fx_thunder_crown.webp',
     accentColor: '#60a5fa',
-    summaryZh: '雙重粗壯落雷分叉劈擊與地面電棘擴散 (sp_024/025)',
-    summaryEn: 'Heavy double thunderbolt slam with radial ground spark bursts (sp_024/025)',
+    summaryZh: '6道左右交替巨型折線落雷，轟裂寬幅荊棘電冠衝擊波 (sp_024/025)',
+    summaryEn: '6 alternating left/right heavy zig-zag thunderbolts with jagged crown splashes (sp_024/025)',
   },
   {
     id: 6,
@@ -142,11 +154,13 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     dosHeroStrip: 33,
     sfxBank: 87,
     element: 'thunder',
-    hitTimesMs: [400, 660, 880],
-    durationMs: 1300,
+    hitTimesMs: [640, 860, 1080],
+    durationMs: 1460,
+    paintedSprite: 'fx_thunder_orb.webp',
+    secondarySprite: 'fx_thunder_nova.webp',
     accentColor: '#818cf8',
-    summaryZh: '蒼藍高能電球飛馳聚能 → 爆裂星芒雷環衝擊波 (sp_032/033)',
-    summaryEn: 'Rushing indigo plasma orb imploding into spiked thunder nova rings (sp_032/033)',
+    summaryZh: '5顆幽藍雷球3D螺旋繞身聚能 → 3連爆裂尖刺雷環 (sp_032/033)',
+    summaryEn: '5 orbiting thunder spheres spiraling inward → 3 jagged nova detonations (sp_032/033)',
   },
   {
     id: 7,
@@ -158,11 +172,12 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     dosHeroStrip: 38,
     sfxBank: 88,
     element: 'thunder',
-    hitTimesMs: [220, 480, 740],
-    durationMs: 1180,
+    hitTimesMs: [200, 520, 880],
+    durationMs: 1380,
+    paintedSprite: 'fx_divine_pillar.webp',
     accentColor: '#93c5fd',
-    summaryZh: '貫穿天地的巨型鈷藍審判雷柱直轟大地 (sp_037/038)',
-    summaryEn: 'Massive vertical cobalt-white pillar of heavenly thunder (sp_037/038)',
+    summaryZh: '6道貫穿天地鈷藍神雷巨柱連環轟擊收束 (sp_037/038)',
+    summaryEn: '6 staggered vertical heavenly thunder columns pinching to discharge needles (sp_037/038)',
   },
   {
     id: 8,
@@ -174,11 +189,12 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     dosHeroStrip: 30,
     sfxBank: 89,
     element: 'holy',
-    hitTimesMs: [260, 560, 860],
-    durationMs: 1320,
+    hitTimesMs: [200, 480, 760, 1040],
+    durationMs: 1440,
+    paintedSprite: 'fx_thunder_nova.webp',
     accentColor: '#fde047',
-    summaryZh: '連發聖光穿空射線與菱形星環爆裂 (sp_028/030)',
-    summaryEn: 'Converging holy laser volley shattering in crystal starbursts (sp_028/030)',
+    summaryZh: '12發四向高速聖光穿空連射，空心蒼藍星環連續爆裂 (sp_028/030)',
+    summaryEn: '12 rapid multi-angle holy lance strikes bursting into crystal star rings (sp_028/030)',
   },
   {
     id: 9,
@@ -315,6 +331,17 @@ export interface HdSpellImageMap {
   sylph: HTMLImageElement | null;
   destroyer: HTMLImageElement | null;
   fiend: HTMLImageElement | null;
+  firePillarRed: HTMLImageElement | null;
+  firePillarBlue: HTMLImageElement | null;
+  fireRing: HTMLImageElement | null;
+  solarBeamBlue: HTMLImageElement | null;
+  solarBeamGold: HTMLImageElement | null;
+  boltThin: HTMLImageElement | null;
+  boltHeavy: HTMLImageElement | null;
+  thunderCrown: HTMLImageElement | null;
+  thunderOrb: HTMLImageElement | null;
+  thunderNova: HTMLImageElement | null;
+  divinePillar: HTMLImageElement | null;
 }
 
 const spellImages: HdSpellImageMap = {
@@ -326,6 +353,17 @@ const spellImages: HdSpellImageMap = {
   sylph: null,
   destroyer: null,
   fiend: null,
+  firePillarRed: null,
+  firePillarBlue: null,
+  fireRing: null,
+  solarBeamBlue: null,
+  solarBeamGold: null,
+  boltThin: null,
+  boltHeavy: null,
+  thunderCrown: null,
+  thunderOrb: null,
+  thunderNova: null,
+  divinePillar: null,
 };
 
 let loadStartedVersion = '';
@@ -340,7 +378,7 @@ function loadOptImg(url: string): Promise<HTMLImageElement | null> {
   });
 }
 
-export function ensureHdSpellAssets(versionTag: string): Promise<HdSpellImageMap> {
+export function ensureHdSpellAssets(versionTag: string = HD_SPELL_ASSET_VERSION): Promise<HdSpellImageMap> {
   if (loadPromise && loadStartedVersion === versionTag) return loadPromise;
   loadStartedVersion = versionTag;
   const base = 'assets/hd_spells';
@@ -353,17 +391,61 @@ export function ensureHdSpellAssets(versionTag: string): Promise<HdSpellImageMap
     loadOptImg(`${base}/summon_33_sylph.webp${versionTag}`),
     loadOptImg(`${base}/summon_34_destroyer.webp${versionTag}`),
     loadOptImg(`${base}/summon_35_fiend.webp${versionTag}`),
-  ]).then(([dragon, dragonBreath, reaper, skull, seraph, sylph, destroyer, fiend]) => {
-    spellImages.dragon = dragon;
-    spellImages.dragonBreath = dragonBreath;
-    spellImages.reaper = reaper;
-    spellImages.skull = skull;
-    spellImages.seraph = seraph;
-    spellImages.sylph = sylph;
-    spellImages.destroyer = destroyer;
-    spellImages.fiend = fiend;
-    return spellImages;
-  });
+    loadOptImg(`${base}/fx_fire_pillar_red.webp${versionTag}`),
+    loadOptImg(`${base}/fx_fire_pillar_blue.webp${versionTag}`),
+    loadOptImg(`${base}/fx_fire_ring.webp${versionTag}`),
+    loadOptImg(`${base}/fx_solar_beam_blue.webp${versionTag}`),
+    loadOptImg(`${base}/fx_solar_beam_gold.webp${versionTag}`),
+    loadOptImg(`${base}/fx_bolt_thin.webp${versionTag}`),
+    loadOptImg(`${base}/fx_bolt_heavy.webp${versionTag}`),
+    loadOptImg(`${base}/fx_thunder_crown.webp${versionTag}`),
+    loadOptImg(`${base}/fx_thunder_orb.webp${versionTag}`),
+    loadOptImg(`${base}/fx_thunder_nova.webp${versionTag}`),
+    loadOptImg(`${base}/fx_divine_pillar.webp${versionTag}`),
+  ]).then(
+    ([
+      dragon,
+      dragonBreath,
+      reaper,
+      skull,
+      seraph,
+      sylph,
+      destroyer,
+      fiend,
+      firePillarRed,
+      firePillarBlue,
+      fireRing,
+      solarBeamBlue,
+      solarBeamGold,
+      boltThin,
+      boltHeavy,
+      thunderCrown,
+      thunderOrb,
+      thunderNova,
+      divinePillar,
+    ]) => {
+      spellImages.dragon = dragon;
+      spellImages.dragonBreath = dragonBreath;
+      spellImages.reaper = reaper;
+      spellImages.skull = skull;
+      spellImages.seraph = seraph;
+      spellImages.sylph = sylph;
+      spellImages.destroyer = destroyer;
+      spellImages.fiend = fiend;
+      spellImages.firePillarRed = firePillarRed;
+      spellImages.firePillarBlue = firePillarBlue;
+      spellImages.fireRing = fireRing;
+      spellImages.solarBeamBlue = solarBeamBlue;
+      spellImages.solarBeamGold = solarBeamGold;
+      spellImages.boltThin = boltThin;
+      spellImages.boltHeavy = boltHeavy;
+      spellImages.thunderCrown = thunderCrown;
+      spellImages.thunderOrb = thunderOrb;
+      spellImages.thunderNova = thunderNova;
+      spellImages.divinePillar = divinePillar;
+      return spellImages;
+    }
+  );
   return loadPromise;
 }
 
@@ -577,7 +659,165 @@ function drawOrganicFlamePillar(
 }
 
 /**
+ * Renders ONE authentic 1995 `sp_018 / sp_019` rising vertical fire pillar cycle (`localF` in `0..16`):
+ *   - `0..4.5`  (F0–F4): Thin blazing spark needle plunges vertically from sky straight to ground.
+ *   - `4.0..8.8`(F5–F8): Elliptical glowing magma / plasma disc widens under column base.
+ *   - `8.0..12.6`(F9–F12): Heavy-detail hand-painted spiral flame column erupts surging skyward.
+ *   - `12.4..16`(F13–F15): Entire pillar DETACHES from ground & rockets straight UP off the top edge!
+ */
+function drawFirePillarInstance(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  gy: number,
+  localF: number,
+  totalF: number,
+  maxH: number,
+  width: number,
+  isBlue: boolean,
+  img: HTMLImageElement | null,
+  sc: number,
+  flipX: boolean,
+  alphaScale = 1.0
+): void {
+  if (localF < 0 || localF >= totalF) return;
+  const phase = localF / totalF; // normalized 0..1 inside this single pillar!
+
+  // 1) Falling luminous spark needle (`F0..F4`, fast top-down drop straight into floor)
+  if (phase < 0.30) {
+    const dp = phase / 0.30;
+    const headY = -40 * sc + dp * (gy + 40 * sc);
+    const tailY = Math.max(-80 * sc, headY - (120 + (1 - dp) * 260) * sc);
+    const a = dp > 0.85 ? (1 - dp) / 0.15 : 1;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const ng = ctx.createLinearGradient(x, tailY, x, headY);
+    ng.addColorStop(0, 'rgba(0,0,0,0)');
+    ng.addColorStop(0.65, isBlue ? `rgba(56,189,248,${0.88 * a * alphaScale})` : `rgba(249,115,22,${0.88 * a * alphaScale})`);
+    ng.addColorStop(1, `rgba(255,255,245,${0.98 * a * alphaScale})`);
+    ctx.strokeStyle = ng;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = (isBlue ? 12 : 10) * sc;
+    ctx.beginPath();
+    ctx.moveTo(x, tailY);
+    ctx.lineTo(x, headY);
+    ctx.stroke();
+    drawTaperedStarburst(
+      ctx,
+      x,
+      headY,
+      26 * sc * a,
+      4,
+      0,
+      isBlue ? 'rgba(96,165,250,0.9)' : 'rgba(251,146,60,0.9)',
+      '#ffffff'
+    );
+    ctx.restore();
+  }
+
+  // 2) Glowing caldera puddle disc widening under column (`F5..F12`)
+  if (phase >= 0.25 && phase < 0.82) {
+    const pp = (phase - 0.25) / 0.57;
+    const expand = Math.min(1, pp * 3.0);
+    const fade = pp > 0.65 ? (1 - pp) / 0.35 : 1;
+    const rad = width * (0.42 + 0.48 * expand);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.translate(x, gy);
+    ctx.scale(1, 0.27);
+    const dg = ctx.createRadialGradient(0, 0, 2, 0, 0, Math.max(8, rad));
+    if (isBlue) {
+      dg.addColorStop(0, `rgba(240,249,255,${0.92 * fade * alphaScale})`);
+      dg.addColorStop(0.45, `rgba(56,189,248,${0.78 * fade * alphaScale})`);
+      dg.addColorStop(0.85, `rgba(37,99,235,${0.45 * fade * alphaScale})`);
+    } else {
+      dg.addColorStop(0, `rgba(255,248,200,${0.92 * fade * alphaScale})`);
+      dg.addColorStop(0.45, `rgba(249,115,22,${0.78 * fade * alphaScale})`);
+      dg.addColorStop(0.85, `rgba(220,38,38,${0.48 * fade * alphaScale})`);
+    }
+    dg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = dg;
+    ctx.beginPath();
+    ctx.arc(0, 0, rad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 3) Erupting hand-painted heavy-detail flame pillar (`F9..F12`) → DETACHES & ROCKETS SKYWARD (`F13..F15`)!
+  if (phase >= 0.46) {
+    const ep = (phase - 0.46) / 0.54; // 0..1 from base rise -> top launch!
+    const riseGrow = clamp01(ep / 0.22);
+    const curH = maxH * (0.28 + 0.72 * Math.sin(riseGrow * Math.PI * 0.5));
+    // Launch straight off the floor skyward past `y=0` during second half (`exact DOS F13–F15 feel!`)
+    const liftT = ep > 0.48 ? Math.pow((ep - 0.48) / 0.52, 1.45) : 0;
+    const baseLiftY = gy - liftT * (gy + maxH * 0.65);
+    const fadeOut = ep < 0.08 ? ep / 0.08 : ep > 0.76 ? clamp01((1 - ep) / 0.24) : 1;
+    const pulseW = width * (1 + Math.sin(localF * 2.8) * 0.08) * (1 - liftT * 0.22);
+
+    if (img && img.naturalWidth > 0) {
+      const topY = baseLiftY - curH;
+      ctx.save();
+      ctx.globalAlpha = clamp01(fadeOut * alphaScale * 0.96);
+      ctx.translate(x, topY + curH * 0.5);
+      if (flipX) ctx.scale(-1, 1);
+      // Warm soft under-glow right behind the pillar
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const glowR = Math.max(pulseW * 0.85, curH * 0.28);
+      const bgG = ctx.createRadialGradient(0, 0, pulseW * 0.05, 0, 0, glowR);
+      bgG.addColorStop(0, isBlue ? `rgba(186,230,253,${0.48 * fadeOut})` : `rgba(254,215,102,${0.48 * fadeOut})`);
+      bgG.addColorStop(0.55, isBlue ? `rgba(37,99,235,${0.26 * fadeOut})` : `rgba(220,38,38,${0.28 * fadeOut})`);
+      bgG.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = bgG;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, pulseW * 0.88, curH * 0.54, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Primary richly painted spiral dragonfire column (`source-over` preserves crimson/indigo curls!)
+      ctx.drawImage(img, -pulseW * 0.5, -curH * 0.5, pulseW, curH);
+      // Luminous subtle additive core overlay for dynamic shimmering flare
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = clamp01(fadeOut * alphaScale * 0.42);
+      ctx.drawImage(img, -pulseW * 0.48, -curH * 0.52, pulseW * 0.96, curH * 1.04);
+      ctx.restore();
+    } else {
+      drawOrganicFlamePillar(
+        ctx,
+        x,
+        baseLiftY,
+        curH,
+        pulseW * 0.4,
+        localF * 0.08,
+        isBlue
+          ? { outer: 'rgba(37,99,235,0.52)', mid: 'rgba(56,189,248,0.78)', core: 'rgba(224,242,254,0.92)', hot: 'rgba(255,255,255,0.98)' }
+          : { outer: 'rgba(220,38,38,0.52)', mid: 'rgba(249,115,22,0.78)', core: 'rgba(254,215,102,0.9)', hot: 'rgba(255,252,235,0.96)' },
+        fadeOut * alphaScale
+      );
+    }
+
+    // Spark embers bursting off the climbing bottom tail during liftoff (`F13..F15`)
+    if (liftT > 0.02 && liftT < 0.92) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = isBlue ? `rgba(224,242,254,${0.85 * fadeOut})` : `rgba(254,240,138,${0.85 * fadeOut})`;
+      for (let s = 0; s < 5; s++) {
+        const sx = x + Math.sin(s * 5.7 + localF * 2.1) * pulseW * 0.36;
+        const sy = baseLiftY + s * 22 * sc + (liftT * 90 * sc);
+        if (sy <= gy + 12 * sc) {
+          ctx.beginPath();
+          ctx.ellipse(sx, sy, 2.8 * sc, 7.5 * sc, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+  }
+}
+
+/**
  * Draw authentic HD Stage 2 cutaway spell / summon VFX for any of the 14 FDOTHER.DAT spells.
+ * Supports true 3D depth separation (`layer: 'behind' | 'front' | 'both'`) so rising pillars
+ * and orbiting plasma spheres wrap cleanly BOTH behind and in front of the defending combatant!
  * `progress` runs `0..1` inside the active spell window.
  */
 export function drawHdSpellEffect(
@@ -589,70 +829,55 @@ export function drawHdSpellEffect(
   groundY: number,
   progress: number,
   targetIsHeroSide = false,
-  imgs: HdSpellImageMap = spellImages
+  imgs: HdSpellImageMap = spellImages,
+  layer: HdSpellLayer = 'both'
 ): void {
   const p = clamp01(progress);
   if (p <= 0 || p >= 1) return;
-  const sc = W / 1600; // resolution-independent factor (1.0 on 1600×900 stage!)
+  const sc = W / 1600; // resolution-independent factor (1.0 on 1600×900, 1.2 on 1920×1200!)
+  const dosX = W / 320; // exact DOS 320x200 offset scale
+  const dosY = H / 200;
   const dir = targetIsHeroSide ? -1 : 1; // polarity mirror between enemyStrip vs heroStrip!
+  const drawBehind = layer === 'both' || layer === 'behind';
+  const drawFront = layer === 'both' || layer === 'front';
 
   ctx.save();
 
   // =========================================================================
-  // #00 火炎術 Fireball (sp_018 / sp_020)
+  // #00 火炎術 Fireball (sp_018 / sp_020) — Exact FD2 7 staggered rising flame pillars!
   // =========================================================================
   if (spellId === 0) {
-    ctx.globalCompositeOperation = 'screen';
-    if (p < 0.36) {
-      // Falling ember droplet streaking straight into a pooling magma glow beneath target
-      const fp = p / 0.36;
-      const fx = targetX + dir * (1 - fp) * 70 * sc;
-      const fy = (groundY - 720 * sc) + fp * 700 * sc;
-      const tailY = fy - 120 * sc;
-      const lg = ctx.createLinearGradient(fx, tailY, fx, fy + 25 * sc);
-      lg.addColorStop(0, 'rgba(239,68,68,0)');
-      lg.addColorStop(0.55, 'rgba(249,115,22,0.85)');
-      lg.addColorStop(1, 'rgba(255,250,210,1)');
-      ctx.strokeStyle = lg;
-      ctx.lineWidth = 22 * sc;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(fx + dir * 18 * sc, tailY);
-      ctx.lineTo(fx, fy);
-      ctx.stroke();
-      drawTaperedStarburst(ctx, fx, fy, 75 * sc, 6, p * 8, 'rgba(251,146,60,0.9)', '#ffffff');
-    } else {
-      const ep = (p - 0.36) / 0.64;
-      const fade = ep < 0.18 ? ep / 0.18 : ep > 0.74 ? (1 - ep) / 0.26 : 1;
-      // Glowing magma caldera pool beneath feet
-      ctx.save();
-      ctx.translate(targetX, groundY - 8 * sc);
-      ctx.scale(1, 0.26);
-      const pg = ctx.createRadialGradient(0, 0, 8 * sc, 0, 0, (190 + ep * 45) * sc);
-      pg.addColorStop(0, `rgba(255,245,190,${0.95 * fade})`);
-      pg.addColorStop(0.5, `rgba(239,68,68,${0.75 * fade})`);
-      pg.addColorStop(1, 'rgba(185,28,28,0)');
-      ctx.fillStyle = pg;
-      ctx.beginPath();
-      ctx.arc(0, 0, (190 + ep * 45) * sc, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      const colH = (220 + Math.sin(Math.min(1, ep * 1.45) * Math.PI * 0.5) * 510) * sc;
-      drawOrganicFlamePillar(
+    // Authentic `GLOBAL_9145[0]` (`xs = [40, 70, 120, 80, 50, 100, 70]` centered on `80`!)
+    const dxOffs = [-40, -10, 40, 0, -30, 20, -10];
+    const dyOffs = [0, -10, -20, 0, -15, -5, 0];
+    const behindFlags = [false, false, true, false, true, false, false];
+    if (drawBehind) {
+      const dimA = Math.sin(p * Math.PI) * 0.24;
+      ctx.fillStyle = `rgba(30, 8, 4, ${dimA})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    const tick = p * 28;
+    for (let k = 0; k < 7; k++) {
+      const isBehind = behindFlags[k];
+      if (isBehind && !drawBehind) continue;
+      if (!isBehind && !drawFront) continue;
+      const localF = tick - 2 * k;
+      if (localF < 0 || localF >= 16) continue;
+      const px = targetX + dxOffs[k] * dosX * 0.92 * dir;
+      const py = groundY + dyOffs[k] * dosY * 0.9;
+      drawFirePillarInstance(
         ctx,
-        targetX,
-        groundY - 4 * sc,
-        colH,
-        108 * sc * (0.7 + 0.3 * fade),
-        p,
-        {
-          outer: 'rgba(220, 38, 38, 0.48)',
-          mid: 'rgba(249, 115, 22, 0.72)',
-          core: 'rgba(254, 215, 102, 0.88)',
-          hot: 'rgba(255, 252, 235, 0.96)',
-        },
-        fade
+        px,
+        py,
+        localF,
+        16,
+        (isBehind ? 560 : 620) * sc,
+        (isBehind ? 195 : 225) * sc,
+        false,
+        imgs.firePillarRed,
+        sc,
+        k % 2 === 1,
+        isBehind ? 0.90 : 0.98
       );
     }
     ctx.restore();
@@ -660,50 +885,92 @@ export function drawHdSpellEffect(
   }
 
   // =========================================================================
-  // #01 烈炎術 Scorching Flame (sp_019 / sp_021) — Authentic 2-stage BLUE then RED pillar!
+  // #01 烈炎術 Scorching Flame (sp_019 / sp_021) — Exact FD2 8-pillar alternating BLUE + RED elliptical cage!
   // =========================================================================
   if (spellId === 1) {
-    ctx.globalCompositeOperation = 'screen';
-    if (p < 0.50) {
-      const bp = p / 0.50;
-      const fade = bp < 0.22 ? bp / 0.22 : bp > 0.72 ? (1 - bp) / 0.28 : 1;
-      const colH = Math.min(1, bp * 2.4) * 760 * sc;
-      drawOrganicFlamePillar(
-        ctx,
-        targetX,
-        groundY - 6 * sc,
-        colH,
-        125 * sc,
-        bp * 1.5,
-        {
-          outer: 'rgba(37, 99, 235, 0.52)',
-          mid: 'rgba(56, 189, 248, 0.76)',
-          core: 'rgba(224, 242, 254, 0.92)',
-          hot: 'rgba(255, 255, 255, 0.98)',
-        },
-        fade
-      );
-      drawTaperedStarburst(ctx, targetX, groundY - 120 * sc, 185 * sc * fade, 8, bp * 3, 'rgba(96,165,250,0.85)', '#ffffff');
-    } else {
-      const rp = (p - 0.50) / 0.50;
-      const fade = rp < 0.16 ? rp / 0.16 : rp > 0.70 ? (1 - rp) / 0.30 : 1;
-      const colH = Math.min(1, rp * 2.5) * 810 * sc;
-      drawOrganicFlamePillar(
-        ctx,
-        targetX,
-        groundY - 6 * sc,
-        colH,
-        148 * sc,
-        rp * 1.6,
-        {
-          outer: 'rgba(185, 28, 28, 0.62)',
-          mid: 'rgba(239, 68, 68, 0.84)',
-          core: 'rgba(251, 146, 60, 0.94)',
-          hot: 'rgba(254, 249, 195, 0.99)',
-        },
-        fade
-      );
-      drawTaperedStarburst(ctx, targetX, groundY - 170 * sc, 255 * sc * fade, 10, rp * 4, 'rgba(249,115,22,0.9)', '#fef9c3');
+    // Exact `GLOBAL_9145[1]` ring around target (`k=0..3` blue back + red front; `k=4..7` red back + blue front!)
+    const xOff = [-59, -39, 0, 39, 55, 39, 0, -39];
+    const yOff = [-10, -24, -30, -24, -10, 4, 10, 4];
+    if (drawBehind) {
+      const dimA = Math.sin(p * Math.PI) * 0.34;
+      ctx.fillStyle = `rgba(12, 10, 28, ${dimA})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    const tick = p * 31;
+    for (let k = 0; k < 8; k++) {
+      const localF = tick - 2 * k;
+      if (localF < 0 || localF >= 15) continue;
+      const isBackBlue = k < 4;
+      const posBlue = k;
+      const posRed = (k + 4) % 8;
+
+      if (isBackBlue) {
+        if (drawBehind) {
+          drawFirePillarInstance(
+            ctx,
+            targetX + xOff[posBlue] * dosX * 0.78 * dir,
+            groundY + yOff[posBlue] * dosY * 0.95,
+            localF,
+            15,
+            Math.max(680 * sc, H * 0.86),
+            205 * sc,
+            true,
+            imgs.firePillarBlue,
+            sc,
+            k % 2 === 1,
+            0.90
+          );
+        }
+        if (drawFront) {
+          drawFirePillarInstance(
+            ctx,
+            targetX + xOff[posRed] * dosX * 0.78 * dir,
+            groundY + yOff[posRed] * dosY * 0.95,
+            localF,
+            15,
+            Math.max(720 * sc, H * 0.92),
+            220 * sc,
+            false,
+            imgs.firePillarRed,
+            sc,
+            k % 2 === 0,
+            0.98
+          );
+        }
+      } else {
+        if (drawBehind) {
+          drawFirePillarInstance(
+            ctx,
+            targetX + xOff[posRed] * dosX * 0.78 * dir,
+            groundY + yOff[posRed] * dosY * 0.95,
+            localF,
+            15,
+            Math.max(680 * sc, H * 0.86),
+            205 * sc,
+            false,
+            imgs.firePillarRed,
+            sc,
+            k % 2 === 1,
+            0.90
+          );
+        }
+        if (drawFront) {
+          drawFirePillarInstance(
+            ctx,
+            targetX + xOff[posBlue] * dosX * 0.78 * dir,
+            groundY + yOff[posBlue] * dosY * 0.95,
+            localF,
+            15,
+            Math.max(720 * sc, H * 0.92),
+            220 * sc,
+            true,
+            imgs.firePillarBlue,
+            sc,
+            k % 2 === 0,
+            0.98
+          );
+        }
+      }
     }
     ctx.restore();
     return;
@@ -713,6 +980,10 @@ export function drawHdSpellEffect(
   // #02 炎龍術 Flame Dragon (sp_026 / sp_027) — Baroque Roaring Dragon + Hand-Painted Mouth Breath Wave!
   // =========================================================================
   if (spellId === 2) {
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
     const enter = clamp01(p / 0.22);
     const exitFade = p > 0.80 ? clamp01((1 - p) / 0.20) : 1;
     // Cinematic warm volcanic twilight scrim so ornate golden scales & painted roaring breath pop vividly
@@ -904,67 +1175,153 @@ export function drawHdSpellEffect(
   }
 
   // =========================================================================
-  // #03 天火術 Heaven's Fire / Orbital Sky Beam (sp_039 / sp_043)
+  // #03 天火術 Heaven's Fire (sp_039 / sp_043) — Exact 12-strike barrage (6 meteors + 3 ice-blue beams + 3 gold solar beams!)
   // =========================================================================
   if (spellId === 3) {
-    ctx.fillStyle = `rgba(34, 10, 4, ${0.42 * (p < 0.8 ? 1 : (1 - p) / 0.2)})`;
-    ctx.fillRect(0, 0, W, H);
-    ctx.globalCompositeOperation = 'screen';
-    const impactX = targetX;
-    const impactY = groundY - 120 * sc;
-    const skyX = targetX + dir * 740 * sc;
-    const skyY = -80 * sc;
+    if (drawBehind) {
+      const dim = p < 0.14 ? p / 0.14 : p > 0.84 ? (1 - p) / 0.16 : 1;
+      ctx.fillStyle = `rgba(26, 8, 6, ${0.42 * dim})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
 
-    if (p < 0.24) {
-      // Initial fire-spark target lock detonation ring (matching DOS sp_039 F5!)
-      const ep = p / 0.24;
-      drawTaperedStarburst(ctx, impactX, impactY, 175 * sc * Math.sin(ep * Math.PI), 10, ep * 3, 'rgba(249,115,22,0.95)', '#fef9c3');
-      ctx.strokeStyle = `rgba(251, 146, 60, ${0.85 * (1 - ep)})`;
-      ctx.lineWidth = 8 * sc;
-      ctx.beginPath();
-      ctx.arc(impactX, impactY, (40 + ep * 185) * sc, 0, Math.PI * 2);
-      ctx.stroke();
-    } else {
-      const bp = (p - 0.24) / 0.76;
-      const beamGrow = clamp01(bp / 0.14);
-      const fade = bp > 0.74 ? (1 - bp) / 0.26 : 1;
-      const curX = skyX + (impactX - skyX) * beamGrow;
-      const curY = skyY + (impactY - skyY) * beamGrow;
-      const pulse = 1 + Math.sin(bp * 40) * 0.16;
+    // Authentic `GLOBAL_9145[3]` offsets & sub-strips (`0 = meteor+ring`, `11 = blue sky beam`, `22 = gold solar beam`)
+    const subBases = [0, 11, 0, 22, 0, 22, 0, 11, 0, 22, 0, 11];
+    const relX = [-25, -45, 20, -10, 65, 18, -65, -18, 48, 28, -42, -5];
+    const relY = [-36, 0, -10, 8, -14, -4, -22, 6, -30, 12, -8, -12];
+    const tick = p * 33;
 
-      // Diagonal slanted solar fire laser cannon!
-      const drawBeam = (lw: number, col: string) => {
-        ctx.strokeStyle = col;
-        ctx.lineWidth = lw;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(skyX, skyY);
-        ctx.lineTo(curX, curY);
-        ctx.stroke();
-      };
-      drawBeam(210 * sc * pulse * fade, `rgba(220, 38, 38, ${0.45 * fade})`);
-      drawBeam(125 * sc * pulse * fade, `rgba(249, 115, 22, ${0.85 * fade})`);
-      drawBeam(68 * sc * pulse * fade, `rgba(254, 240, 138, ${0.95 * fade})`);
-      drawBeam(32 * sc * pulse * fade, `rgba(255, 255, 255, ${0.99 * fade})`);
+    for (let k = 0; k < 12; k++) {
+      const localF = tick - 2 * k;
+      if (localF < 0 || localF >= 11) continue;
+      const base = subBases[k];
+      const ix = targetX + relX[k] * dosX * 0.9 * dir;
+      const iy = groundY - 125 * sc + relY[k] * dosY * 0.85;
 
-      // Concentric glowing plasma pressure rings sliding downward along the beam
-      if (beamGrow >= 0.9) {
-        for (let ri = 0; ri < 4; ri++) {
-          const ru = (bp * 2.2 + ri * 0.25) % 1;
-          const rx = skyX + (impactX - skyX) * ru;
-          const ry = skyY + (impactY - skyY) * ru;
+      if (base === 0) {
+        // METEOR + RING EXPLOSION (`F0..F2` diagonal fiery comet -> `F3..F10` hollow curling `fx_fire_ring.webp`!)
+        if (localF < 3.0) {
+          const mp = localF / 3.0;
+          const sx = ix + dir * 560 * sc;
+          const sy = iy - 420 * sc;
+          const cx = sx + (ix - sx) * mp;
+          const cy = sy + (iy - sy) * mp;
           ctx.save();
-          ctx.translate(rx, ry);
-          ctx.rotate(Math.atan2(impactY - skyY, impactX - skyX) + Math.PI / 2);
-          ctx.scale(1, 0.34);
-          ctx.strokeStyle = `rgba(254, 240, 138, ${(1 - Math.abs(ru - 0.5) * 1.4) * 0.85 * fade})`;
-          ctx.lineWidth = 10 * sc;
+          ctx.globalCompositeOperation = 'screen';
+          const tailX = cx + dir * 210 * sc;
+          const tailY = cy - 155 * sc;
+          const mg = ctx.createLinearGradient(tailX, tailY, cx, cy);
+          mg.addColorStop(0, 'rgba(220,38,38,0)');
+          mg.addColorStop(0.55, 'rgba(249,115,22,0.88)');
+          mg.addColorStop(1, 'rgba(255,252,225,1)');
+          ctx.strokeStyle = mg;
+          ctx.lineCap = 'round';
+          ctx.lineWidth = 34 * sc;
           ctx.beginPath();
-          ctx.arc(0, 0, (95 + ri * 18) * sc, 0, Math.PI * 2);
+          ctx.moveTo(tailX, tailY);
+          ctx.lineTo(cx, cy);
           ctx.stroke();
+          drawTaperedStarburst(ctx, cx, cy, 78 * sc, 6, mp * 5, 'rgba(251,146,60,0.95)', '#ffffff');
           ctx.restore();
+        } else {
+          const ep = (localF - 3.0) / 8.0; // 0..1 explosion -> expanding fading ring!
+          const fade = ep < 0.14 ? ep / 0.14 : Math.pow(1 - ep, 0.72);
+          const rSize = (170 + Math.pow(ep, 0.65) * 320) * sc;
+          const ringImg = imgs.fireRing;
+          if (ringImg && ringImg.naturalWidth > 0) {
+            ctx.save();
+            ctx.translate(ix, iy);
+            ctx.rotate(k * 0.75 + ep * 0.45 * dir);
+            ctx.globalAlpha = clamp01(fade * 0.96);
+            ctx.drawImage(ringImg, -rSize * 0.5, -rSize * 0.5, rSize, rSize);
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = clamp01(fade * 0.52);
+            ctx.drawImage(ringImg, -rSize * 0.46, -rSize * 0.46, rSize * 0.92, rSize * 0.92);
+            ctx.restore();
+          }
+          if (ep < 0.28) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            drawTaperedStarburst(ctx, ix, iy, rSize * 0.55 * (1 - ep / 0.28), 10, ep * 6, 'rgba(253,224,71,0.9)', '#ffffff');
+            ctx.restore();
+          }
         }
-        drawTaperedStarburst(ctx, impactX, impactY + 25 * sc, 310 * sc * fade * pulse, 14, bp * 4, 'rgba(249,115,22,0.92)', '#ffffff');
+      } else {
+        // DIAGONAL ORBITAL SKY-BEAM (`base === 11`: BLUE plasma, `base === 22`: GOLD solar fire!)
+        const isBlue = base === 11;
+        const beamImg = isBlue ? imgs.solarBeamBlue : imgs.solarBeamGold;
+        const bw = 920 * sc;
+        const bh = beamImg && beamImg.naturalWidth > 0 ? (bw * beamImg.naturalHeight) / beamImg.naturalWidth : 700 * sc;
+        // Slide-in (`0..1.4`), roar full blast (`1.4..7.2`), downward shear dissolution (`7.2..11.0`)!
+        const entryT = clamp01(localF / 1.4);
+        const exitT = localF > 7.0 ? clamp01((localF - 7.0) / 4.0) : 0;
+        const alpha = localF < 0.8 ? localF / 0.8 : exitT > 0 ? Math.pow(1 - exitT, 0.75) : 1;
+        const pulse = 1 + Math.sin(localF * 5.2 + k) * 0.06;
+
+        ctx.save();
+        // Anchor lower-left tip cleanly right onto `(ix, iy)` (mirror around `ix` when striking hero right side!)
+        ctx.translate(ix, iy);
+        if (targetIsHeroSide) ctx.scale(-1, 1);
+
+        // Clip progress along the diagonal direction (entering down-left on `entryT`, shrinking down-left on `exitT`!)
+        const tipStartX = -bw * 0.05;
+        const tipStartY = -bh + bh * 0.05;
+        const slideDown = exitT * bw * 0.45;
+        ctx.save();
+        if (entryT < 1) {
+          const rMax = Math.hypot(bw, bh) * 1.15;
+          ctx.beginPath();
+          ctx.arc(bw * 0.92, -bh * 0.92, rMax * entryT, 0, Math.PI * 2);
+          ctx.clip();
+        }
+        if (beamImg && beamImg.naturalWidth > 0) {
+          ctx.globalAlpha = clamp01(alpha * 0.96);
+          ctx.drawImage(
+            beamImg,
+            tipStartX - slideDown * 0.55,
+            tipStartY + slideDown * 0.42,
+            bw * pulse,
+            bh * pulse
+          );
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = clamp01(alpha * 0.56);
+          ctx.drawImage(
+            beamImg,
+            tipStartX - slideDown * 0.55 - 12 * sc,
+            tipStartY + slideDown * 0.42 + 8 * sc,
+            bw * pulse,
+            bh * pulse
+          );
+        } else {
+          ctx.globalCompositeOperation = 'screen';
+          ctx.strokeStyle = isBlue ? `rgba(96,165,250,${0.9 * alpha})` : `rgba(251,146,60,${0.9 * alpha})`;
+          ctx.lineWidth = 72 * sc;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(bw * 0.9, -bh * 0.9);
+          ctx.lineTo(0, 0);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // Blazing starburst flare right at the diagonal impact tip!
+        if (entryT > 0.65) {
+          ctx.globalCompositeOperation = 'screen';
+          drawTaperedStarburst(
+            ctx,
+            0,
+            0,
+            (180 + Math.sin(localF * 6) * 28) * sc * alpha,
+            10,
+            localF * 0.8,
+            isBlue ? 'rgba(96,165,250,0.92)' : 'rgba(251,146,60,0.92)',
+            '#ffffff'
+          );
+        }
+        ctx.restore();
       }
     }
     ctx.restore();
@@ -972,149 +1329,295 @@ export function drawHdSpellEffect(
   }
 
   // =========================================================================
-  // #04 電擊術 Lightning Shock (sp_022 / sp_023)
+  // #04 電擊術 Lightning Shock (sp_022 / sp_023) — Exact 6 staggered crackling bolts + rising upward flare rebound!
   // =========================================================================
   if (spellId === 4) {
-    ctx.globalCompositeOperation = 'screen';
-    const strike = (u: number, seedBase: number) => {
-      if (u <= 0 || u >= 1) return;
-      const a = u < 0.2 ? u / 0.2 : (1 - u) / 0.8;
-      const sTick = Math.floor(u * 10);
-      drawLightningBolt(
-        ctx,
-        targetX + dir * 48 * sc,
-        -20 * sc,
-        targetX,
-        groundY - 40 * sc,
-        26 * sc * a,
-        58 * sc,
-        14,
-        seedBase + sTick * 3.7,
-        `rgba(56,189,248,${0.8 * a})`,
-        `rgba(186,230,253,${0.92 * a})`,
-        `rgba(255,255,255,${a})`,
-        3
-      );
-      drawTaperedStarburst(ctx, targetX, groundY - 90 * sc, 155 * sc * a, 8, u * 6, 'rgba(56,189,248,0.85)', '#ffffff');
-    };
-    strike(clamp01(p / 0.48), 41);
-    strike(clamp01((p - 0.45) / 0.55), 119);
+    if (drawBehind) {
+      const dim = Math.sin(p * Math.PI) * 0.24;
+      ctx.fillStyle = `rgba(10, 18, 44, ${dim})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
+    // Authentic `GLOBAL_9145[4]` 6 bolts: `xs = [30, 50, 70, 40, 80, 100]` centered near `65`
+    const xOffs = [-35, -15, 5, -25, 15, 35];
+    const tick = p * 18;
+    const bImg = imgs.boltThin;
+
+    for (let k = 0; k < 6; k++) {
+      const localF = tick - 2 * k;
+      if (localF < 0 || localF >= 7) continue;
+      const bx = targetX + xOffs[k] * dosX * 1.15 * dir;
+      const gy = groundY - 6 * sc + (k % 2 === 0 ? -12 : 8) * sc;
+      const flip = k % 2 === 1;
+
+      if (localF < 3.4) {
+        // Descending strike `F0..F2`: jagged bolt shoots down from `y=0` straight into ground!
+        const dropFrac = clamp01(localF / 1.75);
+        const fade = localF > 2.3 ? clamp01((3.4 - localF) / 1.1) : 1;
+        const bH = gy + 30 * sc;
+        const bW = bImg && bImg.naturalWidth > 0 ? Math.max(220 * sc, (bH * bImg.naturalWidth) / bImg.naturalHeight * 0.85) : 260 * sc;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, W, Math.max(10, (gy + 40 * sc) * dropFrac));
+        ctx.clip();
+        if (bImg && bImg.naturalWidth > 0) {
+          ctx.translate(bx, gy * 0.5);
+          if (flip) ctx.scale(-1, 1);
+          ctx.globalAlpha = clamp01(fade * 0.96);
+          ctx.drawImage(bImg, -bW * 0.5, -bH * 0.5, bW, bH);
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = clamp01(fade * 0.65);
+          ctx.drawImage(bImg, -bW * 0.52, -bH * 0.5, bW * 1.04, bH);
+        } else {
+          ctx.globalCompositeOperation = 'screen';
+          drawLightningBolt(ctx, bx, -20 * sc, bx, gy, 24 * sc, 54 * sc, 12, k * 37, 'rgba(56,189,248,0.85)', 'rgba(186,230,253,0.95)', '#ffffff', 2);
+        }
+        ctx.restore();
+        if (dropFrac >= 0.85) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          drawTaperedStarburst(ctx, bx, gy - 16 * sc, 105 * sc * fade, 8, k * 0.5, 'rgba(56,189,248,0.9)', '#ffffff');
+          ctx.restore();
+        }
+      }
+
+      // Authentic `sp_022 F3..F6` rebound flare crown shooting BACK UP straight out of the top sky!
+      if (localF >= 2.2) {
+        const up = clamp01((localF - 2.2) / 4.8);
+        const ry = gy - up * (gy + 120 * sc);
+        const fade = up < 0.15 ? up / 0.15 : Math.pow(1 - up, 0.7);
+        const rw = (72 - up * 20) * sc;
+        const rh = (175 - up * 55) * sc;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const fg = ctx.createLinearGradient(bx, ry - rh, bx, ry + 18 * sc);
+        fg.addColorStop(0, 'rgba(37,99,235,0)');
+        fg.addColorStop(0.32, `rgba(96,165,250,${0.92 * fade})`);
+        fg.addColorStop(0.68, `rgba(255,255,255,${0.98 * fade})`);
+        fg.addColorStop(1, 'rgba(37,99,235,0)');
+        ctx.fillStyle = fg;
+        // Three jagged upward W-crown ribbon spikes echoing `sp_022 F4/F5`!
+        ctx.beginPath();
+        ctx.moveTo(bx - rw * 0.5, ry + 10 * sc);
+        ctx.lineTo(bx - rw * 0.45, ry - rh * 0.88);
+        ctx.lineTo(bx - rw * 0.18, ry - rh * 0.42);
+        ctx.lineTo(bx, ry - rh);
+        ctx.lineTo(bx + rw * 0.18, ry - rh * 0.45);
+        ctx.lineTo(bx + rw * 0.45, ry - rh * 0.85);
+        ctx.lineTo(bx + rw * 0.5, ry + 10 * sc);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
     ctx.restore();
     return;
   }
 
   // =========================================================================
-  // #05 落雷術 Falling Bolt (sp_024 / sp_025)
+  // #05 落雷術 Falling Bolt (sp_024 / sp_025) — Exact 6 heavy zig-zag thunderbolts + jagged wide crown bursts!
   // =========================================================================
   if (spellId === 5) {
-    ctx.fillStyle = `rgba(12, 24, 52, ${0.32 * Math.sin(p * Math.PI)})`;
-    ctx.fillRect(0, 0, W, H);
-    ctx.globalCompositeOperation = 'screen';
-    const slam = (u: number, offX: number, seedBase: number) => {
-      if (u <= 0 || u >= 1) return;
-      const a = u < 0.14 ? u / 0.14 : Math.pow(1 - (u - 0.14) / 0.86, 0.8);
-      const tick = Math.floor(u * 8);
-      drawLightningBolt(
-        ctx,
-        targetX + offX * sc,
-        -30 * sc,
-        targetX,
-        groundY - 22 * sc,
-        58 * sc * a,
-        72 * sc,
-        12,
-        seedBase + tick * 5.3,
-        `rgba(37,99,235,${0.72 * a})`,
-        `rgba(125,211,252,${0.95 * a})`,
-        `rgba(255,255,255,${a})`,
-        4
-      );
-      // Spiky upward ground lightning discharge fan (`matching DOS sp_024 F3!`)
-      for (let k = -4; k <= 4; k++) {
-        const ang = -Math.PI * 0.5 + k * 0.28;
-        const r = (90 + (k % 2 === 0 ? 110 : 60)) * sc * Math.min(1, u * 3);
-        ctx.strokeStyle = `rgba(224,242,254,${0.9 * a})`;
-        ctx.lineWidth = (k % 2 === 0 ? 7 : 4) * sc;
+    if (drawBehind) {
+      const dim = Math.sin(p * Math.PI) * 0.36;
+      ctx.fillStyle = `rgba(10, 18, 48, ${dim})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
+    const xOffs = [-36, -16, 4, -26, 16, 36];
+    const tick = p * 17;
+    const hImg = imgs.boltHeavy;
+    const cImg = imgs.thunderCrown;
+
+    for (let k = 0; k < 6; k++) {
+      const localF = tick - 2 * k;
+      if (localF < 0 || localF >= 6) continue;
+      const bx = targetX + xOffs[k] * dosX * 1.15 * dir;
+      const gy = groundY + 6 * sc;
+      const mirror = k % 2 === 1; // exact alternation of LEFT (`0..5`) and RIGHT (`6..11`) jagged elbow bolts!
+
+      if (localF < 2.8) {
+        const dropFrac = clamp01(localF / 1.45);
+        const fade = localF > 2.0 ? clamp01((2.8 - localF) / 0.8) : 1;
+        const bH = gy + 24 * sc;
+        const bW = hImg && hImg.naturalWidth > 0 ? Math.max(300 * sc, (bH * hImg.naturalWidth) / hImg.naturalHeight * 0.92) : 340 * sc;
+        ctx.save();
         ctx.beginPath();
-        ctx.moveTo(targetX, groundY - 25 * sc);
-        ctx.lineTo(targetX + Math.cos(ang) * r, groundY - 25 * sc + Math.sin(ang) * r);
-        ctx.stroke();
+        ctx.rect(0, 0, W, Math.max(10, (gy + 55 * sc) * dropFrac));
+        ctx.clip();
+        if (hImg && hImg.naturalWidth > 0) {
+          ctx.translate(bx, gy * 0.5);
+          if (mirror) ctx.scale(-1, 1);
+          ctx.globalAlpha = clamp01(fade * 0.98);
+          ctx.drawImage(hImg, -bW * 0.5, -bH * 0.5, bW, bH);
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = clamp01(fade * 0.65);
+          ctx.drawImage(hImg, -bW * 0.52, -bH * 0.5, bW * 1.04, bH);
+        }
+        ctx.restore();
       }
-      drawTaperedStarburst(ctx, targetX, groundY - 40 * sc, 220 * sc * a, 10, seedBase, 'rgba(96,165,250,0.9)', '#ffffff');
-    };
-    slam(clamp01(p / 0.52), -45, 73);
-    slam(clamp01((p - 0.42) / 0.58), 55, 197);
+
+      // Colossal wide painted ground shockwave crown splash (`F2..F4` bursting outward & upward!)
+      if (localF >= 1.35) {
+        const cp = clamp01((localF - 1.35) / 4.2);
+        const fade = cp < 0.14 ? cp / 0.14 : Math.pow(1 - cp, 0.85);
+        const liftY = cp * 55 * sc;
+        const spreadW = (320 + cp * 185) * sc;
+        const spreadH = (195 + cp * 95) * sc;
+        if (cImg && cImg.naturalWidth > 0) {
+          ctx.save();
+          ctx.translate(bx, gy - liftY);
+          if (mirror) ctx.scale(-1, 1);
+          ctx.globalAlpha = clamp01(fade * 0.96);
+          ctx.drawImage(cImg, -spreadW * 0.5, -spreadH + 18 * sc, spreadW, spreadH);
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = clamp01(fade * 0.58);
+          ctx.drawImage(cImg, -spreadW * 0.54, -spreadH + 10 * sc, spreadW * 1.08, spreadH * 1.04);
+          ctx.restore();
+        }
+        // Subtle trailing smoke-blue vertical electric wisp lingering right behind (`sp_024 F5/F11!`)
+        if (localF > 2.6) {
+          const wa = clamp01(1 - (localF - 2.6) / 3.4) * 0.65;
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          drawLightningBolt(
+            ctx,
+            bx + (mirror ? -22 : 22) * sc,
+            gy - 340 * sc,
+            bx,
+            gy - 70 * sc,
+            9 * sc,
+            34 * sc,
+            6,
+            k * 19 + 4,
+            `rgba(59,130,246,${wa * 0.6})`,
+            `rgba(147,197,253,${wa * 0.85})`,
+            `rgba(224,242,254,${wa})`,
+            0
+          );
+          ctx.restore();
+        }
+      }
+    }
     ctx.restore();
     return;
   }
 
   // =========================================================================
-  // #06 轟雷術 Thunder Storm (sp_032 / sp_033) — Plasma Orb -> Spiky Ring Nova!
+  // #06 轟雷術 Thunder Storm (sp_032 / sp_033) — 5 orbiting dark plasma spheres -> 3 jagged nova detonations!
   // =========================================================================
   if (spellId === 6) {
-    ctx.fillStyle = `rgba(10, 14, 42, ${0.44 * (p < 0.8 ? 1 : (1 - p) / 0.2)})`;
-    ctx.fillRect(0, 0, W, H);
-    ctx.globalCompositeOperation = 'screen';
-    const cy = groundY - 185 * sc;
-    if (p < 0.38) {
-      const rp = p / 0.38;
-      const sx = targetX + dir * (1 - rp) * 620 * sc;
-      const sy = cy - (1 - rp) * 180 * sc;
-      // Crackling electric trailing lightning behind flying plasma orb!
-      drawLightningBolt(
-        ctx,
-        sx + dir * 240 * sc,
-        sy - 70 * sc,
-        sx,
-        sy,
-        24 * sc,
-        40 * sc,
-        10,
-        Math.floor(rp * 14) * 7,
-        'rgba(99,102,241,0.75)',
-        'rgba(125,211,252,0.92)',
-        '#ffffff',
-        2
-      );
-      const orbG = ctx.createRadialGradient(sx, sy, 8 * sc, sx, sy, 88 * sc);
-      orbG.addColorStop(0, '#ffffff');
-      orbG.addColorStop(0.35, 'rgba(96,165,250,0.95)');
-      orbG.addColorStop(0.7, 'rgba(67,56,202,0.75)');
-      orbG.addColorStop(1, 'rgba(30,27,75,0)');
-      ctx.fillStyle = orbG;
-      ctx.beginPath();
-      ctx.arc(sx, sy, 88 * sc, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      const ep = (p - 0.38) / 0.62;
-      const fade = ep > 0.72 ? (1 - ep) / 0.28 : 1;
-      // Expanding spiked indigo-cyan nova ring + 4 orbiting high-voltage bolts!
-      const ringR = (60 + ep * 360) * sc;
-      drawTaperedStarburst(ctx, targetX, cy, ringR * (0.95 - ep * 0.2), 18, ep * 2.4, `rgba(96,165,250,${0.92 * fade})`, `rgba(255,255,255,${fade})`);
-      ctx.strokeStyle = `rgba(165, 180, 252, ${0.85 * (1 - ep)})`;
-      ctx.lineWidth = (18 - ep * 12) * sc;
-      ctx.beginPath();
-      ctx.arc(targetX, cy, ringR, 0, Math.PI * 2);
-      ctx.stroke();
+    const dim = p < 0.12 ? p / 0.12 : p > 0.84 ? (1 - p) / 0.16 : 1;
+    if (drawBehind) {
+      ctx.fillStyle = `rgba(8, 12, 38, ${0.46 * dim})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    const cy = groundY - 210 * sc;
+    const orbImg = imgs.thunderOrb;
+    const novaImg = imgs.thunderNova;
 
-      for (let i = 0; i < 4; i++) {
-        const ang = ep * Math.PI * 4.5 + (i * Math.PI) / 2;
-        const bx = targetX + Math.cos(ang) * (160 + ep * 80) * sc;
-        const by = cy + Math.sin(ang) * 95 * sc;
+    // Phase 1 (`p = 0..0.52`): 5 dark glossy thunder spheres spiraling tightly INWARD (72° apart, 3D depth sorted!)
+    if (p < 0.56) {
+      const op = clamp01(p / 0.52);
+      const easeR = 1 - Math.pow(op, 1.35);
+      const radX = (42 + easeR * 270) * sc;
+      const radY = radX * 0.50;
+      const oFade = p < 0.08 ? p / 0.08 : p > 0.48 ? clamp01((0.56 - p) / 0.08) : 1;
+      const spinDeg = op * 310;
+
+      // Iconic DOS `sp_032 F0` dramatic charging lightning tether feeding the sphere from sky-corner!
+      if (op < 0.28 && drawFront) {
+        const ta = clamp01(1 - op / 0.28);
+        const startX = targetX - dir * 560 * sc;
+        const startY = -40 * sc;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
         drawLightningBolt(
           ctx,
-          targetX,
-          cy,
-          bx,
-          by,
-          16 * sc * fade,
-          28 * sc,
-          6,
-          i * 31 + Math.floor(ep * 15),
-          'rgba(99,102,241,0.75)',
-          'rgba(56,189,248,0.9)',
-          '#ffffff'
+          startX,
+          startY,
+          targetX + Math.cos((spinDeg * Math.PI) / 180) * radX,
+          cy + Math.sin((spinDeg * Math.PI) / 180) * radY,
+          28 * sc * ta,
+          48 * sc,
+          8,
+          Math.floor(p * 30),
+          `rgba(59,130,246,${0.8 * ta})`,
+          `rgba(186,230,253,${0.95 * ta})`,
+          `rgba(255,255,255,${ta})`,
+          1
         );
+        ctx.restore();
+      }
+
+      for (let k = 0; k < 5; k++) {
+        const ang = ((k * 72 + spinDeg) * Math.PI) / 180;
+        const isBehind = Math.sin(ang) < 0;
+        if (isBehind && !drawBehind) continue;
+        if (!isBehind && !drawFront) continue;
+        const ox = targetX + Math.cos(ang) * radX;
+        const oy = cy + Math.sin(ang) * radY;
+        const depthScale = 0.78 + 0.28 * ((Math.sin(ang) + 1) * 0.5);
+        const sz = (158 + (1 - easeR) * 32) * sc * depthScale;
+        ctx.save();
+        ctx.translate(ox, oy);
+        ctx.rotate(op * Math.PI * (k % 2 === 0 ? 1.5 : -1.5));
+        ctx.globalAlpha = clamp01(oFade * (isBehind ? 0.85 : 0.98));
+        if (orbImg && orbImg.naturalWidth > 0) {
+          ctx.drawImage(orbImg, -sz * 0.5, -sz * 0.5, sz, sz * (orbImg.naturalHeight / orbImg.naturalWidth));
+        } else {
+          const og = ctx.createRadialGradient(0, 0, 4, 0, 0, sz * 0.5);
+          og.addColorStop(0, '#93c5fd');
+          og.addColorStop(0.5, '#1e3a8a');
+          og.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = og;
+          ctx.beginPath();
+          ctx.arc(0, 0, sz * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    // Phase 2 (`p = 0.46..1.0`): 3 staggered hollow sapphire crystal-spiked nova ring detonations!
+    if (p >= 0.46 && drawFront) {
+      const bpTick = ((p - 0.46) / 0.54) * 11;
+      const bursts = [
+        { dx: 0, dy: 0 },
+        { dx: -95 * sc * dir, dy: -62 * sc },
+        { dx: 95 * sc * dir, dy: 42 * sc },
+      ];
+      for (let b = 0; b < 3; b++) {
+        const lf = bpTick - 2 * b;
+        if (lf < 0 || lf >= 6.5) continue;
+        const ep = lf / 6.5;
+        const fade = ep < 0.14 ? ep / 0.14 : Math.pow(1 - ep, 0.72);
+        const bx = targetX + bursts[b].dx;
+        const by = cy + bursts[b].dy;
+        const sz = (220 + Math.pow(ep, 0.55) * 430) * sc;
+        if (ep < 0.28) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          drawTaperedStarburst(ctx, bx, by, sz * 0.62 * (1 - ep / 0.30), 16, ep * 2 + b, 'rgba(125,211,252,0.95)', '#ffffff');
+          ctx.restore();
+        }
+        if (novaImg && novaImg.naturalWidth > 0) {
+          ctx.save();
+          ctx.translate(bx, by);
+          ctx.rotate(b * 0.7 + ep * 0.4);
+          ctx.globalAlpha = clamp01(fade * 0.96);
+          ctx.drawImage(novaImg, -sz * 0.5, -sz * 0.5, sz, sz);
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = clamp01(fade * 0.62);
+          ctx.drawImage(novaImg, -sz * 0.52, -sz * 0.52, sz * 1.04, sz * 1.04);
+          ctx.restore();
+        }
       }
     }
     ctx.restore();
@@ -1122,92 +1625,190 @@ export function drawHdSpellEffect(
   }
 
   // =========================================================================
-  // #07 神雷術 Divine Thunder (sp_037 / sp_038) — Monolithic Sky-to-Earth Pillar!
+  // #07 神雷術 Divine Thunder (sp_037 / sp_038) — Exact 6 staggered colossal vertical thunder columns!
   // =========================================================================
   if (spellId === 7) {
-    ctx.fillStyle = `rgba(12, 22, 58, ${0.5 * (p < 0.75 ? 1 : (1 - p) / 0.25)})`;
-    ctx.fillRect(0, 0, W, H);
-    ctx.globalCompositeOperation = 'screen';
-    const fade = p < 0.12 ? p / 0.12 : p > 0.65 ? (1 - p) / 0.35 : 1;
-    const pulse = 0.85 + 0.25 * Math.sin(p * 55);
-    const pw = (175 * pulse * Math.pow(fade, 0.55)) * sc;
-    const pg = ctx.createLinearGradient(targetX - pw, 0, targetX + pw, 0);
-    pg.addColorStop(0, 'rgba(37,99,235,0)');
-    pg.addColorStop(0.22, `rgba(59,130,246,${0.65 * fade})`);
-    pg.addColorStop(0.42, `rgba(186,230,253,${0.92 * fade})`);
-    pg.addColorStop(0.5, `rgba(255,255,255,${fade})`);
-    pg.addColorStop(0.58, `rgba(186,230,253,${0.92 * fade})`);
-    pg.addColorStop(0.78, `rgba(59,130,246,${0.65 * fade})`);
-    pg.addColorStop(1, 'rgba(37,99,235,0)');
-    ctx.fillStyle = pg;
-    ctx.fillRect(targetX - pw, -20 * sc, pw * 2, groundY + 40 * sc);
-
-    for (let k = -1; k <= 1; k++) {
-      drawLightningBolt(
-        ctx,
-        targetX + k * 70 * sc,
-        -20 * sc,
-        targetX + k * 25 * sc,
-        groundY - 10 * sc,
-        24 * sc * fade,
-        46 * sc,
-        14,
-        k * 43 + Math.floor(p * 24) * 3.1,
-        `rgba(56,189,248,${0.85 * fade})`,
-        `rgba(224,242,254,${0.95 * fade})`,
-        '#ffffff',
-        2
-      );
+    if (drawBehind) {
+      const dim = p < 0.12 ? p / 0.12 : p > 0.78 ? (1 - p) / 0.22 : 1;
+      ctx.fillStyle = `rgba(10, 18, 52, ${0.48 * dim})`;
+      ctx.fillRect(0, 0, W, H);
     }
-    drawTaperedStarburst(ctx, targetX, groundY - 30 * sc, 290 * sc * fade, 12, p * 2, 'rgba(96,165,250,0.9)', '#ffffff');
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
+    // Authentic `GLOBAL_9145[7]` 6 massive vertical judgment columns cycling across target (`[30,-10,70,20,100,60]` centered ~45)
+    const xOffs = [-15, -55, 25, -25, 55, 15];
+    const tick = p * 20;
+    const pImg = imgs.divinePillar;
+
+    for (let k = 0; k < 6; k++) {
+      const localF = tick - 3 * k;
+      if (localF < 0 || localF >= 5.2) continue;
+      const px = targetX + xOffs[k] * dosX * 1.02 * dir;
+      const gy = groundY + 12 * sc;
+      const colH = gy + 125 * sc;
+
+      if (localF < 0.85) {
+        // `F0`: Piercing sharp heavenly lightning tip dropping from upper sky edge!
+        const tp = localF / 0.85;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const tipH = (120 + tp * 260) * sc;
+        drawLightningBolt(ctx, px, -10, px, tipH, 42 * sc, 22 * sc, 6, k * 29, 'rgba(37,99,235,0.85)', 'rgba(186,230,253,0.95)', '#ffffff', 0);
+        ctx.restore();
+      } else {
+        // `F1`: Instant colossal roaring painted pillar → `F2..F4`: pinches thin flanked by twin discharge needles!
+        const dp = (localF - 0.85) / 4.35; // 0..1
+        const fade = dp > 0.65 ? clamp01((1 - dp) / 0.35) : 1;
+        const pinch = Math.max(0.18, 1 - Math.pow(dp, 0.72) * 0.80);
+        const fullW = 365 * sc * pinch;
+        ctx.save();
+        if (pImg && pImg.naturalWidth > 0) {
+          ctx.beginPath();
+          ctx.rect(0, 0, W, gy + 12 * sc);
+          ctx.clip();
+          ctx.translate(px, (gy + 60 * sc) - colH * 0.5);
+          if (k % 2 === 1) ctx.scale(-1, 1);
+          ctx.globalAlpha = clamp01(fade * 0.96);
+          ctx.drawImage(pImg, -fullW * 0.5, -colH * 0.5, fullW, colH);
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = clamp01(fade * 0.62);
+          ctx.drawImage(pImg, -fullW * 0.62, -colH * 0.5, fullW * 1.24, colH);
+        } else {
+          ctx.globalCompositeOperation = 'screen';
+          drawLightningBolt(ctx, px, -20, px, gy, 72 * sc * pinch, 30 * sc, 10, k * 13, 'rgba(59,130,246,0.8)', 'rgba(186,230,253,0.95)', '#ffffff', 0);
+        }
+        ctx.restore();
+
+        // Twin flanking ground spark spikes left & right matching `sp_037 F2/F3`!
+        if (dp > 0.18 && dp < 0.86) {
+          const sa = Math.sin(((dp - 0.18) / 0.68) * Math.PI);
+          const off = (68 + dp * 42) * sc;
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          for (const side of [-1, 1]) {
+            drawLightningBolt(
+              ctx,
+              px + side * off,
+              gy - 180 * sc * sa,
+              px + side * (off * 0.82),
+              gy - 4 * sc,
+              14 * sc * sa,
+              14 * sc,
+              4,
+              k * 17 + side * 9,
+              `rgba(56,189,248,${0.8 * sa})`,
+              `rgba(224,242,254,${0.95 * sa})`,
+              '#ffffff'
+            );
+          }
+          ctx.restore();
+        }
+        if (dp < 0.45) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          drawTaperedStarburst(ctx, px, gy - 26 * sc, 210 * sc * (1 - dp / 0.45), 10, k * 0.6, 'rgba(96,165,250,0.9)', '#ffffff');
+          ctx.restore();
+        }
+      }
+    }
     ctx.restore();
     return;
   }
 
   // =========================================================================
-  // #08 聖光彈 Holy Bolt (sp_028 / sp_030) — Rapid White-Gold Laser Volley + Rings!
+  // #08 聖光彈 Holy Bolt (sp_028 / sp_030) — Rapid 12-ray 4-angle lance volley + painted hollow crystal rings!
   // =========================================================================
   if (spellId === 8) {
-    ctx.globalCompositeOperation = 'screen';
-    const cy = groundY - 190 * sc;
-    // 3 rhythmic soaring laser rays bursting straight across the defender!
-    const volleys = [
-      { t0: 0.0, sx: targetX + dir * 720 * sc, sy: cy - 170 * sc, ox: -35 * sc, oy: -25 * sc },
-      { t0: 0.28, sx: targetX + dir * 780 * sc, sy: cy + 40 * sc, ox: 25 * sc, oy: 15 * sc },
-      { t0: 0.56, sx: targetX + dir * 680 * sc, sy: cy - 320 * sc, ox: 0, oy: 0 },
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
+    // Authentic `GLOBAL_9145[8]`: 4 distinct incoming angles (`groupBases = [0,8,24,16, 8,0,24,16, 0,8,24,16]`)!
+    const groups = [0, 1, 3, 2, 1, 0, 3, 2, 0, 1, 3, 2];
+    const baseY = groundY - 210 * sc;
+    const angles = [
+      { sx: 780, sy: 250, ox: -25, oy: -40 },  // 0: from lower-right sweeping up-left (`sp_028 F0..F7`)
+      { sx: 820, sy: -260, ox: -10, oy: -120 }, // 1: from upper-right sweeping flat-left (`sp_028 F8..F15`)
+      { sx: 840, sy: 10, ox: 20, oy: 40 },     // 2: from mid-right sweeping straight left (`sp_028 F16..F23`)
+      { sx: 280, sy: 340, ox: -90, oy: -55 },  // 3: from bottom-right rising steeply (`sp_028 F24..F31`)
     ];
-    for (let i = 0; i < volleys.length; i++) {
-      const v = volleys[i];
-      const u = (p - v.t0) / 0.44;
-      if (u <= 0 || u >= 1) continue;
-      const ex = targetX + v.ox;
-      const ey = cy + v.oy;
-      if (u < 0.42) {
-        const sp = u / 0.42;
-        const bx = v.sx + (ex - v.sx) * sp;
-        const by = v.sy + (ey - v.sy) * sp;
-        const tx = v.sx + (ex - v.sx) * Math.max(0, sp - 0.55);
-        const ty = v.sy + (ey - v.sy) * Math.max(0, sp - 0.55);
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = 'rgba(253, 224, 71, 0.72)';
-        ctx.lineWidth = 42 * sc;
+    const tick = p * 30;
+    const novaImg = imgs.thunderNova;
+
+    for (let k = 0; k < 12; k++) {
+      const lf = tick - 2 * k;
+      if (lf < 0 || lf >= 8) continue;
+      const g = angles[groups[k]];
+      const ex = targetX + g.ox * sc * dir;
+      const ey = baseY + g.oy * sc;
+      const sx = ex + g.sx * sc * dir;
+      const sy = ey + g.sy * sc;
+
+      if (lf < 2.1) {
+        // Tapered blinding white-sapphire wedge beam slashing rapidly straight to the target!
+        const sp = clamp01(lf / 1.9);
+        const headX = sx + (ex - sx) * sp;
+        const headY = sy + (ey - sy) * sp;
+        const ang = Math.atan2(ey - sy, ex - sx);
+        const len = Math.max(40 * sc, Math.hypot(headX - sx, headY - sy));
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.translate(headX, headY);
+        ctx.rotate(ang);
+        const wedge = ctx.createLinearGradient(-len, 0, 10 * sc, 0);
+        wedge.addColorStop(0, 'rgba(96,165,250,0)');
+        wedge.addColorStop(0.45, 'rgba(186,230,253,0.9)');
+        wedge.addColorStop(1, '#ffffff');
+        ctx.fillStyle = wedge;
         ctx.beginPath();
-        ctx.moveTo(tx, ty);
-        ctx.lineTo(bx, by);
-        ctx.stroke();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 16 * sc;
-        ctx.stroke();
+        ctx.moveTo(0, -14 * sc);
+        ctx.arc(0, 0, 14 * sc, -Math.PI * 0.5, Math.PI * 0.5);
+        ctx.lineTo(-len, 42 * sc);
+        ctx.lineTo(-len, -42 * sc);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      } else if (lf < 3.0) {
+        // Crisp luminous round hit-orb flash (`sp_028 F2`)!
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const og = ctx.createRadialGradient(ex, ey, 4 * sc, ex, ey, 95 * sc);
+        og.addColorStop(0, '#ffffff');
+        og.addColorStop(0.55, 'rgba(191,219,254,0.95)');
+        og.addColorStop(1, 'rgba(96,165,250,0)');
+        ctx.fillStyle = og;
+        ctx.beginPath();
+        ctx.arc(ex, ey, 95 * sc, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       } else {
-        const bp = (u - 0.42) / 0.58;
-        const f = 1 - bp;
-        drawTaperedStarburst(ctx, ex, ey, (120 + bp * 210) * sc, 12, i * 0.7 + bp * 2, `rgba(253,224,71,${0.9 * f})`, `rgba(255,255,255,${f})`);
-        drawTaperedStarburst(ctx, ex, ey, (85 + bp * 160) * sc, 8, -bp * 3, `rgba(125,211,252,${0.85 * f})`, `rgba(255,255,255,${f})`);
-        ctx.strokeStyle = `rgba(254, 249, 195, ${0.85 * f})`;
-        ctx.lineWidth = (10 * f + 2) * sc;
-        ctx.beginPath();
-        ctx.arc(ex, ey, (35 + bp * 200) * sc, 0, Math.PI * 2);
-        ctx.stroke();
+        // Hollow spiky sapphire crystal ring burst (`sp_028 F3..F7`!) using hand-painted `fx_thunder_nova.webp`!
+        const ep = (lf - 3.0) / 5.0;
+        const fade = Math.pow(1 - ep, 0.72);
+        const sz = (170 + Math.pow(ep, 0.6) * 290) * sc;
+        if (novaImg && novaImg.naturalWidth > 0) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          ctx.translate(ex, ey);
+          ctx.rotate(k * 0.55 + ep * 0.25);
+          ctx.globalAlpha = clamp01(fade * 0.96);
+          ctx.drawImage(novaImg, -sz * 0.5, -sz * 0.5, sz, sz);
+          ctx.restore();
+        } else {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          drawTaperedStarburst(ctx, ex, ey, sz * 0.5, 14, k * 0.4, `rgba(147,197,253,${fade})`, `rgba(255,255,255,${fade})`);
+          ctx.restore();
+        }
+        // Soft warm holy gold sheen in early crystal burst frame
+        if (ep < 0.35) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          drawTaperedStarburst(ctx, ex, ey, 140 * sc * (1 - ep / 0.35), 8, k * 0.8, 'rgba(254,240,138,0.85)', '#ffffff');
+          ctx.restore();
+        }
       }
     }
     ctx.restore();
@@ -1218,6 +1819,10 @@ export function drawHdSpellEffect(
   // #09 咒殺術 Death Curse (sp_044) — Crimson Grim Reaper + Haunted Skull Pillar!
   // =========================================================================
   if (spellId === 9) {
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
     const dim = p < 0.14 ? p / 0.14 : p > 0.85 ? (1 - p) / 0.15 : 1;
     ctx.fillStyle = `rgba(8, 18, 10, ${0.58 * dim})`;
     ctx.fillRect(0, 0, W, H);
@@ -1325,6 +1930,10 @@ export function drawHdSpellEffect(
   // #32 熾天使 SERAPH SUMMON (sp_065) — Towering White Angel + Sky Lightning!
   // =========================================================================
   if (spellId === 32) {
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
     const enter = clamp01(p / 0.20);
     const fade = p > 0.84 ? (1 - p) / 0.16 : 1;
     // Dramatic indigo cathedral sky tint
@@ -1406,6 +2015,10 @@ export function drawHdSpellEffect(
   // #33 風妖精 WIND FAIRY / SYLPH SUMMON (sp_066) — Ice-Blue Healing Sphere!
   // =========================================================================
   if (spellId === 33) {
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
     const enter = clamp01(p / 0.20);
     const fade = p > 0.85 ? (1 - p) / 0.15 : 1;
     ctx.fillStyle = `rgba(12, 34, 62, ${0.46 * enter * fade})`;
@@ -1462,6 +2075,10 @@ export function drawHdSpellEffect(
   // #34 破壞神 DESTROYER GOD SUMMON (sp_067) — Crimson War God & Red Nova!
   // =========================================================================
   if (spellId === 34) {
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
     const enter = clamp01(p / 0.22);
     const fade = p > 0.85 ? (1 - p) / 0.15 : 1;
     ctx.fillStyle = `rgba(38, 6, 8, ${0.58 * enter * fade})`;
@@ -1515,6 +2132,10 @@ export function drawHdSpellEffect(
   // #35 暗邪鬼 DARK FIEND SUMMON (sp_068) — Blue Imp + Venom-Lime Lightning!
   // =========================================================================
   if (spellId === 35) {
+    if (!drawFront) {
+      ctx.restore();
+      return;
+    }
     const enter = clamp01(p / 0.20);
     const fade = p > 0.84 ? (1 - p) / 0.16 : 1;
     ctx.fillStyle = `rgba(10, 22, 12, ${0.60 * enter * fade})`;

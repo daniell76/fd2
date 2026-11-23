@@ -2,6 +2,12 @@ import type { SfxKind } from '../audio/soundEngine';
 import type { AssetManager } from '../engine/assets';
 import { tr } from '../i18n';
 import type { FigAniFrame, FigAniStrip, GameData, SpellDef, UnitDexEntry } from '../types';
+import {
+  drawHdSpellEffect,
+  ensureHdSpellAssets,
+  getLoadedHdSpellAssets,
+  HD_SPELL_ASSET_VERSION,
+} from './hdSpellVfx';
 
 export type BattleMoveKind = 'melee' | 'ranged' | 'special' | 'magic';
 
@@ -63,6 +69,15 @@ export interface TimelineStep {
     align: 'target_anchor' | 'screen_abs';
     targetCenterX: number;
     instances?: SpellBurstInstance[]; // authentic FD2.EXE GLOBAL_9145[0..9] multi-sprite trajectories
+  };
+  /** Optional smooth HD remastered spell cutaway frame metadata (`#00..#09` & `#32..#35` when HD mode is enabled). */
+  hdSpell?: {
+    spellId: number;
+    progress: number;
+    progressEnd: number;
+    targetCenterX: number;
+    targetGroundY: number;
+    targetIsHeroSide: boolean;
   };
   sfxTrigger?: SfxKind;
 }
@@ -127,6 +142,17 @@ export function isCutawayAttackMagic(sp: SpellDef | undefined | null): boolean {
     return sp.spellCategory === 'cutaway_attack';
   }
   return (sp.id >= 0 && sp.id <= 9) || sp.id === 32;
+}
+
+/** Returns true if a spell is one of the 4 iconic full-screen summon cutaways (`#32–#35`, `sp_065..068`). */
+export function isSummonCutawaySpell(sp: SpellDef | undefined | null): boolean {
+  if (!sp) return false;
+  return sp.id >= 32 && sp.id <= 35;
+}
+
+/** Returns true if a spell uses the HD-remastered hand-painted cutaway renderer (`#00–#09`, `#32–#35`). */
+export function hasHdCutawaySpellVfx(spellId: number): boolean {
+  return (spellId >= 0 && spellId <= 9) || (spellId >= 32 && spellId <= 35);
 }
 
 export interface UnitMoveCapabilities {
@@ -1407,6 +1433,14 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
 
     let recoilV6 = 0; // Target knockback counter (5->0 for offensive magic hits; TAI stays fixed at 0)
 
+    const totalBarrageTicks = Math.max(
+      1,
+      tickPlans.reduce((sum, tp) => sum + Math.max(1, tp.delay), 0)
+    );
+    let barrageTickCursor = 0;
+    const isHdEligibleSpell = hasHdCutawaySpellVfx(spell.id);
+    const targetGroundY = target.isHeroSide ? 186 : 148;
+
     for (let pIdx = 0; pIdx < tickPlans.length; pIdx++) {
       const plan = tickPlans[pIdx];
       const dly = Math.max(1, plan.delay);
@@ -1440,6 +1474,9 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
         const isFlashTick = isHitFrame && tick === 0;
         const recoilNote =
           dx > 0 ? ` · ${tr('擊退', '击退', 'Recoil')} ${signedRecoilX > 0 ? `+${signedRecoilX}` : signedRecoilX}px` : '';
+        const pStart = barrageTickCursor / totalBarrageTicks;
+        const pEnd = Math.min(0.999, (barrageTickCursor + 1) / totalBarrageTicks);
+        barrageTickCursor++;
 
         steps.push({
           delay: 1,
@@ -1469,6 +1506,16 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
                 align: 'screen_abs',
                 targetCenterX,
                 instances: plan.instances,
+              }
+            : undefined,
+          hdSpell: isHdEligibleSpell
+            ? {
+                spellId: spell.id,
+                progress: Math.max(0.001, pStart),
+                progressEnd: pEnd,
+                targetCenterX,
+                targetGroundY,
+                targetIsHeroSide: target.isHeroSide,
               }
             : undefined,
           sfxTrigger: tick === 0 ? frameSfx : undefined,
@@ -1537,6 +1584,71 @@ export function buildMagicSequenceTimeline(inp: MagicSequenceTimelineInput): Tim
     }
   }
 
+  return steps;
+}
+
+/**
+ * Builds Stage A ONLY (caster chanting / casting spell on their cutaway stage with MP drain & chant SFX)
+ * for map-only spells that had no Stage B attack animation in the 1995 DOS game:
+ *   - Mass earth / quake AoE (`#10 碎岩術`, `#11 地震術`, `#12 裂地術`)
+ *   - Heals & cures (`#13–#16`, `#20–#21`)
+ *   - Buffs & utility (`#17–#19`, `#23 傳送術`, `#25 行動術`)
+ *   - Debuffs / status (`#22 封咒術`, `#26 毒擊術`, `#27 麻痺術`)
+ * After this timeline ends, the caller closes the cutaway stage and executes the on-map `FDOTHER[6]` effect!
+ */
+export function buildCasterChantOnlyTimeline(inp: {
+  caster: CombatantSpec;
+  casterIdle: { img: HTMLImageElement; strip: FigAniStrip } | null;
+  casterCast: { img: HTMLImageElement; strip: FigAniStrip } | null;
+  spell: SpellDef;
+  sampleTarget?: CombatantSpec | null;
+  skipMpDeduct?: boolean;
+}): TimelineStep[] {
+  const { caster, casterIdle, casterCast, spell, sampleTarget = null, skipMpDeduct = false } = inp;
+  const castPack = casterCast ?? casterIdle;
+  const castFrames = castPack?.strip.frames ?? [];
+  const casterMode: StageViewMode = caster.isHeroSide ? 'right_only' : 'left_only';
+  const castCount = Math.max(1, castFrames.length);
+  const castTriggerIdx = castFrames.findIndex((f) => f.sfx && f.sfx !== 0);
+  const mpDeductFrameIdx = castTriggerIdx >= 0 ? castTriggerIdx : Math.max(0, Math.floor(castCount * 0.5));
+  const mpCost = skipMpDeduct ? 0 : Math.max(0, spell.mpCost ?? 0);
+  let curMp = caster.startMp;
+  let deducted = false;
+  const steps: TimelineStep[] = [];
+
+  for (let i = 0; i < castCount; i++) {
+    if (!deducted && mpCost > 0 && i === mpDeductFrameIdx) {
+      curMp = Math.max(0, curMp - mpCost);
+      deducted = true;
+    }
+    const fr = castFrames[i];
+    const dly = fr ? Math.max(1, Math.min(3, fr.delay || 2)) : 2;
+    const leftU = caster.isHeroSide ? sampleTarget : caster;
+    const rightU = caster.isHeroSide ? caster : sampleTarget;
+    steps.push({
+      delay: dly,
+      mode: casterMode,
+      bgId: caster.taiId > 0 ? caster.taiId : undefined,
+      showBothHuds: sampleTarget !== null && sampleTarget !== caster,
+      stageLabel: `[${tr('詠唱施法 → 地圖特效', '咏唱施法 → 地图特效', 'Spell Cast → Map Effect')}: ${spell.nameZh}] F${i + 1}/${castCount}`,
+      leftUnit: leftU,
+      rightUnit: rightU,
+      leftPack: caster.isHeroSide ? null : castPack,
+      leftFrameIdx: caster.isHeroSide ? 0 : i,
+      leftHp: leftU ? leftU.startHp : 0,
+      leftMp: caster.isHeroSide ? (leftU ? leftU.startMp : 0) : curMp,
+      rightPack: caster.isHeroSide ? castPack : null,
+      rightFrameIdx: caster.isHeroSide ? i : 0,
+      rightHp: rightU ? rightU.startHp : 0,
+      rightMp: caster.isHeroSide ? curMp : (rightU ? rightU.startMp : 0),
+      sfxTrigger: i === mpDeductFrameIdx ? (spell.targetType === 'ally' ? 'heal' : 'chant') : undefined,
+    });
+  }
+  // Short lingering hold on final pose before sweeping cleanly back to the tactical map
+  const last = steps[steps.length - 1];
+  if (last) {
+    steps.push({ ...last, delay: 3, sfxTrigger: undefined });
+  }
   return steps;
 }
 
@@ -1732,6 +1844,31 @@ export function renderTimelineStep(
   };
 
   const drawSpellLayer = (behindPass: boolean) => {
+    // In HD Remastered Mode (`1920x1200`), render our heavy-detail hand-painted Phase B spell VFX
+    // directly at native canvas resolution with authentic front/behind 3D depth separation!
+    if (isHd && step.hdSpell) {
+      void ensureHdSpellAssets(HD_SPELL_ASSET_VERSION);
+      const { spellId, progress, progressEnd, targetCenterX, targetGroundY, targetIsHeroSide } = step.hdSpell;
+      const smoothP = progress + (progressEnd - progress) * Math.max(0, Math.min(1, subProgress));
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const cw = ctx.canvas.width;
+      const ch = ctx.canvas.height;
+      drawHdSpellEffect(
+        ctx,
+        cw,
+        ch,
+        spellId,
+        (targetCenterX / 320) * cw,
+        (targetGroundY / 200) * ch,
+        smoothP,
+        targetIsHeroSide,
+        getLoadedHdSpellAssets(),
+        behindPass ? 'behind' : 'front'
+      );
+      ctx.restore();
+      return;
+    }
     if (!step.spellFrame) return;
     const { img, strip, fIdx, align, targetCenterX, instances } = step.spellFrame;
     if (instances) {

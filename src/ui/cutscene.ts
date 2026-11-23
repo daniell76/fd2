@@ -4,15 +4,18 @@ import { getTerrainInfo } from '../engine/tactical';
 import { decodeGlyphsToText, getLocale, getLocalizedSpeakerName, onLocaleChange, tr } from '../i18n';
 import type { BattleUnit, ChapterData, CombatOutcome, DialogueSegment, SpellDef } from '../types';
 import {
+  buildCasterChantOnlyTimeline,
   buildMagicSequenceTimeline,
   buildPhysicalStrikeTimeline,
   getUnitMoveCapabilities,
   isCutawayAttackMagic,
+  isSummonCutawaySpell,
   renderTimelineStep,
   type CombatantSpec,
   type MagicTargetEntry,
   type TimelineStep,
 } from './battleStage';
+import { ensureHdSpellAssets, HD_SPELL_ASSET_VERSION } from './hdSpellVfx';
 
 export class CutscenePlayer {
   private speedMode: 1 | 2 | 0 = 1; // 1 = 1x, 2 = 2x, 0 = Instant
@@ -268,9 +271,13 @@ export class CutscenePlayer {
     // In FD2.EXE (L21470 / L54292), map-only earth spells (#10..#12 碎岩/地震/裂地) and non-attacking
     // heal/support/status spells (#13..#23, #25..#27, #33..#35) execute directly on the tactical map
     // without entering the 320x200 cutaway battle stage (`Func_108221`).
-    if (this.speedMode === 0 || !isCutawayAttackMagic(spell)) {
+    if (this.speedMode === 0 || (!isCutawayAttackMagic(spell) && !isSummonCutawaySpell(spell))) {
       this.sound.playSfx(spell.targetType === 'ally' ? 'heal' : 'magic');
       return;
+    }
+
+    if (this.assets.isHdMode()) {
+      await ensureHdSpellAssets(HD_SPELL_ASSET_VERSION);
     }
 
     const casterTerrain = getTerrainInfo(chapter, caster.x, caster.y);
@@ -357,6 +364,80 @@ export class CutscenePlayer {
         this.sound.playBgmBySourceIndex(prevSourceIdx, prevLoop);
       }
     }
+  }
+
+  /**
+   * Plays Stage A ONLY (caster's authentic magic casting / chanting animation on their battle stage)
+   * for non-cutaway spells that had no Stage B strike sprite in the original 1995 game
+   * (mass earth `#10–#12`, heals `#13–#16`, buffs/cures `#17–#21`, `#23` teleport, debuffs `#22/#25–#27`).
+   * The caller then transitions straight back to the tactical map for the on-map `FDOTHER[6]` effect!
+   */
+  async playCasterChantOnlyCutscene(
+    caster: BattleUnit,
+    spell: SpellDef,
+    sampleTarget: { unit: BattleUnit; preHp: number } | null,
+    chapter: ChapterData,
+    backdropEl: HTMLElement,
+    canvas: HTMLCanvasElement,
+    skipBtn: HTMLButtonElement,
+    skipMpDeduct = false
+  ): Promise<void> {
+    if (this.speedMode === 0) return;
+
+    const casterTerrain = getTerrainInfo(chapter, caster.x, caster.y);
+    const caps = getUnitMoveCapabilities(caster.uid, this.assets.gameData, caster.faction !== 'enemy');
+    const castSlot = caps.magicCastSlot ?? 'attack';
+
+    const [casterIdle, casterCast] = await Promise.all([
+      this.assets.loadUnitFigAni(caster.uid, 'idle'),
+      this.assets.loadUnitFigAni(caster.uid, castSlot),
+    ]);
+
+    const casterPreMp = skipMpDeduct
+      ? caster.mp
+      : Math.min(caster.maxMp, caster.mp + Math.max(0, spell.mpCost ?? 0));
+    const casterSpec: CombatantSpec = {
+      uid: caster.uid,
+      nameZh: caster.nameZh,
+      nameGlyphs: caster.nameGlyphs,
+      portraitId: caster.portraitId,
+      spriteGroup: caster.spriteGroup,
+      isHeroSide: caster.faction !== 'enemy',
+      level: caster.level,
+      maxHp: caster.maxHp,
+      startHp: caster.hp,
+      maxMp: caster.maxMp,
+      startMp: casterPreMp,
+      taiId: casterTerrain.bgId,
+    };
+
+    const targetSpec: CombatantSpec | null =
+      sampleTarget && sampleTarget.unit.runtimeId !== caster.runtimeId
+        ? {
+            uid: sampleTarget.unit.uid,
+            nameZh: sampleTarget.unit.nameZh,
+            nameGlyphs: sampleTarget.unit.nameGlyphs,
+            portraitId: sampleTarget.unit.portraitId,
+            spriteGroup: sampleTarget.unit.spriteGroup,
+            isHeroSide: sampleTarget.unit.faction !== 'enemy',
+            level: sampleTarget.unit.level,
+            maxHp: sampleTarget.unit.maxHp,
+            startHp: sampleTarget.preHp,
+            maxMp: sampleTarget.unit.maxMp,
+            startMp: sampleTarget.unit.mp,
+            taiId: getTerrainInfo(chapter, sampleTarget.unit.x, sampleTarget.unit.y).bgId,
+          }
+        : null;
+
+    const steps = buildCasterChantOnlyTimeline({
+      caster: casterSpec,
+      casterIdle,
+      casterCast,
+      spell,
+      sampleTarget: targetSpec,
+      skipMpDeduct,
+    });
+    await this.runTimelineOnCanvas(steps, casterTerrain.bgId, backdropEl, canvas, skipBtn);
   }
 
   async playDialogueSequence(

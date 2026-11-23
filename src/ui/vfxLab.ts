@@ -291,7 +291,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=89';
+const VFX_ASSET_VERSION = '?v=90';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -4794,6 +4794,11 @@ export class Modern25DCombatRenderer {
       this.drawGroundShockwave(ctx, targetHomeX, targetHomeY - 10, shockwaveProgress);
     }
 
+    // Back-layer Phase B HD spell pillars / orbiting spheres wrapping BEHIND Target (3D depth layering!)
+    if (spellP >= 0 && spellEntry) {
+      drawHdSpellEffect(ctx, W, H, spellEntry.id, targetHomeX, targetHomeY, spellP, false, getLoadedHdSpellAssets(), 'behind');
+    }
+
     this.renderCombatantWithBlend(
       ctx,
       targetPoses,
@@ -4805,7 +4810,7 @@ export class Modern25DCombatRenderer {
     // Front-layer Phase B HD elemental spell / summon cutaway VFX (all 25 FDOTHER.DAT strips)!
     if (spellP >= 0) {
       if (spellEntry) {
-        drawHdSpellEffect(ctx, W, H, spellEntry.id, targetHomeX, targetHomeY, spellP, false, getLoadedHdSpellAssets());
+        drawHdSpellEffect(ctx, W, H, spellEntry.id, targetHomeX, targetHomeY, spellP, false, getLoadedHdSpellAssets(), 'front');
       } else {
         this.drawModernSpellEffect(ctx, targetHomeX, targetHomeY, spellP, element);
       }
@@ -7524,22 +7529,30 @@ export async function mountVfxLabInGallery(
           </span>
           <span class="mono-tag" style="font-size: 11px; color: #c4b5fd;">sp_018..sp_068 · SFX Banks 82–94 · Canvas2D + Painted HD WebP</span>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px;">
           ${[
             { id: 32, tag: 'sp_065', file: 'summon_32_seraph.webp', zh: '熾天使 (召喚)', en: 'Seraph', col: '#fef08a' },
             { id: 33, tag: 'sp_066', file: 'summon_33_sylph.webp', zh: '風妖精 (召喚)', en: 'Wind Fairy', col: '#7dd3fc' },
             { id: 34, tag: 'sp_067', file: 'summon_34_destroyer.webp', zh: '破壞神 (召喚)', en: 'Destroyer God', col: '#f87171' },
             { id: 35, tag: 'sp_068', file: 'summon_35_fiend.webp', zh: '暗邪鬼 (召喚)', en: 'Dark Fiend', col: '#bef264' },
-            { id: 2, tag: 'sp_026/27 F15', file: 'spell_02_dragon.webp', zh: '炎龍術 (龍頭)', en: 'Flame Dragon', col: '#fb923c' },
-            { id: 2, tag: 'sp_026/27 F17', file: 'spell_02_breath.webp', zh: '炎龍術 (龍息)', en: 'Dragon Breath', col: '#f59e0b' },
+            { id: 2, tag: 'sp_026 F15', file: 'spell_02_dragon.webp', zh: '炎龍術 (龍頭)', en: 'Flame Dragon', col: '#fb923c' },
+            { id: 2, tag: 'sp_026 F17', file: 'spell_02_breath.webp', zh: '炎龍術 (龍息)', en: 'Dragon Breath', col: '#f59e0b' },
             { id: 9, tag: 'sp_044', file: 'spell_09_reaper.webp', zh: '咒殺術 (死神)', en: 'Death Reaper', col: '#a3e635' },
+            { id: 0, tag: 'sp_018/20', file: 'fx_fire_pillar_red.webp', zh: '火炎術 (7柱)', en: 'Fireball (7x)', col: '#fb923c' },
+            { id: 1, tag: 'sp_019/21', file: 'fx_fire_pillar_blue.webp', zh: '烈炎術 (8柱環)', en: 'Scorching (8x)', col: '#38bdf8' },
+            { id: 3, tag: 'sp_039/43', file: 'fx_solar_beam_gold.webp', zh: '天火術 (12波)', en: "Heaven's Fire", col: '#f97316' },
+            { id: 4, tag: 'sp_022/23', file: 'fx_bolt_thin.webp', zh: '電擊術 (6閃)', en: 'Lightning (6x)', col: '#60a5fa' },
+            { id: 5, tag: 'sp_024/25', file: 'fx_bolt_heavy.webp', zh: '落雷術 (6雷)', en: 'Falling Bolt', col: '#93c5fd' },
+            { id: 6, tag: 'sp_032/33', file: 'fx_thunder_orb.webp', zh: '轟雷術 (5球)', en: 'Thunder Storm', col: '#818cf8' },
+            { id: 7, tag: 'sp_037/38', file: 'fx_divine_pillar.webp', zh: '神雷術 (6柱)', en: 'Divine Thunder', col: '#bae6fd' },
+            { id: 8, tag: 'sp_028/30', file: 'fx_thunder_nova.webp', zh: '聖光彈 (12連)', en: 'Holy Bolt (12x)', col: '#fde047' },
           ]
             .map(
               (c) => `
-              <button type="button" data-play-spell="${c.id}" style="background: #141828; border: 1.5px solid ${c.col}55; border-radius: 9px; padding: 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; color: #f8fafc; text-align: center; transition: transform 0.12s;">
-                <img src="assets/hd_spells/${c.file}${VFX_ASSET_VERSION}" loading="lazy" alt="${c.en}" style="width: 100%; height: 112px; object-fit: contain; background: radial-gradient(circle, rgba(30,41,59,0.9), rgba(9,13,22,0.95)); border-radius: 6px; padding: 4px;" />
-                <div style="font-size: 12px; font-weight: 800; color: ${c.col};">▶ #${String(c.id).padStart(2, '0')} ${isEn ? c.en : c.zh}</div>
-                <div class="mono-tag" style="font-size: 10px; color: #94a3b8;">${c.tag}</div>
+              <button type="button" data-play-spell="${c.id}" style="background: #141828; border: 1.5px solid ${c.col}55; border-radius: 9px; padding: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #f8fafc; text-align: center; transition: transform 0.12s;">
+                <img src="assets/hd_spells/${c.file}${VFX_ASSET_VERSION}" loading="lazy" alt="${c.en}" style="width: 100%; height: 92px; object-fit: contain; background: radial-gradient(circle, rgba(22,30,46,0.95), rgba(6,8,14,0.98)); border-radius: 6px; padding: 3px;" />
+                <div style="font-size: 11px; font-weight: 800; color: ${c.col}; line-height: 1.2;">▶ #${String(c.id).padStart(2, '0')} ${isEn ? c.en : c.zh}</div>
+                <div class="mono-tag" style="font-size: 9.5px; color: #94a3b8;">${c.tag}</div>
               </button>`
             )
             .join('')}
@@ -7551,6 +7564,13 @@ export async function mountVfxLabInGallery(
               ${sp.isSummon ? '🌟' : sp.category === 'fire' ? '🔥' : sp.category === 'thunder' ? '⚡' : sp.category === 'holy' ? '☀️' : '💀'} #${String(sp.id).padStart(2, '0')} ${isEn ? sp.nameEn : sp.nameZh}
             </button>`
           ).join('')}
+        </div>
+        <div class="mono-tag" style="font-size: 11px; color: #94a3b8; border-top: 1px solid rgba(148,163,184,0.2); padding-top: 6px;">
+          🗺️ ${tr(
+            '範圍攻擊（#10–#12 碎岩／地震／裂地）、治療（#13–#16）、輔助／異常（#17–#27）：原版無獨立轟擊動畫 → 實戰中先播放「施法者詠唱過場」後切回戰棋地圖執行原版地圖特效。',
+            '范围攻击（#10–#12 碎岩／地震／裂地）、治疗（#13–#16）、辅助／异常（#17–#27）：原版无独立轰击动画 → 实战中先播放「施法者咏唱过场」后切回战棋地图执行原版地图特效。',
+            'Mass/Earth (#10–#12), Heals (#13–#16), Buffs/Debuffs/Teleport (#17–#27): no DOS strike sprite → live gameplay now plays the regular caster chant cutaway, then transitions back to the original tactical map effect.'
+          )}
         </div>
       </div>
 
