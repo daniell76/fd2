@@ -79,6 +79,7 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     hitTimesMs: [360, 620, 880],
     durationMs: 1420,
     paintedSprite: 'spell_02_dragon.webp',
+    secondarySprite: 'spell_02_breath.webp',
     accentColor: '#f59e0b',
     summaryZh: '手繪赤焰炎龍凌空嘶吼，噴吐熾烈龍炎席捲敵陣 (sp_026/027)',
     summaryEn: 'Painted roaring Flame Dragon blasting molten golden breath (sp_026/027)',
@@ -307,6 +308,7 @@ export function defaultSpellIdForUnit(
 
 export interface HdSpellImageMap {
   dragon: HTMLImageElement | null;
+  dragonBreath: HTMLImageElement | null;
   reaper: HTMLImageElement | null;
   skull: HTMLImageElement | null;
   seraph: HTMLImageElement | null;
@@ -317,6 +319,7 @@ export interface HdSpellImageMap {
 
 const spellImages: HdSpellImageMap = {
   dragon: null,
+  dragonBreath: null,
   reaper: null,
   skull: null,
   seraph: null,
@@ -343,14 +346,16 @@ export function ensureHdSpellAssets(versionTag: string): Promise<HdSpellImageMap
   const base = 'assets/hd_spells';
   loadPromise = Promise.all([
     loadOptImg(`${base}/spell_02_dragon.webp${versionTag}`),
+    loadOptImg(`${base}/spell_02_breath.webp${versionTag}`),
     loadOptImg(`${base}/spell_09_reaper.webp${versionTag}`),
     loadOptImg(`${base}/spell_09_skull.webp${versionTag}`),
     loadOptImg(`${base}/summon_32_seraph.webp${versionTag}`),
     loadOptImg(`${base}/summon_33_sylph.webp${versionTag}`),
     loadOptImg(`${base}/summon_34_destroyer.webp${versionTag}`),
     loadOptImg(`${base}/summon_35_fiend.webp${versionTag}`),
-  ]).then(([dragon, reaper, skull, seraph, sylph, destroyer, fiend]) => {
+  ]).then(([dragon, dragonBreath, reaper, skull, seraph, sylph, destroyer, fiend]) => {
     spellImages.dragon = dragon;
+    spellImages.dragonBreath = dragonBreath;
     spellImages.reaper = reaper;
     spellImages.skull = skull;
     spellImages.seraph = seraph;
@@ -705,101 +710,149 @@ export function drawHdSpellEffect(
   }
 
   // =========================================================================
-  // #02 炎龍術 Flame Dragon (sp_026 / sp_027) — Roaring painted Fire Dragon + Breath!
+  // #02 炎龍術 Flame Dragon (sp_026 / sp_027) — Baroque Roaring Dragon + Hand-Painted Mouth Breath Wave!
   // =========================================================================
   if (spellId === 2) {
-    const enter = clamp01(p / 0.24);
-    const exitFade = p > 0.80 ? (1 - p) / 0.20 : 1;
-    // Slight dusk vignette so fiery scales & roaring breath blaze with cinematic contrast
-    ctx.fillStyle = `rgba(26, 8, 4, ${0.42 * enter * exitFade})`;
+    const enter = clamp01(p / 0.22);
+    const exitFade = p > 0.80 ? clamp01((1 - p) / 0.20) : 1;
+    // Cinematic warm volcanic twilight scrim so ornate golden scales & painted roaring breath pop vividly
+    ctx.fillStyle = `rgba(22, 7, 4, ${0.46 * enter * exitFade})`;
     ctx.fillRect(0, 0, W, H);
 
-    // 1) Painted Roaring Dragon Head anchored seamlessly against the upper-right (or upper-left) screen corner
+    // Coordinate space mirrored smoothly around canvas center when an enemy casts Flame Dragon at a hero!
+    ctx.save();
+    if (targetIsHeroSide) {
+      ctx.translate(W, 0);
+      ctx.scale(-1, 1);
+    }
+
     const dragSlide = 1 - Math.pow(1 - enter, 3);
     const dImg = imgs.dragon;
-    const dw = 880 * sc;
-    const dh = dImg && dImg.naturalWidth > 0 ? (dw * dImg.naturalHeight) / dImg.naturalWidth : 620 * sc;
-    const headBaseX = targetIsHeroSide ? dw * 0.42 : W - dw * 0.42;
-    const headBaseY = dh * 0.40;
-    const dxOff = dir * (1 - dragSlide) * 480 * sc;
-    const dyOff = -(1 - dragSlide) * 160 * sc;
-    const roarBob = Math.sin(p * Math.PI * 10) * 10 * sc * (p > 0.24 ? 1 : 0);
+    const bImg = imgs.dragonBreath;
+    const dw = 820 * sc;
+    const dh = dImg && dImg.naturalWidth > 0 ? (dw * dImg.naturalHeight) / dImg.naturalWidth : 651 * sc;
+    // Base upper-right frame sweeping smoothly inward-left (matching 1995 DOS sp_026 F15, horns & bottom waves unclipped!)
+    const dx0 = W - dw + 46 * sc + (1 - dragSlide) * 440 * sc;
+    const dy0 = 6 * sc - (1 - dragSlide) * 120 * sc;
+    const roarBob = p > 0.20 ? Math.sin(p * Math.PI * 10) * 7 * sc * exitFade : 0;
+    const dTop = dy0 + roarBob;
 
-    // 2) Roaring Dragonfire breath torrent pouring straight OUT FROM INSIDE the open molten throat
-    //    (rendered right BEHIND the outer jaw snout/teeth so fire physically erupts out of his mouth!)
+    // Exact open glowing molten throat core inside `spell_02_dragon.webp` (nx=0.244, ny=0.551)
+    const throatX = dx0 + dw * 0.244;
+    const throatY = dTop + dh * 0.551;
+
+    // 1) Charging incandescent throat core before & during breath eruption
+    const chargeFade = p < 0.22 ? clamp01(p / 0.22) : exitFade;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const backGlow = ctx.createRadialGradient(dx0 + dw * 0.44, dTop + dh * 0.48, 40 * sc, dx0 + dw * 0.44, dTop + dh * 0.48, dw * 0.62);
+    backGlow.addColorStop(0, `rgba(255, 165, 40, ${0.42 * chargeFade})`);
+    backGlow.addColorStop(0.55, `rgba(220, 38, 38, ${0.20 * chargeFade})`);
+    backGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = backGlow;
+    ctx.beginPath();
+    ctx.arc(dx0 + dw * 0.44, dTop + dh * 0.48, dw * 0.62, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 2) Authentic hand-painted swirling dragonfire breath (`spell_02_breath.webp`, remade from sp_026 F17!)
+    //    Drawn FIRST directly beneath `spell_02_dragon.webp` so the open jaws & razor fangs literally frame the stream!
     if (p >= 0.16) {
-      const bp = clamp01((p - 0.16) / 0.72);
-      const bFade = bp < 0.14 ? bp / 0.14 : p > 0.80 ? (1 - p) / 0.20 : 1;
-      const throatX = headBaseX + (targetIsHeroSide ? dw * 0.23 : -dw * 0.23) + dxOff;
-      const throatY = headBaseY + dh * 0.11 + dyOff + roarBob;
-      const tipT = Math.min(1, bp * 2.2);
-      const endX = throatX + (targetX - throatX) * tipT;
-      const endY = throatY + (groundY - 120 * sc - throatY) * tipT;
-      const ang = Math.atan2(endY - throatY, endX - throatX);
-      const dist = Math.max(40 * sc, Math.hypot(endX - throatX, endY - throatY));
+      const bp = clamp01((p - 0.16) / 0.66);
+      // Fast dramatic eruption sweep straight down-left from the roaring jaws (0..1 over ~230ms!)
+      const sweep = clamp01(bp / 0.28);
+      const bEase = 1 - Math.pow(1 - sweep, 2.4);
+      const bFade = bp < 0.08 ? bp / 0.08 : exitFade;
 
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      ctx.translate(throatX, throatY);
-      ctx.rotate(ang);
-      // 28 billowing turbulent radial-gradient dragonfire plumes pouring organically out of throat!
-      const plumeCount = 28;
-      for (let i = 0; i < plumeCount; i++) {
-        const u = ((i / plumeCount) + bp * 0.95) % 1;
-        const xPos = u * dist * 1.06;
-        const spread = (14 + Math.pow(u, 0.85) * 185) * sc;
-        const yOff = Math.sin(i * 4.7 - p * 34) * spread * 0.38;
-        const r = Math.max(20 * sc, (38 + Math.pow(u, 0.8) * 170) * sc * (0.82 + 0.25 * Math.cos(i * 3.1)));
-        const fadeEnd = u > 0.82 ? (1 - u) / 0.18 : 1;
-        const g = ctx.createRadialGradient(xPos, yOff, r * 0.05, xPos, yOff, r);
-        g.addColorStop(0, `rgba(255, 252, 232, ${0.46 * bFade * fadeEnd})`);
-        g.addColorStop(0.28, `rgba(253, 224, 71, ${0.44 * bFade * fadeEnd})`);
-        g.addColorStop(0.56, `rgba(249, 115, 22, ${0.38 * bFade * fadeEnd})`);
-        g.addColorStop(0.82, `rgba(220, 38, 38, ${0.24 * bFade * fadeEnd})`);
-        g.addColorStop(1, 'rgba(153, 27, 27, 0)');
-        ctx.fillStyle = g;
+      if (bImg && bImg.naturalWidth > 0) {
+        // Fit heroically from throat straight diagonally down-left across the target enemy (100% unclipped inside 900px height!)
+        const bw = 960 * sc;
+        const bh = (bw * bImg.naturalHeight) / bImg.naturalWidth;
+        // Exact top-right pressurized nozzle coordinate inside `spell_02_breath.webp` (`nx=0.931, ny=0.073`)
+        const nozX = bw * 0.931;
+        const nozY = bh * 0.073;
+        // Anchor nozzle firmly tucked INSIDE the roaring open throat (slightly right & up of teeth gap)
+        const bx0 = throatX - nozX + 26 * sc;
+        const by0 = throatY - nozY - 16 * sc;
+
+        // Subtle animated pulsing billowing waves matching twin DOS blast frames (F16 <-> F17)
+        const waveScaleX = 1 + Math.sin(p * Math.PI * 18) * 0.025;
+        const waveScaleY = 1 + Math.cos(p * Math.PI * 14) * 0.038;
+        const tiltJitter = Math.sin(p * Math.PI * 12) * 0.024;
+
+        // Ambient radial fiery blaze halo under the painted curling flame waves so target burns vividly
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const blazeX = bx0 + bw * (1 - 0.58 * bEase);
+        const blazeY = by0 + bh * 0.66;
+        const bgFire = ctx.createRadialGradient(blazeX, blazeY, 24 * sc, blazeX, blazeY, 460 * sc * bEase);
+        bgFire.addColorStop(0, `rgba(254, 240, 138, ${0.46 * bFade * bEase})`);
+        bgFire.addColorStop(0.45, `rgba(249, 115, 22, ${0.38 * bFade * bEase})`);
+        bgFire.addColorStop(0.82, `rgba(220, 38, 38, ${0.18 * bFade * bEase})`);
+        bgFire.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = bgFire;
         ctx.beginPath();
-        ctx.arc(xPos, yOff, r, 0, Math.PI * 2);
+        ctx.arc(blazeX, blazeY, 460 * sc * Math.max(0.2, bEase), 0, Math.PI * 2);
         ctx.fill();
-      }
-      // Hot central torrent core spine tapering right from mouth to impact!
-      const coreG = ctx.createLinearGradient(0, 0, dist, 0);
-      coreG.addColorStop(0, `rgba(255, 255, 245, ${0.95 * bFade})`);
-      coreG.addColorStop(0.35, `rgba(254, 240, 138, ${0.82 * bFade})`);
-      coreG.addColorStop(0.75, `rgba(249, 115, 22, ${0.48 * bFade})`);
-      coreG.addColorStop(1, 'rgba(239, 68, 68, 0)');
-      ctx.strokeStyle = coreG;
-      ctx.lineCap = 'round';
-      ctx.lineWidth = 48 * sc;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.quadraticCurveTo(dist * 0.5, Math.sin(p * 30) * 18 * sc, dist, 0);
-      ctx.stroke();
+        ctx.restore();
 
-      // Sparkling fiery ember shards blasting down the torrent
-      for (let ei = 0; ei < 18; ei++) {
-        const eu = ((bp * 2.6 + ei * 0.11) % 1);
-        const ex = eu * dist * 1.12;
-        const ey = Math.sin(ei * 7.3 + bp * 12) * (18 + eu * 155) * sc;
-        const er = (3.5 + (ei % 3) * 2.5) * sc * (1 - eu * 0.45);
-        ctx.fillStyle = `rgba(254, 249, 195, ${0.92 * bFade * (1 - eu * 0.5)})`;
+        // Progressive jet-sweep circular clip anchored at the dragon's mouth (`expands outward ↙ during eruption!`)
+        const maxReach = Math.hypot(bw * 1.15, bh * 1.15);
+        const clipR = Math.max(40 * sc, maxReach * bEase);
+
+        ctx.save();
         ctx.beginPath();
-        ctx.ellipse(ex, ey, er * 3.2, er * 0.65, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
+        ctx.arc(throatX, throatY, clipR, 0, Math.PI * 2);
+        ctx.clip();
 
-      // Blazing swirl fireball devouring target at ground!
-      if (tipT > 0.65) {
-        const hitAlpha = bFade * clamp01((tipT - 0.65) / 0.35);
+        // Primary rich hand-painted roaring dragonfire wave (`source-over` keeps deep crimson wave crests!)
+        ctx.save();
+        ctx.translate(throatX, throatY);
+        ctx.rotate(tiltJitter);
+        ctx.scale(waveScaleX, waveScaleY);
+        ctx.globalAlpha = clamp01(bFade * 0.98);
+        ctx.drawImage(bImg, bx0 - throatX, by0 - throatY, bw, bh);
+        ctx.restore();
+
+        // Second slightly phase-shifted additive surge layer giving silky blazing luminous flicker & shimmer!
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.translate(throatX, throatY);
+        ctx.rotate(-tiltJitter * 0.7);
+        ctx.scale(1.02 + Math.cos(p * Math.PI * 22) * 0.025, 1.01 + Math.sin(p * Math.PI * 19) * 0.03);
+        ctx.globalAlpha = clamp01(bFade * (0.28 + 0.14 * Math.sin(p * Math.PI * 26)));
+        ctx.drawImage(bImg, bx0 - throatX - 10 * sc, by0 - throatY - 4 * sc, bw, bh);
+        ctx.restore();
+
+        ctx.restore();
+
+        // Fast fiery streaming ember flecks & heat-sparks flying down-left across the target
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        for (let ei = 0; ei < 22; ei++) {
+          const eu = (bp * 2.4 + ei * 0.097) % 1;
+          if (eu > bEase * 1.05) continue;
+          // Follow the sweeping curved diagonal breath arc from throat -> lower-left wave curl!
+          const ex = throatX - eu * bw * 0.94 + Math.sin(ei * 4.3 + p * 22) * 45 * sc;
+          const arcDrop = Math.sin(Math.min(1, eu * 1.35) * Math.PI * 0.5) * bh * 0.62 - Math.pow(Math.max(0, eu - 0.52), 1.6) * bh * 0.95;
+          const ey = throatY + arcDrop + Math.cos(ei * 6.7 - p * 18) * (35 + eu * 65) * sc;
+          const sr = (3.0 + (ei % 3) * 2.2) * sc * (1 - eu * 0.35);
+          ctx.fillStyle = ei % 3 === 0 ? `rgba(255, 250, 210, ${0.9 * bFade * (1 - eu * 0.3)})` : `rgba(251, 146, 60, ${0.85 * bFade * (1 - eu * 0.3)})`;
+          ctx.beginPath();
+          ctx.ellipse(ex, ey, sr * 2.8, sr * 0.72, -0.45 + eu * 0.95, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      } else {
+        // Fallback soft plume burst if WebP is still downloading
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         drawOrganicFlamePillar(
           ctx,
-          targetX,
+          W * 0.34,
           groundY + 12 * sc,
-          470 * sc,
-          185 * sc,
+          440 * sc * bEase,
+          170 * sc,
           p * 1.4,
           {
             outer: 'rgba(220,38,38,0.56)',
@@ -807,33 +860,45 @@ export function drawHdSpellEffect(
             core: 'rgba(254,240,138,0.92)',
             hot: 'rgba(255,255,242,0.98)',
           },
-          hitAlpha * 0.92
+          bFade
         );
-        drawTaperedStarburst(ctx, targetX, groundY - 135 * sc, 250 * sc * hitAlpha, 12, p * 5, 'rgba(251,146,60,0.88)', '#ffffff');
         ctx.restore();
       }
     }
 
+    // 3) Draw roaring heavy-ornament Flame Dragon head OVER the breath nozzle so fangs frame the jet cleanly!
     if (dImg && dImg.naturalWidth > 0) {
       ctx.save();
-      ctx.globalAlpha = clamp01(enter * exitFade * 1.08);
-      ctx.translate(headBaseX + dxOff, headBaseY + dyOff + roarBob);
-      if (targetIsHeroSide) ctx.scale(-1, 1);
-      // Warm backlit molten glow behind dragon scales
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      const dg = ctx.createRadialGradient(-40 * sc, 20 * sc, 30 * sc, 0, 0, dw * 0.58);
-      dg.addColorStop(0, 'rgba(255, 180, 45, 0.52)');
-      dg.addColorStop(0.55, 'rgba(239, 68, 68, 0.24)');
-      dg.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = dg;
-      ctx.beginPath();
-      ctx.arc(0, 0, dw * 0.58, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      ctx.drawImage(dImg, -dw * 0.5, -dh * 0.5, dw, dh);
+      ctx.globalAlpha = clamp01(enter * exitFade * 1.06);
+      ctx.drawImage(dImg, dx0, dTop, dw, dh);
       ctx.restore();
     }
+
+    // 4) Soft blinding incandescent mouth-core flare shimmering over the inner jaws & fangs
+    {
+      const mouthPulse = p >= 0.16 ? 0.85 + 0.15 * Math.sin(p * Math.PI * 24) : clamp01(p / 0.16) * 0.72;
+      const jawGlowX = throatX - 24 * sc;
+      const jawGlowY = throatY + 12 * sc;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const mg = ctx.createRadialGradient(jawGlowX, jawGlowY, 4 * sc, jawGlowX, jawGlowY, 170 * sc * mouthPulse);
+      mg.addColorStop(0, `rgba(255, 255, 235, ${0.58 * exitFade * mouthPulse})`);
+      mg.addColorStop(0.32, `rgba(253, 224, 71, ${0.38 * exitFade * mouthPulse})`);
+      mg.addColorStop(0.68, `rgba(249, 115, 22, ${0.18 * exitFade * mouthPulse})`);
+      mg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = mg;
+      ctx.beginPath();
+      ctx.arc(jawGlowX, jawGlowY, 170 * sc * mouthPulse, 0, Math.PI * 2);
+      ctx.fill();
+      if (p < 0.28) {
+        // Quick dramatic ignition star glare inside throat just before eruption!
+        const sp = Math.sin(clamp01(p / 0.28) * Math.PI);
+        drawTaperedStarburst(ctx, throatX, throatY, 145 * sc * sp, 8, p * 4, 'rgba(253, 224, 71, 0.85)', '#ffffff');
+      }
+      ctx.restore();
+    }
+
+    ctx.restore();
     ctx.restore();
     return;
   }
@@ -1306,10 +1371,10 @@ export function drawHdSpellEffect(
       ctx.restore();
     }
 
-    // Triumphant lightning screen flash peak near p ~ 0.68
+    // Triumphant lightning screen flash peak near p ~ 0.68 (subtle enough to keep baroque gold filigree razor-crisp!)
     if (p > 0.58 && p < 0.88) {
       const fp = Math.sin(((p - 0.58) / 0.30) * Math.PI);
-      ctx.fillStyle = `rgba(224, 242, 254, ${fp * 0.55})`;
+      ctx.fillStyle = `rgba(224, 242, 254, ${fp * 0.28})`;
       ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
@@ -1352,9 +1417,9 @@ export function drawHdSpellEffect(
     }
 
     // Signature DOS sp_066 expanding glowing sky-blue healing sphere flooding screen!
-    if (p > 0.36) {
-      const sp = clamp01((p - 0.36) / 0.50);
-      const r = Math.pow(sp, 2.15) * W * 0.92;
+    if (p > 0.44) {
+      const sp = clamp01((p - 0.44) / 0.46);
+      const r = Math.pow(sp, 2.2) * W * 0.90;
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
       const sg = ctx.createRadialGradient(W * 0.48, H * 0.34, 4, W * 0.48, H * 0.34, Math.max(8, r));
@@ -1405,9 +1470,9 @@ export function drawHdSpellEffect(
     }
 
     // Iconic DOS sp_067 expanding blood-crimson war-aura sphere!
-    if (p > 0.34) {
-      const sp = clamp01((p - 0.34) / 0.52);
-      const r = Math.pow(sp, 2.2) * W * 0.88;
+    if (p > 0.44) {
+      const sp = clamp01((p - 0.44) / 0.46);
+      const r = Math.pow(sp, 2.25) * W * 0.88;
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
       const rg = ctx.createRadialGradient(W * 0.62, H * 0.36, 4, W * 0.62, H * 0.36, Math.max(8, r));
@@ -1436,22 +1501,25 @@ export function drawHdSpellEffect(
 
     const sImg = imgs.fiend;
     const hoverY = Math.sin(p * Math.PI * 5) * 14 * sc;
+    const fSh = 670 * sc;
+    const fSw = sImg && sImg.naturalWidth > 0 ? (fSh * sImg.naturalWidth) / sImg.naturalHeight : 700 * sc;
+    const fX0 = W * 0.52 - fSw * 0.5;
+    const fY0 = H * 0.12 + hoverY + (1 - enter) * 110 * sc;
     if (sImg && sImg.naturalWidth > 0) {
-      const sh = 650 * sc;
-      const sw = (sh * sImg.naturalWidth) / sImg.naturalHeight;
       ctx.save();
       ctx.globalAlpha = clamp01(enter * fade);
-      ctx.drawImage(sImg, W * 0.52 - sw * 0.5, H * 0.13 + hoverY + (1 - enter) * 110 * sc, sw, sh);
+      ctx.drawImage(sImg, fX0, fY0, fSw, fSh);
       ctx.restore();
     }
 
     // Venomous lime-green acid curse lightning erupting from BOTH clawed hands (matching sp_068 F1..F8!)
     if (p > 0.16) {
       const tick = Math.floor(p * 14);
-      const lHandX = W * 0.325;
-      const lHandY = H * 0.165 + hoverY;
-      const rHandX = W * 0.675;
-      const rHandY = H * 0.255 + hoverY;
+      // Exact measured splayed palm/fingertip anchors on `summon_35_fiend.webp` (909x868)
+      const lHandX = fX0 + fSw * 0.088;
+      const lHandY = fY0 + fSh * 0.118;
+      const rHandX = fX0 + fSw * 0.842;
+      const rHandY = fY0 + fSh * 0.205;
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
       drawTaperedStarburst(ctx, lHandX, lHandY, 130 * sc * fade, 8, p * 6, 'rgba(163,230,53,0.9)', '#fef9c3');

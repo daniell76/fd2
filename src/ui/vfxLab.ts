@@ -291,7 +291,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=86';
+const VFX_ASSET_VERSION = '?v=87';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -7524,13 +7524,14 @@ export async function mountVfxLabInGallery(
           </span>
           <span class="mono-tag" style="font-size: 11px; color: #c4b5fd;">sp_018..sp_068 · SFX Banks 82–94 · Canvas2D + Painted HD WebP</span>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
           ${[
             { id: 32, tag: 'sp_065', file: 'summon_32_seraph.webp', zh: '熾天使 (召喚)', en: 'Seraph', col: '#fef08a' },
             { id: 33, tag: 'sp_066', file: 'summon_33_sylph.webp', zh: '風妖精 (召喚)', en: 'Wind Fairy', col: '#7dd3fc' },
             { id: 34, tag: 'sp_067', file: 'summon_34_destroyer.webp', zh: '破壞神 (召喚)', en: 'Destroyer God', col: '#f87171' },
             { id: 35, tag: 'sp_068', file: 'summon_35_fiend.webp', zh: '暗邪鬼 (召喚)', en: 'Dark Fiend', col: '#bef264' },
-            { id: 2, tag: 'sp_026/27', file: 'spell_02_dragon.webp', zh: '炎龍術 (龍頭)', en: 'Flame Dragon', col: '#fb923c' },
+            { id: 2, tag: 'sp_026/27 F15', file: 'spell_02_dragon.webp', zh: '炎龍術 (龍頭)', en: 'Flame Dragon', col: '#fb923c' },
+            { id: 2, tag: 'sp_026/27 F17', file: 'spell_02_breath.webp', zh: '炎龍術 (龍息)', en: 'Dragon Breath', col: '#f59e0b' },
             { id: 9, tag: 'sp_044', file: 'spell_09_reaper.webp', zh: '咒殺術 (死神)', en: 'Death Reaper', col: '#a3e635' },
           ]
             .map(
