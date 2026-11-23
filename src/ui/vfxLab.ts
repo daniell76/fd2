@@ -291,7 +291,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=91';
+const VFX_ASSET_VERSION = '?v=92';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -7535,8 +7535,8 @@ export async function mountVfxLabInGallery(
             { id: 33, tag: 'sp_066', file: 'summon_33_sylph.webp', zh: '風妖精 (召喚)', en: 'Wind Fairy', col: '#7dd3fc' },
             { id: 34, tag: 'sp_067', file: 'summon_34_destroyer.webp', zh: '破壞神 (召喚)', en: 'Destroyer God', col: '#f87171' },
             { id: 35, tag: 'sp_068', file: 'summon_35_fiend.webp', zh: '暗邪鬼 (召喚)', en: 'Dark Fiend', col: '#bef264' },
-            { id: 2, tag: 'sp_026 F15', file: 'spell_02_dragon.webp', zh: '炎龍術 (龍頭)', en: 'Flame Dragon', col: '#fb923c' },
-            { id: 2, tag: 'sp_026 F17', file: 'spell_02_breath.webp', zh: '炎龍術 (龍息)', en: 'Dragon Breath', col: '#f59e0b' },
+            { id: 2, tag: 'sp_026 3段動畫', file: 'spell_02_dragon.webp', zh: '炎龍術 (張口/閉口)', en: 'Flame Dragon', col: '#fb923c' },
+            { id: 2, tag: 'sp_026 4幀連播', file: 'spell_02_breath.webp', zh: '炎龍術 (4幀龍息)', en: 'Dragon Breath (4F)', col: '#f59e0b' },
             { id: 9, tag: 'sp_044', file: 'spell_09_reaper.webp', zh: '咒殺術 (死神)', en: 'Death Reaper', col: '#a3e635' },
             { id: 0, tag: 'sp_018/20', file: 'fx_fire_pillar_red.webp', zh: '火炎術 (7柱)', en: 'Fireball (7x)', col: '#fb923c' },
             { id: 1, tag: 'sp_019/21', file: 'fx_fire_pillar_blue.webp', zh: '烈炎術 (8柱環)', en: 'Scorching (8x)', col: '#38bdf8' },
