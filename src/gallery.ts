@@ -57,6 +57,7 @@ class MappingGalleryApp {
   private selectedRightUid = 0; // Active promoted or right-side unit ID
   private heroRosterScrollTop = 0;
   private vfxFocusUid = 0;
+  private vfxSpellId?: number;
 
   // Duel Stage Controls
   private initiator: 'hero' | 'enemy' = 'hero';
@@ -564,10 +565,13 @@ class MappingGalleryApp {
     if (this.activeTab === 'duel') {
       this.renderUnifiedDuelTab(container);
     } else if (this.activeTab === 'vfx_lab') {
+      const initSpell = this.vfxSpellId;
+      this.vfxSpellId = undefined;
       void mountVfxLabInGallery(container, this.assets, this.sound, {
         initialRightUid: this.selectedRightUid,
         initialLeftUid: this.selectedEnemyUid,
         initialInspectUid: this.vfxFocusUid,
+        initialSpellId: initSpell,
         onMatchupChange: (r, l, f) => {
           this.selectedRightUid = r;
           this.selectedEnemyUid = l;
@@ -1191,7 +1195,7 @@ class MappingGalleryApp {
                   <div>
                     <div class="mono-tag" style="font-size:10px; color:#fde047; margin-bottom:2px;">💥 Crit Cut-In</div>
                     <img
-                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/cutin.jpg?v=85"
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/cutin.jpg?v=86"
                       loading="lazy"
                       alt="${entry.nameZh} Cut-In"
                       style="width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:5px; border:1px solid #334155; background:#05080f;"
@@ -1200,7 +1204,7 @@ class MappingGalleryApp {
                   <div>
                     <div class="mono-tag" style="font-size:10px; color:#7dd3fc; margin-bottom:2px;">🖼️ HD 6-Frame Sheet</div>
                     <img
-                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/nb6_sheet.jpg?v=85"
+                      src="assets/vfx_lab/units/u_${String(entry.id).padStart(3, '0')}/nb6_sheet.jpg?v=86"
                       loading="lazy"
                       alt="${entry.nameZh} 6-Frame Sheet"
                       style="width:100%; aspect-ratio:16/9; object-fit:contain; border-radius:5px; background:#ffffff; border:1px solid #334155;"
@@ -1601,7 +1605,7 @@ class MappingGalleryApp {
                     cls: 'role-npc',
                   };
                   const stripTxt =
-                    sp.animEnemyStripId !== null || sp.animHeroStripId !== null
+                    sp.animEnemyStripId != null || sp.animHeroStripId != null
                       ? `OTHER[${sp.animEnemyStripId ?? '—'}/${sp.animHeroStripId ?? '—'}]`
                       : tr('— (無切入特效塊)', '— (无切入特效块)', '— (No Cutaway FX)');
                   return `
@@ -1612,7 +1616,14 @@ class MappingGalleryApp {
                       <td><span class="role-badge ${catInfo.cls}">${catInfo.label}</span></td>
                       <td class="mono-tag" style="color:var(--azure);">${sp.mpCost} MP</td>
                       <td class="mono-tag">${sp.power}</td>
-                      <td class="mono-tag">${stripTxt}</td>
+                      <td class="mono-tag">
+                        ${stripTxt}
+                        ${
+                          (sp.id >= 0 && sp.id <= 9) || (sp.id >= 32 && sp.id <= 35)
+                            ? `<button type="button" class="gal-btn sm" data-vfx-spell="${sp.id}" style="margin-left:6px; padding:1px 7px; font-size:10.5px; border-color:rgba(192,132,252,0.7); color:#e9d5ff;">▶ HD</button>`
+                            : ''
+                        }
+                      </td>
                       <td class="mono-tag">Rng ${sp.castRange} · AoE ${sp.aoe}${sp.isLinear ? tr(' (直線穿透)', ' (直线穿透)', ' (Linear Beam)') : ''}</td>
                     </tr>
                   `;
@@ -1694,6 +1705,19 @@ class MappingGalleryApp {
       btn.addEventListener('click', () => {
         this.catalogSubTab = btn.dataset.csub as CatalogSubTab;
         this.renderActiveTabBody();
+      });
+    });
+
+    container.querySelectorAll<HTMLButtonElement>('[data-vfx-spell]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.vfxSpellId = Number(btn.dataset.vfxSpell);
+        const casters = [9, 10, 11, 14, 21, 24, 25, 28, 29, 41, 42, 43, 46, 50, 51, 52, 53, 59, 60, 61, 64];
+        if (!casters.includes(this.selectedRightUid)) {
+          this.selectedRightUid = this.vfxSpellId >= 32 ? 52 : 9;
+          this.vfxFocusUid = this.selectedRightUid;
+        }
+        this.activeTab = 'vfx_lab';
+        this.renderShell();
       });
     });
 

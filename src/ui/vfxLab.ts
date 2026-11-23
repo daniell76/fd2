@@ -2,6 +2,14 @@ import type { SfxKind, SoundEngine } from '../audio/soundEngine';
 import type { AssetManager } from '../engine/assets';
 import { getLocale, tr } from '../i18n';
 import type { FigAniStrip } from '../types';
+import {
+  HD_SPELL_CATALOG,
+  defaultSpellIdForUnit,
+  drawHdSpellEffect,
+  ensureHdSpellAssets,
+  getHdSpellEntry,
+  getLoadedHdSpellAssets,
+} from './hdSpellVfx';
 
 // Authentic FD2.EXE `fn_113818` (`GLOBAL_2_9686 = [48, 49, 50, 51, 52, 53, 51]`):
 // Maps `FIGANI.DAT` chunk_header[4] (`sfxBankCode = 1..7`) to `FDOTHER.DAT[48..53]`.
@@ -283,7 +291,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=85';
+const VFX_ASSET_VERSION = '?v=86';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -536,6 +544,7 @@ export async function ensureVfxLabAssets(assets: AssetManager): Promise<VfxLabAs
     loadUnitSlotIntoVfxAssets(assets, vfxAssetsCache, 'player', defaultRight),
     loadUnitSlotIntoVfxAssets(assets, vfxAssetsCache, 'enemy', defaultLeft),
   ]);
+  void ensureHdSpellAssets(VFX_ASSET_VERSION);
 
   vfxAssetsCache.forestBg = forestBg;
   vfxAssetsCache.loaded = true;
@@ -596,6 +605,8 @@ export class Modern25DCombatRenderer {
   private spriteTintCanvas: HTMLCanvasElement | null = null;
   private spriteTintCtx: CanvasRenderingContext2D | null = null;
   private activeStageBadge = '';
+  /** Optional explicit Phase B HD spell/summon override (`null` = auto signature spell for caster). */
+  public previewSpellId: number | null = null;
 
   constructor(
     private vfxAssets: VfxLabAssets,
@@ -687,7 +698,13 @@ export class Modern25DCombatRenderer {
   }
 
   public getTotalDurationMs(): number {
-    if (this.scenario === 'hero_magic') return 3150;
+    if (this.scenario === 'hero_magic') {
+      const caster = this.vfxAssets.rightUnit;
+      const el = caster.magicElement ?? 'fire';
+      const sid = this.previewSpellId ?? defaultSpellIdForUnit(caster.uid, el, caster.magicNameZh);
+      const sp = getHdSpellEntry(sid);
+      return sp ? 1380 + sp.durationMs + 340 : 3150;
+    }
     if (this.scenario === 'hero_skill') {
       const sk = this.vfxAssets.rightUnit.rangedSkill;
       if (sk?.mode === 'hero_chant') return 3150;
@@ -4512,10 +4529,18 @@ export class Modern25DCombatRenderer {
     const enemyTerrain = getTerrainPreset(enemyBgId);
     const caster = this.vfxAssets.rightUnit;
     const target = this.vfxAssets.leftUnit;
-    const element = caster.magicElement ?? 'fire';
+    const baseElement = caster.magicElement ?? 'fire';
+    const activeSpellId =
+      this.previewSpellId ?? defaultSpellIdForUnit(caster.uid, baseElement, caster.magicNameZh);
+    const spellEntry = getHdSpellEntry(activeSpellId);
+    const element = spellEntry?.element ?? baseElement;
     const spellName = isEn
-      ? (caster.magicNameEn ?? (element === 'holy' ? 'Holy Radiance' : element === 'fire' ? 'Flame Dragon' : 'Arcane Nova'))
-      : (caster.magicNameZh ?? (element === 'holy' ? '聖光審判' : element === 'fire' ? '炎龍術' : '星辰秘法'));
+      ? (spellEntry
+          ? `#${String(spellEntry.id).padStart(2, '0')} ${spellEntry.nameEn}`
+          : (caster.magicNameEn ?? (element === 'holy' ? 'Holy Radiance' : element === 'fire' ? 'Flame Dragon' : 'Arcane Nova')))
+      : (spellEntry
+          ? `#${String(spellEntry.id).padStart(2, '0')} ${spellEntry.nameZh}`
+          : (caster.magicNameZh ?? (element === 'holy' ? '聖光審判' : element === 'fire' ? '炎龍術' : '星辰秘法')));
 
     const srcMode = this.config.animSource;
     const useDedicatedChant = this.vfxAssets.thorChantPoses.length >= 6;
@@ -4567,7 +4592,10 @@ export class Modern25DCombatRenderer {
 
       if (p >= 0.48) {
         this.fireOnce('magic_chant_sfx', () => {
-          this.sound.playSfx(caster.sfxProfile?.magicChantSfx ?? 'bank:83:0');
+          const chantSfx: SfxKind = spellEntry
+            ? (`bank:${spellEntry.sfxBank}:0` as SfxKind)
+            : (caster.sfxProfile?.magicChantSfx ?? 'bank:83:0');
+          this.sound.playSfx(chantSfx);
           this.thorMp = Math.max(0, this.thorMp - 4);
           this.spawnImpactSparks(
             casterHomeX - 45,
@@ -4684,7 +4712,7 @@ export class Modern25DCombatRenderer {
       dashDirY: 0,
     };
 
-    const hitTimes = element === 'holy' ? [420, 760] : [340, 580, 820];
+    const hitTimes = spellEntry?.hitTimesMs ?? (element === 'holy' ? [420, 760] : [340, 580, 820]);
     let activeRecoil = 0;
     let activeFlash = 0;
     let camShake = 0;
@@ -4695,18 +4723,23 @@ export class Modern25DCombatRenderer {
       if (s2 >= ht) {
         const isLast = hi === hitTimes.length - 1;
         this.fireOnce(`magic_hit_${hi}`, () => {
-          const mHits = caster.sfxProfile?.magicHitSfx ?? ['bank:83:1'];
-          const mSfx: SfxKind = mHits[hi] ?? mHits[mHits.length - 1] ?? 'bank:83:1';
+          const mSfx: SfxKind = spellEntry
+            ? (`bank:${spellEntry.sfxBank}:${hi === 0 ? 1 : isLast ? 2 : 1}` as SfxKind)
+            : ((caster.sfxProfile?.magicHitSfx?.[hi] ?? caster.sfxProfile?.magicHitSfx?.[0] ?? 'bank:83:1') as SfxKind);
           this.sound.playSfx(mSfx);
           if (this.config.enableHitStopAndSparks && isLast) {
-            this.hitStopRemainingMs = 75;
+            this.hitStopRemainingMs = spellEntry?.isSummon ? 85 : 75;
           }
           const pal =
-            element === 'holy'
-              ? ['#ffffff', '#fef08a', '#fde047', '#7dd3fc']
-              : element === 'fire'
-                ? ['#ffffff', '#fde047', '#f97316', '#ef4444']
-                : ['#ffffff', '#e879f9', '#38bdf8', '#fde047'];
+            spellEntry?.id === 9 || spellEntry?.id === 35
+              ? ['#f7fee7', '#bef264', '#84cc16', '#22c55e']
+              : spellEntry?.element === 'holy'
+                ? ['#ffffff', '#fef08a', '#fde047', '#7dd3fc']
+                : spellEntry?.element === 'thunder'
+                  ? ['#ffffff', '#bae6fd', '#38bdf8', '#818cf8']
+                  : spellEntry?.element === 'fire'
+                    ? ['#ffffff', '#fde047', '#f97316', '#ef4444']
+                    : ['#ffffff', '#e879f9', '#38bdf8', '#fde047'];
           this.spawnImpactSparks(targetHomeX, targetHomeY - 190, targetHomeY, isLast ? 75 : 36, pal, -0.3, -0.65);
           this.spawnDustPlume(targetHomeX, targetHomeY, -0.5, -0.3, isLast ? 16 : 8);
           const dmgPart = isLast
@@ -4733,11 +4766,13 @@ export class Modern25DCombatRenderer {
     targetSpec.scaleY = 1.0 + activeRecoil * 0.06;
     targetSpec.flashWhite = activeFlash;
 
-    const spellStart = 180;
-    const spellEnd = 1220;
+    const spellStart = 120;
+    const spellEnd = spellStart + (spellEntry?.durationMs ?? 1200);
     const spellP = s2 >= spellStart && s2 <= spellEnd ? (s2 - spellStart) / (spellEnd - spellStart) : -1;
 
-    const camZoom = 1.04 + (spellP >= 0 ? Math.sin(spellP * Math.PI) * 0.1 : 0);
+    const camZoom = spellEntry?.isSummon
+      ? 1.0 + (spellP >= 0 ? Math.sin(spellP * Math.PI) * 0.03 : 0)
+      : 1.04 + (spellP >= 0 ? Math.sin(spellP * Math.PI) * 0.1 : 0);
     const shakeX = camShake > 0 ? (Math.random() - 0.5) * camShake * 2 : 0;
     const shakeY = camShake > 0 ? (Math.random() - 0.5) * camShake * 1.5 : 0;
 
@@ -4767,9 +4802,13 @@ export class Modern25DCombatRenderer {
       Math.round(620 * (target.displayScale ?? 1))
     );
 
-    // Front-layer elemental spell pillar & vortex over Target!
+    // Front-layer Phase B HD elemental spell / summon cutaway VFX (all 25 FDOTHER.DAT strips)!
     if (spellP >= 0) {
-      this.drawModernSpellEffect(ctx, targetHomeX, targetHomeY, spellP, element);
+      if (spellEntry) {
+        drawHdSpellEffect(ctx, W, H, spellEntry.id, targetHomeX, targetHomeY, spellP, false, getLoadedHdSpellAssets());
+      } else {
+        this.drawModernSpellEffect(ctx, targetHomeX, targetHomeY, spellP, element);
+      }
     }
 
     this.drawDustAndSparks(ctx);
@@ -7089,6 +7128,7 @@ export interface VfxLabMountOptions {
   initialRightUid?: number;
   initialLeftUid?: number;
   initialInspectUid?: number;
+  initialSpellId?: number;
   onMatchupChange?: (rightUid: number, leftUid: number, inspectUid: number) => void;
 }
 
@@ -7357,6 +7397,13 @@ export async function mountVfxLabInGallery(
           <button class="gal-btn" id="vfx-play-magic" type="button" style="border-color: rgba(192, 132, 252, 0.7);">
             ✨ ${tr('我方遠程法術 (2段切屏施法)', '我方远程法术 (2段切屏施法)', 'Hero Magic Cast (2-Stage Remote)')}
           </button>
+          <select id="vfx-sel-spell" title="Phase B: Select FDOTHER.DAT HD Spell / Summon VFX" style="background: #140c24; color: #e9d5ff; border: 1px solid rgba(192, 132, 252, 0.75); border-radius: 6px; padding: 5px 10px; font-size: 12.5px; font-weight: 700;">
+            <option value="auto">🔮 ${tr('法術/召喚：自動預設', '法术/召唤：自动预设', 'Spell FX: Auto (Unit Signature)')}</option>
+            ${HD_SPELL_CATALOG.map(
+              (sp) =>
+                `<option value="${sp.id}">${sp.isSummon ? '🌟' : sp.category === 'fire' ? '🔥' : sp.category === 'thunder' ? '⚡' : sp.category === 'holy' ? '☀️' : '💀'} #${String(sp.id).padStart(2, '0')} ${isEn ? sp.nameEn : sp.nameZh}</option>`
+            ).join('')}
+          </select>
           <button class="gal-btn" id="vfx-play-skill" type="button" style="display:none; border-color: rgba(56, 189, 248, 0.85); color: #7dd3fc;">
             🌀 ${tr('專屬劍技 / 詠唱動畫', '专属剑技 / 咏唱动画', 'Signature Skill / Chant')}
           </button>
@@ -7462,6 +7509,47 @@ export async function mountVfxLabInGallery(
             <img id="vfx-focus-chant-sheet" loading="lazy" style="width: 100%; max-width: 720px; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 6px; background: #ffffff;" />
           </div>
           <div id="vfx-focus-chant-strip" style="display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 8px; overflow-x: auto;"></div>
+        </div>
+      </div>
+
+      <!-- PHASE B: 25 DOS FDOTHER.DAT SPELL VFX & 4 SUMMON CUTAWAYS GALLERY -->
+      <div id="vfx-phase-b-spells" style="padding: 16px 18px; background: linear-gradient(180deg, #100b1d 0%, #0b1120 100%); border: 1.5px solid rgba(168, 85, 247, 0.45); border-radius: 12px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;">
+          <span style="font-size: 14.5px; font-weight: 800; color: #e9d5ff;">
+            🌟 ${tr(
+              'Phase B · 25 組 FDOTHER.DAT 法術特效 & 4 大經典召喚獸重製 (點擊立即在舞台播放)',
+              'Phase B · 25 组 FDOTHER.DAT 法术特效 & 4 大经典召唤兽重制 (点击立即在舞台播放)',
+              'Phase B · 25 FDOTHER.DAT Spell VFX & 4 Iconic Summons (Click any card to play live)'
+            )}
+          </span>
+          <span class="mono-tag" style="font-size: 11px; color: #c4b5fd;">sp_018..sp_068 · SFX Banks 82–94 · Canvas2D + Painted HD WebP</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px;">
+          ${[
+            { id: 32, tag: 'sp_065', file: 'summon_32_seraph.webp', zh: '熾天使 (召喚)', en: 'Seraph', col: '#fef08a' },
+            { id: 33, tag: 'sp_066', file: 'summon_33_sylph.webp', zh: '風妖精 (召喚)', en: 'Wind Fairy', col: '#7dd3fc' },
+            { id: 34, tag: 'sp_067', file: 'summon_34_destroyer.webp', zh: '破壞神 (召喚)', en: 'Destroyer God', col: '#f87171' },
+            { id: 35, tag: 'sp_068', file: 'summon_35_fiend.webp', zh: '暗邪鬼 (召喚)', en: 'Dark Fiend', col: '#bef264' },
+            { id: 2, tag: 'sp_026/27', file: 'spell_02_dragon.webp', zh: '炎龍術 (龍頭)', en: 'Flame Dragon', col: '#fb923c' },
+            { id: 9, tag: 'sp_044', file: 'spell_09_reaper.webp', zh: '咒殺術 (死神)', en: 'Death Reaper', col: '#a3e635' },
+          ]
+            .map(
+              (c) => `
+              <button type="button" data-play-spell="${c.id}" style="background: #141828; border: 1.5px solid ${c.col}55; border-radius: 9px; padding: 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; color: #f8fafc; text-align: center; transition: transform 0.12s;">
+                <img src="assets/hd_spells/${c.file}${VFX_ASSET_VERSION}" loading="lazy" alt="${c.en}" style="width: 100%; height: 112px; object-fit: contain; background: radial-gradient(circle, rgba(30,41,59,0.9), rgba(9,13,22,0.95)); border-radius: 6px; padding: 4px;" />
+                <div style="font-size: 12px; font-weight: 800; color: ${c.col};">▶ #${String(c.id).padStart(2, '0')} ${isEn ? c.en : c.zh}</div>
+                <div class="mono-tag" style="font-size: 10px; color: #94a3b8;">${c.tag}</div>
+              </button>`
+            )
+            .join('')}
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+          ${HD_SPELL_CATALOG.map(
+            (sp) => `
+            <button type="button" class="gal-btn sm" data-play-spell="${sp.id}" title="${isEn ? sp.summaryEn : sp.summaryZh}" style="border-color: ${sp.accentColor}88; color: ${sp.accentColor}; font-size: 11.5px; padding: 3px 9px;">
+              ${sp.isSummon ? '🌟' : sp.category === 'fire' ? '🔥' : sp.category === 'thunder' ? '⚡' : sp.category === 'holy' ? '☀️' : '💀'} #${String(sp.id).padStart(2, '0')} ${isEn ? sp.nameEn : sp.nameZh}
+            </button>`
+          ).join('')}
         </div>
       </div>
 
@@ -7971,6 +8059,30 @@ export async function mountVfxLabInGallery(
   btnBanditFirst.addEventListener('click', () => updateScenarioBtns('bandit_first_duel'));
   btnCrit.addEventListener('click', () => updateScenarioBtns('thor_crit'));
   btnMagic.addEventListener('click', () => updateScenarioBtns('hero_magic'));
+  const selSpell = container.querySelector('#vfx-sel-spell') as HTMLSelectElement | null;
+  const playSpellPreview = (spellId: number | null, scrollUp = false) => {
+    renderer.previewSpellId = spellId;
+    if (selSpell) selSpell.value = spellId === null ? 'auto' : String(spellId);
+    void ensureHdSpellAssets(VFX_ASSET_VERSION).then(() => {
+      updateScenarioBtns('hero_magic');
+    });
+    updateViewMode('stage');
+    if (scrollUp) {
+      stageContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+  selSpell?.addEventListener('change', () => {
+    const val = selSpell.value;
+    playSpellPreview(val === 'auto' ? null : Number(val), false);
+  });
+  container.querySelectorAll<HTMLButtonElement>('[data-play-spell]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      playSpellPreview(Number(btn.dataset.playSpell), true);
+    });
+  });
+  if (opts?.initialSpellId !== undefined) {
+    playSpellPreview(opts.initialSpellId, false);
+  }
   btnSkill.addEventListener('click', () => updateScenarioBtns('hero_skill'));
   btnBanditCrit.addEventListener('click', () => updateScenarioBtns('bandit_crit'));
 
