@@ -291,7 +291,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=90';
+const VFX_ASSET_VERSION = '?v=91';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -7541,11 +7541,12 @@ export async function mountVfxLabInGallery(
             { id: 0, tag: 'sp_018/20', file: 'fx_fire_pillar_red.webp', zh: '火炎術 (7柱)', en: 'Fireball (7x)', col: '#fb923c' },
             { id: 1, tag: 'sp_019/21', file: 'fx_fire_pillar_blue.webp', zh: '烈炎術 (8柱環)', en: 'Scorching (8x)', col: '#38bdf8' },
             { id: 3, tag: 'sp_039/43', file: 'fx_solar_beam_gold.webp', zh: '天火術 (12波)', en: "Heaven's Fire", col: '#f97316' },
-            { id: 4, tag: 'sp_022/23', file: 'fx_bolt_thin.webp', zh: '電擊術 (6閃)', en: 'Lightning (6x)', col: '#60a5fa' },
-            { id: 5, tag: 'sp_024/25', file: 'fx_bolt_heavy.webp', zh: '落雷術 (6雷)', en: 'Falling Bolt', col: '#93c5fd' },
-            { id: 6, tag: 'sp_032/33', file: 'fx_thunder_orb.webp', zh: '轟雷術 (5球)', en: 'Thunder Storm', col: '#818cf8' },
-            { id: 7, tag: 'sp_037/38', file: 'fx_divine_pillar.webp', zh: '神雷術 (6柱)', en: 'Divine Thunder', col: '#bae6fd' },
-            { id: 8, tag: 'sp_028/30', file: 'fx_thunder_nova.webp', zh: '聖光彈 (12連)', en: 'Holy Bolt (12x)', col: '#fde047' },
+            { id: 4, tag: 'sp_022/23', file: 'fx_bolt_thin.webp', zh: '電擊術 (6閃)', en: 'Lightning (6x)', col: '#a78bfa' },
+            { id: 5, tag: 'sp_024/25', file: 'fx_bolt_heavy.webp', zh: '落雷術 (6雷)', en: 'Falling Bolt', col: '#c084fc' },
+            { id: 6, tag: 'sp_032/33', file: 'fx_thunder_orb.webp', zh: '轟雷術 (5球)', en: 'Thunder Storm', col: '#8b5cf6' },
+            { id: 7, tag: 'sp_037/38', file: 'fx_divine_pillar.webp', zh: '神雷術 (6柱)', en: 'Divine Thunder', col: '#c4b5fd' },
+            { id: 8, tag: 'sp_028/30', file: 'fx_holy_nova.webp', zh: '聖光彈 (12連)', en: 'Holy Bolt (12x)', col: '#fde047' },
+            { id: 35, tag: 'sp_068 毒霧', file: 'fx_curse_fog.webp', zh: '暗邪鬼 (毒霧)', en: 'Curse Miasma', col: '#84cc16' },
           ]
             .map(
               (c) => `

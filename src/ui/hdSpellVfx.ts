@@ -10,7 +10,7 @@
  * volumetric additive blooms, tapered lightning splines, and curved plasma beams.
  */
 
-export const HD_SPELL_ASSET_VERSION = '?v=90';
+export const HD_SPELL_ASSET_VERSION = '?v=91';
 
 export type HdSpellLayer = 'both' | 'behind' | 'front';
 
@@ -122,9 +122,9 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     hitTimesMs: [240, 560, 880],
     durationMs: 1240,
     paintedSprite: 'fx_bolt_thin.webp',
-    accentColor: '#38bdf8',
-    summaryZh: '6道交錯裂閃疾電連劈，落地電芒回彈衝天 (sp_022/023)',
-    summaryEn: '6 staggered forked whip-lightning bolts rebounding skyward (sp_022/023)',
+    accentColor: '#a78bfa',
+    summaryZh: '6道交錯裂閃紫電連劈，落地電芒回彈衝天 (sp_022/023)',
+    summaryEn: '6 staggered forked violet whip-lightning bolts rebounding skyward (sp_022/023)',
   },
   {
     id: 5,
@@ -140,9 +140,9 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     durationMs: 1320,
     paintedSprite: 'fx_bolt_heavy.webp',
     secondarySprite: 'fx_thunder_crown.webp',
-    accentColor: '#60a5fa',
-    summaryZh: '6道左右交替巨型折線落雷，轟裂寬幅荊棘電冠衝擊波 (sp_024/025)',
-    summaryEn: '6 alternating left/right heavy zig-zag thunderbolts with jagged crown splashes (sp_024/025)',
+    accentColor: '#c084fc',
+    summaryZh: '6道左右交替巨型折線紫雷，轟裂寬幅荊棘電冠衝擊波 (sp_024/025)',
+    summaryEn: '6 alternating left/right heavy zig-zag violet thunderbolts with crown splashes (sp_024/025)',
   },
   {
     id: 6,
@@ -158,9 +158,9 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     durationMs: 1460,
     paintedSprite: 'fx_thunder_orb.webp',
     secondarySprite: 'fx_thunder_nova.webp',
-    accentColor: '#818cf8',
-    summaryZh: '5顆幽藍雷球3D螺旋繞身聚能 → 3連爆裂尖刺雷環 (sp_032/033)',
-    summaryEn: '5 orbiting thunder spheres spiraling inward → 3 jagged nova detonations (sp_032/033)',
+    accentColor: '#8b5cf6',
+    summaryZh: '5顆幽紫雷球3D螺旋繞身聚能 → 3連爆裂尖刺雷環 (sp_032/033)',
+    summaryEn: '5 orbiting violet thunder spheres spiraling inward → 3 jagged nova detonations (sp_032/033)',
   },
   {
     id: 7,
@@ -175,9 +175,9 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     hitTimesMs: [200, 520, 880],
     durationMs: 1380,
     paintedSprite: 'fx_divine_pillar.webp',
-    accentColor: '#93c5fd',
-    summaryZh: '6道貫穿天地鈷藍神雷巨柱連環轟擊收束 (sp_037/038)',
-    summaryEn: '6 staggered vertical heavenly thunder columns pinching to discharge needles (sp_037/038)',
+    accentColor: '#c4b5fd',
+    summaryZh: '6道貫穿天地巨幅雷紫神柱連環轟擊收束 (sp_037/038)',
+    summaryEn: '6 thick staggered vertical violet heavenly thunder columns (sp_037/038)',
   },
   {
     id: 8,
@@ -191,7 +191,7 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     element: 'holy',
     hitTimesMs: [200, 480, 760, 1040],
     durationMs: 1440,
-    paintedSprite: 'fx_thunder_nova.webp',
+    paintedSprite: 'fx_holy_nova.webp',
     accentColor: '#fde047',
     summaryZh: '12發四向高速聖光穿空連射，空心蒼藍星環連續爆裂 (sp_028/030)',
     summaryEn: '12 rapid multi-angle holy lance strikes bursting into crystal star rings (sp_028/030)',
@@ -278,9 +278,10 @@ export const HD_SPELL_CATALOG: HdSpellEntry[] = [
     hitTimesMs: [480, 860, 1140],
     durationMs: 1680,
     paintedSprite: 'summon_35_fiend.webp',
-    accentColor: '#bef264',
-    summaryZh: '【召喚】蒼藍巨腹暗邪鬼凌空施咒，劇毒螢綠狂雷橫掃戰場 (sp_068)',
-    summaryEn: '[Summon] Towering blue fiend flinging venomous acid-lime curse lightning (sp_068)',
+    secondarySprite: 'fx_curse_fog.webp',
+    accentColor: '#84cc16',
+    summaryZh: '【召喚】蒼藍巨腹暗邪鬼雙掌釋放劇毒翠綠瘴氣濃霧，施降全場異常狀態 (sp_068)',
+    summaryEn: '[Summon] Towering blue fiend releasing rolling emerald debuff miasma fog (sp_068)',
   },
 ];
 
@@ -341,7 +342,9 @@ export interface HdSpellImageMap {
   thunderCrown: HTMLImageElement | null;
   thunderOrb: HTMLImageElement | null;
   thunderNova: HTMLImageElement | null;
+  holyNova: HTMLImageElement | null;
   divinePillar: HTMLImageElement | null;
+  curseFog: HTMLImageElement | null;
 }
 
 const spellImages: HdSpellImageMap = {
@@ -363,7 +366,9 @@ const spellImages: HdSpellImageMap = {
   thunderCrown: null,
   thunderOrb: null,
   thunderNova: null,
+  holyNova: null,
   divinePillar: null,
+  curseFog: null,
 };
 
 let loadStartedVersion = '';
@@ -401,7 +406,9 @@ export function ensureHdSpellAssets(versionTag: string = HD_SPELL_ASSET_VERSION)
     loadOptImg(`${base}/fx_thunder_crown.webp${versionTag}`),
     loadOptImg(`${base}/fx_thunder_orb.webp${versionTag}`),
     loadOptImg(`${base}/fx_thunder_nova.webp${versionTag}`),
+    loadOptImg(`${base}/fx_holy_nova.webp${versionTag}`),
     loadOptImg(`${base}/fx_divine_pillar.webp${versionTag}`),
+    loadOptImg(`${base}/fx_curse_fog.webp${versionTag}`),
   ]).then(
     ([
       dragon,
@@ -422,7 +429,9 @@ export function ensureHdSpellAssets(versionTag: string = HD_SPELL_ASSET_VERSION)
       thunderCrown,
       thunderOrb,
       thunderNova,
+      holyNova,
       divinePillar,
+      curseFog,
     ]) => {
       spellImages.dragon = dragon;
       spellImages.dragonBreath = dragonBreath;
@@ -442,7 +451,9 @@ export function ensureHdSpellAssets(versionTag: string = HD_SPELL_ASSET_VERSION)
       spellImages.thunderCrown = thunderCrown;
       spellImages.thunderOrb = thunderOrb;
       spellImages.thunderNova = thunderNova;
+      spellImages.holyNova = holyNova;
       spellImages.divinePillar = divinePillar;
+      spellImages.curseFog = curseFog;
       return spellImages;
     }
   );
@@ -1333,8 +1344,8 @@ export function drawHdSpellEffect(
   // =========================================================================
   if (spellId === 4) {
     if (drawBehind) {
-      const dim = Math.sin(p * Math.PI) * 0.24;
-      ctx.fillStyle = `rgba(10, 18, 44, ${dim})`;
+      const dim = Math.sin(p * Math.PI) * 0.28;
+      ctx.fillStyle = `rgba(22, 12, 46, ${dim})`;
       ctx.fillRect(0, 0, W, H);
     }
     if (!drawFront) {
@@ -1373,13 +1384,13 @@ export function drawHdSpellEffect(
           ctx.drawImage(bImg, -bW * 0.52, -bH * 0.5, bW * 1.04, bH);
         } else {
           ctx.globalCompositeOperation = 'screen';
-          drawLightningBolt(ctx, bx, -20 * sc, bx, gy, 24 * sc, 54 * sc, 12, k * 37, 'rgba(56,189,248,0.85)', 'rgba(186,230,253,0.95)', '#ffffff', 2);
+          drawLightningBolt(ctx, bx, -20 * sc, bx, gy, 24 * sc, 54 * sc, 12, k * 37, 'rgba(139,92,246,0.88)', 'rgba(216,180,254,0.95)', '#ffffff', 2);
         }
         ctx.restore();
         if (dropFrac >= 0.85) {
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
-          drawTaperedStarburst(ctx, bx, gy - 16 * sc, 105 * sc * fade, 8, k * 0.5, 'rgba(56,189,248,0.9)', '#ffffff');
+          drawTaperedStarburst(ctx, bx, gy - 16 * sc, 108 * sc * fade, 8, k * 0.5, 'rgba(167,139,250,0.92)', '#faf5ff');
           ctx.restore();
         }
       }
@@ -1394,10 +1405,10 @@ export function drawHdSpellEffect(
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         const fg = ctx.createLinearGradient(bx, ry - rh, bx, ry + 18 * sc);
-        fg.addColorStop(0, 'rgba(37,99,235,0)');
-        fg.addColorStop(0.32, `rgba(96,165,250,${0.92 * fade})`);
-        fg.addColorStop(0.68, `rgba(255,255,255,${0.98 * fade})`);
-        fg.addColorStop(1, 'rgba(37,99,235,0)');
+        fg.addColorStop(0, 'rgba(109,40,217,0)');
+        fg.addColorStop(0.32, `rgba(167,139,250,${0.92 * fade})`);
+        fg.addColorStop(0.68, `rgba(245,243,255,${0.98 * fade})`);
+        fg.addColorStop(1, 'rgba(109,40,217,0)');
         ctx.fillStyle = fg;
         // Three jagged upward W-crown ribbon spikes echoing `sp_022 F4/F5`!
         ctx.beginPath();
@@ -1423,7 +1434,7 @@ export function drawHdSpellEffect(
   if (spellId === 5) {
     if (drawBehind) {
       const dim = Math.sin(p * Math.PI) * 0.36;
-      ctx.fillStyle = `rgba(10, 18, 48, ${dim})`;
+      ctx.fillStyle = `rgba(24, 12, 48, ${dim})`;
       ctx.fillRect(0, 0, W, H);
     }
     if (!drawFront) {
@@ -1496,9 +1507,9 @@ export function drawHdSpellEffect(
             34 * sc,
             6,
             k * 19 + 4,
-            `rgba(59,130,246,${wa * 0.6})`,
-            `rgba(147,197,253,${wa * 0.85})`,
-            `rgba(224,242,254,${wa})`,
+            `rgba(124,58,237,${wa * 0.65})`,
+            `rgba(196,181,253,${wa * 0.88})`,
+            `rgba(245,243,255,${wa})`,
             0
           );
           ctx.restore();
@@ -1515,7 +1526,7 @@ export function drawHdSpellEffect(
   if (spellId === 6) {
     const dim = p < 0.12 ? p / 0.12 : p > 0.84 ? (1 - p) / 0.16 : 1;
     if (drawBehind) {
-      ctx.fillStyle = `rgba(8, 12, 38, ${0.46 * dim})`;
+      ctx.fillStyle = `rgba(20, 10, 44, ${0.46 * dim})`;
       ctx.fillRect(0, 0, W, H);
     }
     const cy = groundY - 210 * sc;
@@ -1548,9 +1559,9 @@ export function drawHdSpellEffect(
           48 * sc,
           8,
           Math.floor(p * 30),
-          `rgba(59,130,246,${0.8 * ta})`,
-          `rgba(186,230,253,${0.95 * ta})`,
-          `rgba(255,255,255,${ta})`,
+          `rgba(124,58,237,${0.84 * ta})`,
+          `rgba(216,180,254,${0.95 * ta})`,
+          `rgba(250,245,255,${ta})`,
           1
         );
         ctx.restore();
@@ -1604,7 +1615,7 @@ export function drawHdSpellEffect(
         if (ep < 0.28) {
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
-          drawTaperedStarburst(ctx, bx, by, sz * 0.62 * (1 - ep / 0.30), 16, ep * 2 + b, 'rgba(125,211,252,0.95)', '#ffffff');
+          drawTaperedStarburst(ctx, bx, by, sz * 0.62 * (1 - ep / 0.30), 16, ep * 2 + b, 'rgba(167,139,250,0.95)', '#faf5ff');
           ctx.restore();
         }
         if (novaImg && novaImg.naturalWidth > 0) {
@@ -1630,7 +1641,7 @@ export function drawHdSpellEffect(
   if (spellId === 7) {
     if (drawBehind) {
       const dim = p < 0.12 ? p / 0.12 : p > 0.78 ? (1 - p) / 0.22 : 1;
-      ctx.fillStyle = `rgba(10, 18, 52, ${0.48 * dim})`;
+      ctx.fillStyle = `rgba(22, 12, 48, ${0.48 * dim})`;
       ctx.fillRect(0, 0, W, H);
     }
     if (!drawFront) {
@@ -1650,19 +1661,48 @@ export function drawHdSpellEffect(
       const colH = gy + 125 * sc;
 
       if (localF < 0.85) {
-        // `F0`: Piercing sharp heavenly lightning tip dropping from upper sky edge!
+        // `F0`: Razor-tapered downward lightning spearhead piercing straight out of the upper sky edge!
         const tp = localF / 0.85;
+        const tipH = (120 + tp * 310) * sc;
+        const tipW = (32 + tp * 28) * sc;
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        const tipH = (120 + tp * 260) * sc;
-        drawLightningBolt(ctx, px, -10, px, tipH, 42 * sc, 22 * sc, 6, k * 29, 'rgba(37,99,235,0.85)', 'rgba(186,230,253,0.95)', '#ffffff', 0);
+        drawLightningBolt(ctx, px, -10, px, tipH, 28 * sc, 20 * sc, 5, k * 29, 'rgba(124,58,237,0.85)', 'rgba(216,180,254,0.96)', '#ffffff', 1);
+        const sg = ctx.createLinearGradient(px, 0, px, tipH);
+        sg.addColorStop(0, 'rgba(139,92,246,0.75)');
+        sg.addColorStop(0.7, 'rgba(221,214,254,0.92)');
+        sg.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = sg;
+        ctx.beginPath();
+        ctx.moveTo(px - tipW, -8);
+        ctx.lineTo(px + tipW, -8);
+        ctx.lineTo(px, tipH + 14 * sc);
+        ctx.closePath();
+        ctx.fill();
         ctx.restore();
       } else {
-        // `F1`: Instant colossal roaring painted pillar → `F2..F4`: pinches thin flanked by twin discharge needles!
+        // `F1`: Massive thick monolithic violet thunder column → `F2..F4`: pinches thin flanked by twin discharge needles!
         const dp = (localF - 0.85) / 4.35; // 0..1
         const fade = dp > 0.65 ? clamp01((1 - dp) / 0.35) : 1;
-        const pinch = Math.max(0.18, 1 - Math.pow(dp, 0.72) * 0.80);
-        const fullW = 365 * sc * pinch;
+        const pinch = Math.max(0.22, 1 - Math.pow(dp, 0.78) * 0.76);
+        const fullW = 560 * sc * pinch;
+
+        // Soft glowing wide violet-white atmospheric pillar core sheath behind the painted spiral column
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const sheathHalf = fullW * 0.42;
+        const sg = ctx.createLinearGradient(px - sheathHalf, 0, px + sheathHalf, 0);
+        sg.addColorStop(0, 'rgba(109,40,217,0)');
+        sg.addColorStop(0.22, `rgba(124,58,237,${0.56 * fade})`);
+        sg.addColorStop(0.42, `rgba(216,180,254,${0.86 * fade})`);
+        sg.addColorStop(0.5, `rgba(252,248,255,${0.95 * fade})`);
+        sg.addColorStop(0.58, `rgba(216,180,254,${0.86 * fade})`);
+        sg.addColorStop(0.78, `rgba(124,58,237,${0.56 * fade})`);
+        sg.addColorStop(1, 'rgba(109,40,217,0)');
+        ctx.fillStyle = sg;
+        ctx.fillRect(px - sheathHalf, 0, sheathHalf * 2, gy + 10 * sc);
+        ctx.restore();
+
         ctx.save();
         if (pImg && pImg.naturalWidth > 0) {
           ctx.beginPath();
@@ -1670,45 +1710,45 @@ export function drawHdSpellEffect(
           ctx.clip();
           ctx.translate(px, (gy + 60 * sc) - colH * 0.5);
           if (k % 2 === 1) ctx.scale(-1, 1);
-          ctx.globalAlpha = clamp01(fade * 0.96);
+          ctx.globalAlpha = clamp01(fade * 0.98);
           ctx.drawImage(pImg, -fullW * 0.5, -colH * 0.5, fullW, colH);
           ctx.globalCompositeOperation = 'screen';
-          ctx.globalAlpha = clamp01(fade * 0.62);
-          ctx.drawImage(pImg, -fullW * 0.62, -colH * 0.5, fullW * 1.24, colH);
+          ctx.globalAlpha = clamp01(fade * 0.68);
+          ctx.drawImage(pImg, -fullW * 0.58, -colH * 0.5, fullW * 1.16, colH);
         } else {
           ctx.globalCompositeOperation = 'screen';
-          drawLightningBolt(ctx, px, -20, px, gy, 72 * sc * pinch, 30 * sc, 10, k * 13, 'rgba(59,130,246,0.8)', 'rgba(186,230,253,0.95)', '#ffffff', 0);
+          drawLightningBolt(ctx, px, -20, px, gy, 110 * sc * pinch, 30 * sc, 10, k * 13, 'rgba(124,58,237,0.85)', 'rgba(216,180,254,0.95)', '#ffffff', 0);
         }
         ctx.restore();
 
         // Twin flanking ground spark spikes left & right matching `sp_037 F2/F3`!
-        if (dp > 0.18 && dp < 0.86) {
-          const sa = Math.sin(((dp - 0.18) / 0.68) * Math.PI);
-          const off = (68 + dp * 42) * sc;
+        if (dp > 0.16 && dp < 0.88) {
+          const sa = Math.sin(((dp - 0.16) / 0.72) * Math.PI);
+          const off = (112 + dp * 46) * sc;
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
           for (const side of [-1, 1]) {
             drawLightningBolt(
               ctx,
               px + side * off,
-              gy - 180 * sc * sa,
-              px + side * (off * 0.82),
+              gy - 210 * sc * sa,
+              px + side * (off * 0.84),
               gy - 4 * sc,
-              14 * sc * sa,
-              14 * sc,
+              18 * sc * sa,
+              16 * sc,
               4,
               k * 17 + side * 9,
-              `rgba(56,189,248,${0.8 * sa})`,
-              `rgba(224,242,254,${0.95 * sa})`,
-              '#ffffff'
+              `rgba(139,92,246,${0.86 * sa})`,
+              `rgba(221,214,254,${0.95 * sa})`,
+              '#faf5ff'
             );
           }
           ctx.restore();
         }
-        if (dp < 0.45) {
+        if (dp < 0.52) {
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
-          drawTaperedStarburst(ctx, px, gy - 26 * sc, 210 * sc * (1 - dp / 0.45), 10, k * 0.6, 'rgba(96,165,250,0.9)', '#ffffff');
+          drawTaperedStarburst(ctx, px, gy - 26 * sc, 280 * sc * (1 - dp / 0.52), 10, k * 0.6, 'rgba(167,139,250,0.92)', '#faf5ff');
           ctx.restore();
         }
       }
@@ -1735,7 +1775,7 @@ export function drawHdSpellEffect(
       { sx: 280, sy: 340, ox: -90, oy: -55 },  // 3: from bottom-right rising steeply (`sp_028 F24..F31`)
     ];
     const tick = p * 30;
-    const novaImg = imgs.thunderNova;
+    const novaImg = imgs.holyNova ?? imgs.thunderNova;
 
     for (let k = 0; k < 12; k++) {
       const lf = tick - 2 * k;
@@ -2129,7 +2169,7 @@ export function drawHdSpellEffect(
   }
 
   // =========================================================================
-  // #35 暗邪鬼 DARK FIEND SUMMON (sp_068) — Blue Imp + Venom-Lime Lightning!
+  // #35 暗邪鬼 DARK FIEND SUMMON (sp_068) — Blue Imp + Swirling Emerald Curse / Debuff Fog!
   // =========================================================================
   if (spellId === 35) {
     if (!drawFront) {
@@ -2137,16 +2177,48 @@ export function drawHdSpellEffect(
       return;
     }
     const enter = clamp01(p / 0.20);
-    const fade = p > 0.84 ? (1 - p) / 0.16 : 1;
-    ctx.fillStyle = `rgba(10, 22, 12, ${0.60 * enter * fade})`;
+    const fade = p > 0.82 ? clamp01((1 - p) / 0.18) : 1;
+    // Sinister eerie emerald twilight tint blanketing the arena
+    ctx.fillStyle = `rgba(10, 28, 14, ${0.58 * enter * fade})`;
     ctx.fillRect(0, 0, W, H);
 
+    const fogImg = imgs.curseFog;
     const sImg = imgs.fiend;
-    const hoverY = Math.sin(p * Math.PI * 5) * 14 * sc;
+    const hoverY = Math.sin(p * Math.PI * 4.5) * 14 * sc;
     const fSh = 670 * sc;
     const fSw = sImg && sImg.naturalWidth > 0 ? (fSh * sImg.naturalWidth) / sImg.naturalHeight : 700 * sc;
-    const fX0 = W * 0.52 - fSw * 0.5;
-    const fY0 = H * 0.12 + hoverY + (1 - enter) * 110 * sc;
+    const fX0 = W * 0.51 - fSw * 0.5;
+    const fY0 = H * 0.11 + hoverY + (1 - enter) * 100 * sc;
+    const lHandX = fX0 + fSw * 0.088;
+    const lHandY = fY0 + fSh * 0.118;
+    const rHandX = fX0 + fSw * 0.842;
+    const rHandY = fY0 + fSh * 0.205;
+
+    // 1) Deep swirling emerald curse halo & backlit toxic miasma drifting BEHIND the Dark Fiend
+    {
+      const mistP = clamp01((p - 0.06) / 0.86);
+      const mistA = clamp01(enter * fade);
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const backGlow = ctx.createRadialGradient(W * 0.51, H * 0.44, 40 * sc, W * 0.51, H * 0.44, 680 * sc);
+      backGlow.addColorStop(0, `rgba(132, 204, 22, ${0.42 * mistA})`);
+      backGlow.addColorStop(0.45, `rgba(34, 197, 94, ${0.24 * mistA})`);
+      backGlow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = backGlow;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      if (fogImg && fogImg.naturalWidth > 0) {
+        const fwBack = 1480 * sc * (0.72 + 0.55 * mistP);
+        const fhBack = (fwBack * fogImg.naturalHeight) / fogImg.naturalWidth;
+        ctx.save();
+        ctx.globalAlpha = clamp01(mistA * 0.62 * (0.5 + 0.5 * mistP));
+        ctx.drawImage(fogImg, W * 0.50 - fwBack * 0.5 - mistP * 90 * sc, H * 0.42 - fhBack * 0.5, fwBack, fhBack);
+        ctx.restore();
+      }
+    }
+
+    // 2) Draw our colossal sculpted blue-purple heavy-ornament Dark Fiend hovering heroically!
     if (sImg && sImg.naturalWidth > 0) {
       ctx.save();
       ctx.globalAlpha = clamp01(enter * fade);
@@ -2154,43 +2226,130 @@ export function drawHdSpellEffect(
       ctx.restore();
     }
 
-    // Venomous lime-green acid curse lightning erupting from BOTH clawed hands (matching sp_068 F1..F8!)
-    if (p > 0.16) {
-      const tick = Math.floor(p * 14);
-      // Exact measured splayed palm/fingertip anchors on `summon_35_fiend.webp` (909x868)
-      const lHandX = fX0 + fSw * 0.088;
-      const lHandY = fY0 + fSh * 0.118;
-      const rHandX = fX0 + fSw * 0.842;
-      const rHandY = fY0 + fSh * 0.205;
+    // 3) Swirling toxic green curse/debuff miasma fog pouring straight outward from BOTH clawed hands
+    //    and blanketing the battlefield floor & mid-air in billowing overlapping waves!
+    if (p > 0.12) {
+      const fp = clamp01((p - 0.12) / 0.78);
+      const fogFade = fp < 0.18 ? fp / 0.18 : fade;
+      const spread = 1 - Math.pow(1 - Math.min(1, fp * 1.45), 2.1);
+
+      // Soft toxic emerald energy vents blooming at BOTH splayed clawed palms (NO thunderbolt stripes!)
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
-      drawTaperedStarburst(ctx, lHandX, lHandY, 130 * sc * fade, 8, p * 6, 'rgba(163,230,53,0.9)', '#fef9c3');
-      drawTaperedStarburst(ctx, rHandX, rHandY, 130 * sc * fade, 8, -p * 6, 'rgba(163,230,53,0.9)', '#fef9c3');
-      const bolts: Array<[number, number, number, number]> = [
-        [lHandX, lHandY, 0, H * 0.12],
-        [lHandX, lHandY, W * 0.06, H * 0.88],
-        [lHandX, lHandY, W * 0.22, H],
-        [rHandX, rHandY, W, H * 0.18],
-        [rHandX, rHandY, W * 0.92, H * 0.92],
-        [rHandX, rHandY, W * 0.68, H],
-      ];
-      for (let i = 0; i < bolts.length; i++) {
-        const [x0, y0, x1, y1] = bolts[i];
-        drawLightningBolt(
-          ctx,
-          x0,
-          y0,
-          x1,
-          y1,
-          30 * sc * fade,
-          65 * sc,
-          9,
-          i * 53 + tick * 7,
-          `rgba(101,163,13,${0.75 * fade})`,
-          `rgba(163,230,53,${0.95 * fade})`,
-          `rgba(247,254,231,${fade})`,
-          2
+      for (const [hx, hy] of [
+        [lHandX, lHandY],
+        [rHandX, rHandY],
+      ]) {
+        const rPalm = (110 + spread * 145) * sc;
+        const pg = ctx.createRadialGradient(hx, hy, 6 * sc, hx, hy, rPalm);
+        pg.addColorStop(0, `rgba(236, 252, 203, ${0.86 * fogFade})`);
+        pg.addColorStop(0.28, `rgba(163, 230, 53, ${0.62 * fogFade})`);
+        pg.addColorStop(0.62, `rgba(22, 163, 74, ${0.28 * fogFade})`);
+        pg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = pg;
+        ctx.beginPath();
+        ctx.arc(hx, hy, rPalm, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      if (fogImg && fogImg.naturalWidth > 0) {
+        const drawPlume = (
+          cx: number,
+          cy: number,
+          pw: number,
+          rot: number,
+          alpha: number,
+          flipX: boolean,
+          screenGlow = false
+        ) => {
+          const ph = (pw * fogImg.naturalHeight) / fogImg.naturalWidth;
+          ctx.save();
+          if (screenGlow) ctx.globalCompositeOperation = 'screen';
+          ctx.translate(cx, cy);
+          ctx.rotate(rot);
+          if (flipX) ctx.scale(-1, 1);
+          ctx.globalAlpha = clamp01(alpha);
+          ctx.drawImage(fogImg, -pw * 0.5, -ph * 0.5, pw, ph);
+          ctx.restore();
+        };
+
+        // Twin curving toxic plumes billowing straight outward LEFT and RIGHT from both outstretched palms!
+        drawPlume(
+          lHandX - spread * 280 * sc,
+          lHandY + spread * 180 * sc,
+          (480 + spread * 560) * sc,
+          -0.22 - fp * 0.14,
+          fogFade * 0.76,
+          false
         );
+        drawPlume(
+          rHandX + spread * 280 * sc,
+          rHandY + spread * 170 * sc,
+          (480 + spread * 560) * sc,
+          0.22 + fp * 0.14,
+          fogFade * 0.76,
+          true
+        );
+
+        // Two counter-drifting wide lower rolling curse-fog banks engulfing the entire battlefield foreground!
+        drawPlume(
+          W * 0.34 - fp * 170 * sc,
+          H * 0.78 - spread * 65 * sc,
+          (1180 + spread * 460) * sc,
+          0.03 * Math.sin(fp * 5),
+          fogFade * 0.84,
+          false
+        );
+        drawPlume(
+          W * 0.68 + fp * 170 * sc,
+          H * 0.76 - spread * 75 * sc,
+          (1180 + spread * 460) * sc,
+          -0.03 * Math.cos(fp * 5),
+          fogFade * 0.84,
+          true
+        );
+
+        // Soft luminous chartreuse mid-fog crest haze swirling gently forward during peak debuff release (`fp > 0.35`)
+        if (fp > 0.25) {
+          const hp = clamp01((fp - 0.25) / 0.75);
+          drawPlume(
+            W * 0.50 + Math.sin(fp * 6) * 65 * sc,
+            H * 0.60 - hp * 110 * sc,
+            (920 + hp * 640) * sc,
+            Math.sin(fp * 3) * 0.08,
+            fogFade * 0.34 * Math.sin(hp * Math.PI),
+            false,
+            true
+          );
+        }
+      }
+
+      // Soft toxic creeping chartreuse fog veil tint across lower half so the debuff haze blankets every edge
+      const hazeG = ctx.createLinearGradient(0, H * 0.18, 0, H);
+      hazeG.addColorStop(0, `rgba(22, 101, 52, ${0.06 * spread * fogFade})`);
+      hazeG.addColorStop(0.55, `rgba(77, 124, 15, ${0.22 * spread * fogFade})`);
+      hazeG.addColorStop(1, `rgba(101, 163, 13, ${0.38 * spread * fogFade})`);
+      ctx.fillStyle = hazeG;
+      ctx.fillRect(0, 0, W, H);
+
+      // Slowly rising drifting toxic glowing chartreuse spores & floating debuff wisps!
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      for (let i = 0; i < 36; i++) {
+        const u = (fp * 0.9 + i * 0.063) % 1;
+        const sx = ((i * 197 + 43) % 1000) * 0.001 * W + Math.sin(u * 6.2 + i) * 58 * sc;
+        const sy = H * 0.94 - u * H * 0.82;
+        const r = (3.5 + (i % 4) * 2.8) * sc * Math.sin(u * Math.PI);
+        if (r <= 0.5) continue;
+        const sg = ctx.createRadialGradient(sx, sy, 0.5, sx, sy, r * 2.2);
+        sg.addColorStop(0, `rgba(236, 252, 203, ${0.9 * fogFade * Math.sin(u * Math.PI)})`);
+        sg.addColorStop(0.45, `rgba(163, 230, 53, ${0.58 * fogFade * Math.sin(u * Math.PI)})`);
+        sg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = sg;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r * 2.2, 0, Math.PI * 2);
+        ctx.fill();
       }
       ctx.restore();
     }
