@@ -1222,36 +1222,57 @@ export function drawHdSpellEffect(
     ctx.fillStyle = `rgba(8, 18, 10, ${0.58 * dim})`;
     ctx.fillRect(0, 0, W, H);
 
-    // Phase 1 (0..0.44): Crimson-shrouded Grim Reaper scythe swing!
-    if (p < 0.48) {
-      const rp = p / 0.48;
-      const alpha = rp < 0.18 ? rp / 0.18 : rp > 0.72 ? (1 - rp) / 0.28 : 1;
+    // Phase 1 (0..0.52): Floating HoMM V Wight / Arch-Wraith reaping scythe swoop!
+    if (p < 0.54) {
+      const rp = p / 0.54;
+      const alpha = rp < 0.16 ? rp / 0.16 : rp > 0.72 ? (1 - rp) / 0.28 : 1;
       const rImg = imgs.reaper;
       if (rImg && rImg.naturalWidth > 0) {
-        const rh = 620 * sc;
+        const rh = 610 * sc;
         const rw = (rh * rImg.naturalWidth) / rImg.naturalHeight;
-        const rx = targetX - dir * (220 - rp * 110) * sc;
-        const ry = groundY - rh * 0.86;
+        // Glide forward across the target (`hover slightly above floor since legless phantom!`)
+        const swoop = 1 - Math.pow(1 - Math.min(1, rp * 1.45), 2.2);
+        const rx = targetX - dir * (270 - swoop * 150) * sc;
+        const hoverY = Math.sin(rp * Math.PI * 2.5) * 16 * sc;
+        const ry = groundY - rh * 0.96 + hoverY;
+        // Subtle ghostly emerald spirit aura hovering behind the floating shroud
         ctx.save();
-        ctx.globalAlpha = clamp01(alpha * 0.96);
+        ctx.globalCompositeOperation = 'screen';
+        const wg = ctx.createRadialGradient(rx, ry + rh * 0.45, 20 * sc, rx, ry + rh * 0.45, rw * 0.52);
+        wg.addColorStop(0, `rgba(132, 204, 22, ${0.32 * alpha})`);
+        wg.addColorStop(0.55, `rgba(22, 101, 52, ${0.20 * alpha})`);
+        wg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = wg;
+        ctx.beginPath();
+        ctx.arc(rx, ry + rh * 0.45, rw * 0.52, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.globalAlpha = clamp01(alpha * 0.98);
         ctx.translate(rx, ry + rh * 0.5);
         if (targetIsHeroSide) ctx.scale(-1, 1);
+        const tilt = rp > 0.30 ? Math.sin(Math.min(1, (rp - 0.30) / 0.35) * Math.PI) * 0.09 : -0.04 * (1 - swoop);
+        ctx.rotate(tilt);
         ctx.drawImage(rImg, -rw * 0.5, -rh * 0.5, rw, rh);
         ctx.restore();
       }
-      // Razor blood-silver crescent scythe arc cutting horizontally across the defender
-      if (rp > 0.34 && rp < 0.88) {
-        const sp = (rp - 0.34) / 0.54;
+      // Razor necrotic crimson-emerald reaping scythe crescent cutting across the defender
+      if (rp > 0.32 && rp < 0.90) {
+        const sp = (rp - 0.32) / 0.58;
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        ctx.strokeStyle = `rgba(239, 68, 68, ${(1 - sp) * 0.95})`;
-        ctx.lineWidth = (42 * (1 - sp) + 8) * sc;
+        ctx.strokeStyle = `rgba(163, 230, 53, ${(1 - sp) * 0.65})`;
+        ctx.lineWidth = (54 * (1 - sp) + 12) * sc;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(targetX, groundY - 190 * sc, 210 * sc, -Math.PI * 0.72, -Math.PI * 0.72 + Math.PI * 1.1 * Math.min(1, sp * 1.9));
+        ctx.arc(targetX, groundY - 190 * sc, 215 * sc, -Math.PI * 0.72, -Math.PI * 0.72 + Math.PI * 1.15 * Math.min(1, sp * 1.9));
         ctx.stroke();
-        ctx.strokeStyle = `rgba(255, 240, 240, ${(1 - sp) * 0.95})`;
-        ctx.lineWidth = 10 * sc * (1 - sp);
+        ctx.strokeStyle = `rgba(239, 68, 68, ${(1 - sp) * 0.88})`;
+        ctx.lineWidth = (28 * (1 - sp) + 6) * sc;
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(247, 254, 231, ${(1 - sp) * 0.95})`;
+        ctx.lineWidth = 9 * sc * (1 - sp);
         ctx.stroke();
         ctx.restore();
       }
