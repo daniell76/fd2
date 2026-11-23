@@ -1867,65 +1867,73 @@ export function drawHdSpellEffect(
     ctx.fillStyle = `rgba(8, 18, 10, ${0.58 * dim})`;
     ctx.fillRect(0, 0, W, H);
 
-    // Phase 1 (0..0.52): Floating HoMM V Wight / Arch-Wraith reaping scythe swoop!
-    if (p < 0.54) {
-      const rp = p / 0.54;
-      const alpha = rp < 0.16 ? rp / 0.16 : rp > 0.72 ? (1 - rp) / 0.28 : 1;
+    // Phase 1 (0..0.50): Authentic FD2 `sp_044 F0` ominous stationary Grim Reaper apparition:
+    //   Fade in smoothly -> rock-still brooding presence with brief ghostly flash/flicker pulses -> fade out cleanly
+    //   (zero sideways slide, zero vertical wobble, zero rotation tilt!).
+    if (p < 0.52) {
+      const rp = p / 0.52;
+      const baseFade = rp < 0.22 ? rp / 0.22 : rp > 0.76 ? clamp01((1 - rp) / 0.24) : 1;
       const rImg = imgs.reaper;
       if (rImg && rImg.naturalWidth > 0) {
-        const rh = 610 * sc;
+        const rh = 650 * sc;
         const rw = (rh * rImg.naturalWidth) / rImg.naturalHeight;
-        // Glide forward across the target (`hover slightly above floor since legless phantom!`)
-        const swoop = 1 - Math.pow(1 - Math.min(1, rp * 1.45), 2.2);
-        const rx = targetX - dir * (270 - swoop * 150) * sc;
-        const hoverY = Math.sin(rp * Math.PI * 2.5) * 16 * sc;
-        const ry = groundY - rh * 0.96 + hoverY;
-        // Subtle ghostly emerald spirit aura hovering behind the floating shroud
+        // Looming overhead apparition locked strictly stationary (`sc` scaled; hood left-of-scythe framing target!)
+        const rx = targetX - dir * 55 * sc;
+        const ry = groundY - rh * 0.92;
+
+        // 3 ominous ghostly spectral flicker/flash beats in the middle window (`rp = 0.22..0.76`)
+        let flickerAlpha = 1.0;
+        let flashBoost = 0.0;
+        if (rp >= 0.22 && rp <= 0.76) {
+          const mp = (rp - 0.22) / 0.54; // 0..1 across 3 crisp haunting flashes
+          const wave = Math.sin(mp * Math.PI * 6); // 3 bright peaks / 3 dim troughs
+          flickerAlpha = 0.58 + 0.42 * (wave * 0.5 + 0.5);
+          flashBoost = Math.pow(Math.max(0, wave), 3) * 0.65;
+        }
+
+        const finalAlpha = clamp01(baseFade * flickerAlpha * 0.96);
+
+        // Subtle eerie necrotic emerald backlight aura behind the still looming shroud
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        const wg = ctx.createRadialGradient(rx, ry + rh * 0.45, 20 * sc, rx, ry + rh * 0.45, rw * 0.52);
-        wg.addColorStop(0, `rgba(132, 204, 22, ${0.32 * alpha})`);
-        wg.addColorStop(0.55, `rgba(22, 101, 52, ${0.20 * alpha})`);
+        const wg = ctx.createRadialGradient(rx, ry + rh * 0.44, 24 * sc, rx, ry + rh * 0.44, rw * 0.54);
+        wg.addColorStop(0, `rgba(132, 204, 22, ${(0.24 + flashBoost * 0.36) * baseFade})`);
+        wg.addColorStop(0.55, `rgba(22, 101, 52, ${(0.16 + flashBoost * 0.22) * baseFade})`);
         wg.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = wg;
         ctx.beginPath();
-        ctx.arc(rx, ry + rh * 0.45, rw * 0.52, 0, Math.PI * 2);
+        ctx.arc(rx, ry + rh * 0.44, rw * 0.54, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
 
+        // Stationary Reaper sprite (`ZERO translation wobble, ZERO tilt!`)
         ctx.save();
-        ctx.globalAlpha = clamp01(alpha * 0.98);
         ctx.translate(rx, ry + rh * 0.5);
         if (targetIsHeroSide) ctx.scale(-1, 1);
-        const tilt = rp > 0.30 ? Math.sin(Math.min(1, (rp - 0.30) / 0.35) * Math.PI) * 0.09 : -0.04 * (1 - swoop);
-        ctx.rotate(tilt);
+        ctx.globalAlpha = finalAlpha;
         ctx.drawImage(rImg, -rw * 0.5, -rh * 0.5, rw, rh);
+        // Brief additive spectral glow flash between fades echoing `FD2.EXE` strobe frames
+        if (flashBoost > 0.02) {
+          ctx.globalCompositeOperation = 'screen';
+          ctx.globalAlpha = clamp01(baseFade * flashBoost);
+          ctx.drawImage(rImg, -rw * 0.5, -rh * 0.5, rw, rh);
+        }
         ctx.restore();
-      }
-      // Razor necrotic crimson-emerald reaping scythe crescent cutting across the defender
-      if (rp > 0.32 && rp < 0.90) {
-        const sp = (rp - 0.32) / 0.58;
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.strokeStyle = `rgba(163, 230, 53, ${(1 - sp) * 0.65})`;
-        ctx.lineWidth = (54 * (1 - sp) + 12) * sc;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.arc(targetX, groundY - 190 * sc, 215 * sc, -Math.PI * 0.72, -Math.PI * 0.72 + Math.PI * 1.15 * Math.min(1, sp * 1.9));
-        ctx.stroke();
-        ctx.strokeStyle = `rgba(239, 68, 68, ${(1 - sp) * 0.88})`;
-        ctx.lineWidth = (28 * (1 - sp) + 6) * sc;
-        ctx.stroke();
-        ctx.strokeStyle = `rgba(247, 254, 231, ${(1 - sp) * 0.95})`;
-        ctx.lineWidth = 9 * sc * (1 - sp);
-        ctx.stroke();
-        ctx.restore();
+
+        // Brief eerie soft emerald atmospheric flash pulse across the screen on strobe peaks
+        if (flashBoost > 0.18) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          ctx.fillStyle = `rgba(190, 242, 100, ${baseFade * (flashBoost - 0.18) * 0.22})`;
+          ctx.fillRect(0, 0, W, H);
+          ctx.restore();
+        }
       }
     }
 
-    // Phase 2 (0.36..1.0): Translucent Haunted Emerald Coffin Pillar + Screaming Wraith Skull!
-    if (p >= 0.36) {
-      const cp = (p - 0.36) / 0.64;
+    // Phase 2 (0.40..1.0): Translucent Haunted Emerald Coffin Pillar + Screaming Wraith Skull!
+    if (p >= 0.40) {
+      const cp = (p - 0.40) / 0.60;
       const cFade = cp < 0.14 ? cp / 0.14 : cp > 0.78 ? (1 - cp) / 0.22 : 1;
       const pW = 240 * sc * (0.85 + 0.15 * Math.sin(cp * Math.PI));
       const pTop = -20 * sc;
