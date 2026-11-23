@@ -87,7 +87,7 @@ export interface VfxHitFrameSpec {
   color?: 'gold' | 'azure';
 }
 
-export type FlightPattern = 'climb_dive' | 'dip_rise' | 'dash_past' | 'soar_plunge' | 'hover_swoop';
+export type FlightPattern = 'climb_dive' | 'dip_rise' | 'dash_past' | 'soar_plunge' | 'sky_strafe' | 'hover_swoop';
 
 export interface VfxManifestUnitEntry {
   uid: number;
@@ -291,7 +291,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=92';
+const VFX_ASSET_VERSION = '?v=93';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -694,7 +694,7 @@ export class Modern25DCombatRenderer {
   private hasLongFlyPrelude(unit: VfxManifestUnitEntry): boolean {
     if (!unit.isFlying || unit.isRemote) return false;
     const p = unit.flightPattern;
-    return p === 'climb_dive' || p === 'dip_rise' || p === 'dash_past' || p === 'soar_plunge';
+    return p === 'climb_dive' || p === 'dip_rise' || p === 'dash_past' || p === 'soar_plunge' || p === 'sky_strafe';
   }
 
   public getTotalDurationMs(): number {
@@ -1191,8 +1191,9 @@ export class Modern25DCombatRenderer {
     const rightFlyPattern: FlightPattern | null = rightIsFlying
       ? (this.vfxAssets.rightUnit.flightPattern ?? 'hover_swoop')
       : null;
-    const rightHoverBob = rightIsFlying ? -22 + Math.sin(t * 0.0046) * 14 : 0;
-    const leftHoverBob = leftIsFlying ? -18 + Math.sin(t * 0.0048 + 1.2) * 12 : 0;
+    // Calm gentle hover buoyancy while resting idle (avoid erratic bobbing/wobble!)
+    const rightHoverBob = rightIsFlying ? -16 + Math.sin(t * 0.0021) * 5 : 0;
+    const leftHoverBob = leftIsFlying ? -14 + Math.sin(t * 0.0022 + 1.2) * 5 : 0;
 
     const thorSpec: PoseRenderSpec = {
       primaryIdx: 0,
@@ -1200,7 +1201,7 @@ export class Modern25DCombatRenderer {
       y: thorHomeY + rightHoverBob,
       scaleX: 1.0 - breath * 0.5,
       scaleY: 1.0 + breath,
-      rot: rightIsFlying ? Math.sin(t * 0.0046) * 0.014 : 0,
+      rot: 0,
       flashWhite: 0,
       afterimages: 0,
       dashDirX: -1,
@@ -1214,7 +1215,7 @@ export class Modern25DCombatRenderer {
       y: banditHomeY + leftHoverBob,
       scaleX: 1.0,
       scaleY: 1.0 + Math.sin(t * 0.005 + 1.4) * (this.config.enableAfterimagesAndSpring ? 0.014 : 0),
-      rot: leftIsFlying ? Math.sin(t * 0.0048 + 1.2) * 0.014 : 0,
+      rot: 0,
       flashWhite: 0,
       afterimages: 0,
       dashDirX: 1,
@@ -1523,6 +1524,170 @@ export class Modern25DCombatRenderer {
           camX = -W * 0.02 * (1 - ease);
           camY = -H * 0.025 * (1 - ease);
         }
+      } else if (isRightMultiHit && rightHitFrames && rightIsFlying) {
+        // Authentic 1995 DOS Double-Hit Aerial Plunge Loop (`#049 米亞斯多德 龍劍士`, FIGANI.DAT 14f!):
+        //   F00..F04: Smooth steep climb up-right `(0,0) -> (+0.07W, -0.32H)`
+        //   F05 (d=6): Dramatic high-sky apex hover glide across `(+0.07W -> -0.22W, -0.32H)`
+        //   F06..F08*: Steep plunge DOWN-LEFT into **HIT #1 (`omni_3..4` gold crescent slash!)**
+        //   F09..F11*: Low crisp horizontal rebound rightward into **HIT #2 (`omni_7..8` overhead finish!)**
+        //   F12..F13: Smooth descending glide smoothly right back to perch `(0, 0)`!
+        const hit1 = rightHitFrames[0];
+        const hit2 = rightHitFrames[rightHitFrames.length - 1];
+        const baseFlyY = thorHomeY - 16;
+        const ss = (u: number) => {
+          const c = Math.max(0, Math.min(1, u));
+          return c * c * (3 - 2 * c);
+        };
+        let activeRecoil = 0;
+        let activeFlash = 0;
+        let activeShake = 0;
+
+        if (localT < 500) {
+          // Climb smoothly up-right (`F00..F04`, steady continuous altitude gain — zero jitter!)
+          const u = ss(localT / 500);
+          thorSpec.x = thorHomeX + u * (W * 0.07);
+          thorSpec.y = baseFlyY - u * (H * 0.30);
+          thorSpec.rot = -0.05 * Math.sin(u * Math.PI);
+          thorSpec.primaryIdx = localT < 210 ? 0 : 1;
+          if (localT >= 210 && localT < 310) {
+            thorSpec.primaryIdx = 0;
+            thorSpec.secondaryIdx = 1;
+            thorSpec.blend = (localT - 210) / 100;
+          }
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring && u > 0.25 ? 2 : 0;
+          thorSpec.dashDirX = 0.25;
+          thorSpec.dashDirY = -0.97;
+          camZoom = 1.0 + u * 0.05;
+          camX = u * W * 0.04;
+          camY = -u * H * 0.09;
+          this.fireOnce('thor_windup_sfx', () => {
+            this.sound.playSfx('step_wing');
+            this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 40, 0.2, 1.0, 12);
+          });
+        } else if (localT < 740) {
+          // Dramatic DOS F05 (`d=6`) high-sky hover glide overhead toward left dive slot
+          const p = (localT - 500) / 240;
+          const u = ss(p);
+          if (this.config.enableAnimeCutIn && this.scenario === 'thor_crit') {
+            cutInProgress = p;
+            cutInUnit = 'thor';
+          }
+          thorSpec.x = thorHomeX + W * 0.07 - u * (W * 0.30);
+          thorSpec.y = baseFlyY - H * 0.30 - Math.sin(p * Math.PI) * (H * 0.035);
+          thorSpec.opacity = 0.65 + 0.35 * Math.abs(Math.cos(p * Math.PI));
+          thorSpec.primaryIdx = 2;
+          thorSpec.rot = -0.06 * u;
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 4 : 0;
+          thorSpec.dashDirX = -1;
+          thorSpec.dashDirY = 0;
+          camZoom = 1.05 + u * 0.04;
+          camX = W * 0.04 - u * W * 0.10;
+          camY = -H * 0.09;
+        } else if (localT < 930) {
+          // Fast steep plunge straight down onto target (`F06..F08` — long accelerated dive distance!)
+          const p = (localT - 740) / 190;
+          const dive = Math.pow(p, 1.45);
+          thorSpec.x = thorHomeX - W * 0.23 - dive * (W * 0.08);
+          thorSpec.y = baseFlyY - H * 0.30 + dive * (H * 0.16);
+          thorSpec.primaryIdx = p < 0.62 ? 2 : hit1.frame;
+          thorSpec.rot = -0.06 - dive * 0.06;
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 5 : 0;
+          thorSpec.dashDirX = -0.45;
+          thorSpec.dashDirY = 0.89;
+          aerialSpeedLinesIntensity = Math.sin(p * Math.PI) * 0.88;
+          aerialSpeedLinesAngle = Math.atan2(0.89, -0.45);
+          aerialSpeedLinesRgb = '253, 224, 71';
+          camZoom = 1.09 + dive * 0.11;
+          camX = -W * 0.06 - dive * W * 0.04;
+          camY = -H * 0.09 + dive * H * 0.04;
+          this.fireOnce('thor_dash_sfx', () => {
+            this.sound.playSfx(this.vfxAssets.rightUnit.sfxProfile?.launchSfx ?? 'step_wing');
+            this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 60, -0.4, -0.8, 12);
+          });
+        } else if (localT < 1300) {
+          // Hold HIT #1 (`F08*`, crisp vertical downward cleave!) -> smoothly cross right into windup for HIT #2
+          const p = (localT - 930) / 370;
+          const hold = p < 0.45;
+          thorSpec.x = thorHomeX - W * 0.31 + (hold ? -Math.sin((p / 0.45) * Math.PI * 0.5) * 14 : ss((p - 0.45) / 0.55) * (W * 0.10));
+          thorSpec.y = baseFlyY - H * 0.14 + (hold ? Math.sin((p / 0.45) * Math.PI * 0.5) * 18 : 18 - ss((p - 0.45) / 0.55) * (H * 0.04));
+          thorSpec.rot = hold ? -0.10 * (1 - p) : 0.05 * ((p - 0.45) / 0.55);
+          if (p < 0.32) thorSpec.primaryIdx = hit1.frame;
+          else if (p < 0.58) thorSpec.primaryIdx = Math.min(rightOmniMax, hit1.frame + 1);
+          else this.setContinuousFrame(thorSpec, hit1.frame + 2 + ((p - 0.58) / 0.42), rightOmniMax);
+          this.fireOnce('thor_multihit_0', () => {
+            const hl = this.vfxAssets.rightUnit.sfxProfile?.hitSfxList ?? [];
+            this.sound.playSfx(hl[0] ?? 'slash');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = 65;
+            this.spawnImpactSparks(banditHomeX + 45, banditHomeY - 220, banditHomeY, 48, ['#ffffff', '#fde047', '#f59e0b'], -1, -0.35);
+            this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.3, 10);
+            this.banditTargetHp = Math.max(0, this.banditTargetHp - Math.max(1, Math.round(this.thorStrikeDmg * hit1.weight)));
+          });
+          if (p < 0.52) {
+            const hp = p / 0.52;
+            activeRecoil = Math.sin(Math.min(1, hp * 1.4) * Math.PI) * 0.65;
+            activeFlash = Math.max(0, 1 - hp * 2.6) * 0.72;
+            activeShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - hp * 2) * 14) : 0;
+          }
+          camZoom = 1.20 - p * 0.04;
+          camX = -W * 0.10 + p * W * 0.03;
+          camY = -H * 0.05;
+        } else if (localT < 1660) {
+          // Explosive HIT #2 overhead dual cross-slash (`F11*`) held crisp with strong finisher pop!
+          const p = (localT - 1300) / 360;
+          const hold = p < 0.52;
+          thorSpec.x = thorHomeX - W * 0.21 - (hold ? Math.sin((p / 0.52) * Math.PI * 0.5) * 28 : 28 - ss((p - 0.52) / 0.48) * (W * 0.09));
+          thorSpec.y = baseFlyY - H * 0.16;
+          thorSpec.rot = hold ? -0.05 * (1 - p) : 0.02;
+          if (p < 0.36) thorSpec.primaryIdx = hit2.frame;
+          else if (p < 0.68) thorSpec.primaryIdx = Math.min(rightOmniMax, hit2.frame + 1);
+          else this.setContinuousFrame(thorSpec, hit2.frame + 2 + ((p - 0.68) / 0.32), rightOmniMax);
+          this.fireOnce('thor_multihit_1', () => {
+            const hl = this.vfxAssets.rightUnit.sfxProfile?.hitSfxList ?? [];
+            this.sound.playSfx(hl[1] ?? hl[0] ?? 'crit');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = 95;
+            this.spawnImpactSparks(banditHomeX + 45, banditHomeY - 195, banditHomeY, 85, ['#ffffff', '#fde047', '#f59e0b', '#fbbf24'], -1, -0.45);
+            this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.35, 16);
+            const firstDmg = Math.max(1, Math.round(this.thorStrikeDmg * hit1.weight));
+            this.banditTargetHp = Math.max(0, this.banditTargetHp - Math.max(1, this.thorStrikeDmg - firstDmg));
+          });
+          slashArcProgress = Math.min(1, p * 2.2);
+          shockwaveProgress = Math.min(1, p * 1.9);
+          shockwaveCenter = { x: banditHomeX + 45, y: banditHomeY - 195 };
+          shockwaveGroundY = banditHomeY;
+          activeRecoil = Math.sin(Math.min(1, p * 1.8) * Math.PI);
+          activeFlash = Math.max(0, 1 - p * 3.0);
+          activeShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.2) * 24) : 0;
+          camZoom = 1.16 - p * 0.06;
+          camX = -W * 0.07 * (1 - p * 0.3);
+          camY = -H * 0.05 * (1 - p * 0.3);
+        } else {
+          // Graceful smooth recovery glide home (`F12..F13`)
+          const p = Math.min(1, (localT - 1660) / Math.max(1, thorDur - 1660));
+          const u = ss(p);
+          const sx = thorHomeX - W * 0.14;
+          const sy = baseFlyY - H * 0.16;
+          thorSpec.x = sx + u * (thorHomeX - sx);
+          thorSpec.y = sy + u * (thorHomeY + rightHoverBob - sy) - Math.sin(p * Math.PI) * (H * 0.025);
+          thorSpec.rot = 0;
+          if (p < 0.45) {
+            thorSpec.primaryIdx = rightOmniMax;
+            thorSpec.secondaryIdx = 0;
+            thorSpec.blend = p / 0.45;
+          } else {
+            thorSpec.primaryIdx = 0;
+          }
+          camZoom = 1.10 - u * 0.10;
+          camX = -W * 0.049 * (1 - u);
+          camY = -H * 0.035 * (1 - u);
+        }
+        banditSpec.x = banditHomeX - activeRecoil * 52;
+        banditSpec.y = banditHomeY + leftHoverBob - activeRecoil * 24;
+        banditSpec.rot = -activeRecoil * 0.1;
+        banditSpec.scaleX = 1.0 - activeRecoil * 0.07;
+        banditSpec.scaleY = 1.0 + activeRecoil * 0.05;
+        banditSpec.flashWhite = activeFlash;
+        impactFlashAlpha = activeFlash * 0.82;
+        camShake = activeShake;
       } else if (isRightMultiHit && rightHitFrames) {
         // Multi-Hit Combo Sequence (e.g., #007 Lancelot: 3 Spear Thrusts + Rising Azure Crescent Finisher!)
         const firstHitFrame = rightHitFrames[0].frame;
@@ -1676,410 +1841,326 @@ export class Modern25DCombatRenderer {
         }
       } else if (rightFlyPattern) {
         // =====================================================================
-        // Authentic 1995 FD2 Flying Prelude Choreography (`climb_dive`, `dip_rise`, `dash_past`, `hover_swoop`)!
-        // Repeats wing-flap frames (`0 ↔ 1`) while quickly shifting altitude / horizontal position,
-        // faithfully recreating Dragon Knight & Dragonkin aerial preludes from `FIGANI.DAT`!
+        // Authentic 1995 FD2 Smooth Aerial Track Engine (`FIGANI.DAT` splines)!
+        // Matches real per-unit frame geometry (`ox, oy, delay, sfx`):
+        //   - ZERO erratic sine-wave wobble or blurry `0 ↔ 1` wing-blend spam!
+        //   - Smooth continuous glide curves with crisp velocity differentials:
+        //       * Controlled approach/climb wing stroke
+        //       * Dramatic apex/coil HOLD (`delay=4/6/10` matching DOS!)
+        //       * Fast explosive LONG-REACH surge leap into the HIT frame
+        //       * Sharp extended IMPACT pose hold (no premature wash!)
+        //       * Graceful banking deceleration arc back to hover station
         // =====================================================================
         const isLongFly =
           rightFlyPattern === 'climb_dive' ||
           rightFlyPattern === 'dip_rise' ||
           rightFlyPattern === 'dash_past' ||
-          rightFlyPattern === 'soar_plunge';
-        const tPreludeEnd = isLongFly ? 660 : 460;
-        const tStrikeStart = isLongFly ? 1040 : 820;
-        const tImpactEnd = isLongFly ? 1640 : 1400;
-        const tEnd = isLongFly ? 2160 : 1830;
-
-        const baseFlyY = thorHomeY - 22;
-        const setWingFlapCycle = (cycles: number, progress: number, lockAimEnd = true) => {
-          const coilThreshold = lockAimEnd ? 0.8 : 1.01;
-          if (progress >= coilThreshold && srcMode !== 'nb2_3pose') {
-            const cp = (progress - coilThreshold) / (1 - coilThreshold);
-            if (srcMode === 'omni_video') {
-              this.setContinuousFrame(thorSpec, 1.0 + cp * 1.6, 9);
-            } else {
-              this.setContinuousFrame(thorSpec, 1.0 + cp * 1.0, 5);
-            }
-            return;
-          }
-          const flapWave = 0.5 - 0.5 * Math.cos(progress * Math.PI * 2 * cycles);
-          if (srcMode === 'nb2_3pose') {
-            thorSpec.primaryIdx = flapWave > 0.5 ? 1 : 0;
+          rightFlyPattern === 'soar_plunge' ||
+          rightFlyPattern === 'sky_strafe';
+        const baseFlyY = thorHomeY - 16;
+        const unitId = this.vfxAssets.rightUnit.uid;
+        const smooth = (u: number) => {
+          const c = Math.max(0, Math.min(1, u));
+          return c * c * (3 - 2 * c);
+        };
+        const snapPose = (omniIdx: number, nb6Idx: number, p3Idx: number) => {
+          if (srcMode === 'omni_video') {
+            thorSpec.primaryIdx = Math.max(0, Math.min(rightOmniMax, Math.round(omniIdx)));
+            thorSpec.secondaryIdx = undefined;
+            thorSpec.blend = 0;
+          } else if (srcMode === 'nb2_6frame') {
+            thorSpec.primaryIdx = Math.max(0, Math.min(5, Math.round(nb6Idx)));
+            thorSpec.secondaryIdx = undefined;
+            thorSpec.blend = 0;
           } else {
-            this.setContinuousFrame(thorSpec, flapWave, 1);
+            thorSpec.primaryIdx = p3Idx;
+            thorSpec.secondaryIdx = undefined;
+            thorSpec.blend = 0;
           }
         };
-
-        const setReturnFlapFrame = (progress: number) => {
-          const endIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
-          if (progress < 0.24) {
-            thorSpec.primaryIdx = endIdx;
-            thorSpec.secondaryIdx = 1;
-            thorSpec.blend = progress / 0.24;
-          } else if (srcMode !== 'nb2_3pose') {
-            const fp = (progress - 0.24) / 0.76;
-            const wave = 0.5 + 0.5 * Math.cos(fp * Math.PI * 3); // 1 -> 0 -> 1 -> 0 flapping glide home!
-            this.setContinuousFrame(thorSpec, fp > 0.85 ? 0 : wave, 1);
+        const blendPose = (fromO: number, toO: number, mix: number, nb6From: number, nb6To: number, p3: number) => {
+          const m = Math.max(0, Math.min(1, mix));
+          if (srcMode === 'omni_video') {
+            thorSpec.primaryIdx = Math.min(rightOmniMax, fromO);
+            thorSpec.secondaryIdx = Math.min(rightOmniMax, toO);
+            thorSpec.blend = m;
+          } else if (srcMode === 'nb2_6frame') {
+            thorSpec.primaryIdx = nb6From;
+            thorSpec.secondaryIdx = nb6To;
+            thorSpec.blend = m;
           } else {
-            thorSpec.primaryIdx = 0;
+            thorSpec.primaryIdx = p3;
+            thorSpec.secondaryIdx = undefined;
+            thorSpec.blend = 0;
           }
+        };
+        /** Piecewise cubic quadratic spline (`C¹` continuous motion along normalized `t` with per-segment speed curves!) */
+        interface FlyWp {
+          t: number; // ms inside attack window
+          dx: number; // fraction of W relative to thorHomeX
+          dy: number; // fraction of H relative to baseFlyY
+          ease?: 'smooth' | 'accel' | 'decel' | 'linear';
+        }
+        const evalPath = (wps: FlyWp[], ms: number): { x: number; y: number; vx: number; vy: number } => {
+          if (ms <= wps[0].t) {
+            return { x: thorHomeX + wps[0].dx * W, y: baseFlyY + wps[0].dy * H, vx: 0, vy: 0 };
+          }
+          const last = wps[wps.length - 1];
+          if (ms >= last.t) {
+            return { x: thorHomeX + last.dx * W, y: baseFlyY + last.dy * H, vx: 0, vy: 0 };
+          }
+          for (let i = 0; i < wps.length - 1; i++) {
+            const a = wps[i];
+            const b = wps[i + 1];
+            if (ms >= a.t && ms <= b.t) {
+              const span = Math.max(1, b.t - a.t);
+              const u = (ms - a.t) / span;
+              const mode = b.ease ?? 'smooth';
+              const s =
+                mode === 'accel'
+                  ? Math.pow(u, 1.85) // whip acceleration straight INTO hit!
+                  : mode === 'decel'
+                    ? 1 - Math.pow(1 - u, 2.35) // crisp punchy deceleration after impact!
+                    : mode === 'linear'
+                      ? u
+                      : smooth(u);
+              const ds =
+                mode === 'accel'
+                  ? 1.85 * Math.pow(Math.max(0.01, u), 0.85)
+                  : mode === 'decel'
+                    ? 2.35 * Math.pow(Math.max(0.01, 1 - u), 1.35)
+                    : mode === 'linear'
+                      ? 1
+                      : 6 * u * (1 - u);
+              const px = thorHomeX + (a.dx + (b.dx - a.dx) * s) * W;
+              const py = baseFlyY + (a.dy + (b.dy - a.dy) * s) * H;
+              const vx = ((b.dx - a.dx) * W * ds) / span;
+              const vy = ((b.dy - a.dy) * H * ds) / span;
+              return { x: px, y: py, vx, vy };
+            }
+          }
+          return { x: thorHomeX, y: baseFlyY, vx: 0, vy: 0 };
         };
 
         const patternBadgeZh =
           rightFlyPattern === 'climb_dive'
-            ? '🐉 飛行前搖 · 高空盤旋俯衝 (龍騎士)'
-            : rightFlyPattern === 'soar_plunge'
-              ? '🐉 飛行前搖 · 沖天高空下斬 (龍劍士)'
-              : rightFlyPattern === 'dip_rise'
-                ? '🐉 飛行前搖 · 低空掠地升龍斬 (龍騎士)'
-                : rightFlyPattern === 'dash_past'
-                  ? '🐉 飛行前搖 · 疾風橫掠居合斬 (龍劍士)'
-                  : '🐉 飛行前搖 · 浮空振翅疾襲 (龍人)';
+            ? '🐉 順滑航跡 · 盤升俯衝突刺 (龍騎士)'
+            : rightFlyPattern === 'sky_strafe'
+              ? '🐉 順滑航跡 · 高空蓄勢超高速水平穿刺 (巴拿羅西亞)'
+              : rightFlyPattern === 'soar_plunge'
+                ? '🐉 順滑航跡 · 高空斜升停頓急墜斬 (聖寇拉斯)'
+                : rightFlyPattern === 'dip_rise'
+                  ? '🐉 順滑航跡 · 低空掠地升龍迴旋 (洛娜)'
+                  : rightFlyPattern === 'dash_past'
+                    ? '🐉 順滑航跡 · 疾風橫掠反身迴斬 (凱拉斯)'
+                    : '🐉 順滑航跡 · 展翅蓄力高速突襲 (龍劍士)';
         const patternBadgeEn =
           rightFlyPattern === 'climb_dive'
-            ? '🐉 Aerial Prelude · High Climb & Dive-Bomb'
-            : rightFlyPattern === 'soar_plunge'
-              ? '🐉 Aerial Prelude · High Sky Soar & Downward Slash'
-              : rightFlyPattern === 'dip_rise'
-                ? '🐉 Aerial Prelude · Low Dip & Rising Slash'
-                : rightFlyPattern === 'dash_past'
-                  ? '🐉 Aerial Prelude · Low Dash & Cross-Slash'
-                  : '🐉 Aerial Prelude · Hover Bob & Swoop';
+            ? '🐉 Aerial Track · Climb & Dive-Bomb Loop'
+            : rightFlyPattern === 'sky_strafe'
+              ? '🐉 Aerial Track · High Apex Hold & Horizontal Strafe'
+              : rightFlyPattern === 'soar_plunge'
+                ? '🐉 Aerial Track · High Diagonal Soar & Plunge'
+                : rightFlyPattern === 'dip_rise'
+                  ? '🐉 Aerial Track · Low Ground-Skim & Rising Loop'
+                  : rightFlyPattern === 'dash_past'
+                    ? '🐉 Aerial Track · Low Sweep-Past & Cross-Slash'
+                    : '🐉 Aerial Track · Coiled Hover & Lunge';
         this.activeStageBadge = isEn
           ? `${patternBadgeEn} · ${enemyTerrain.en}`
           : `${patternBadgeZh} · ${enemyTerrain.zh}`;
 
-        if (localT < tPreludeEnd) {
-          // PHASE 1: Iconic FD2 Wing-Flap Vertical/Horizontal Reposition Prelude!
-          const p = localT / tPreludeEnd;
-          const ease = 1 - Math.pow(1 - p, 2.4);
-          this.fireOnce('thor_fly_flap_1', () => {
-            this.sound.playSfx('step_wing');
-            this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 40, 0.3, 1.0, 12);
-          });
-          if (isLongFly && localT >= 270) {
-            this.fireOnce('thor_fly_flap_2', () => {
-              this.sound.playSfx('step_wing');
-              this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 40, 0.4, 1.0, 12);
-            });
-          }
+        // Each flying unit's REAL DOS `FIGANI.DAT` waypoint timing + hit timestamp
+        let path: FlyWp[];
+        let tApexStart = 500;
+        let tSurgeStart = 680;
+        let tHit = 900;
+        let tFollowEnd = 1480;
+        let speedRgb = '125, 211, 252';
+        let maxRotScale = 0.08;
+        let apexOpacity = 1;
 
-          if (rightFlyPattern === 'climb_dive') {
-            // #020 Sara / #054 Ares / #056 Raiden / #027 / #049: Repeated wing-flaps climbing HIGH UP-RIGHT!
-            // Keep natural combat zoom (no shrink pullback) — like 1995 DOS, upper wingtips may soar past the top edge before dive-bombing back!
-            setWingFlapCycle(2.2, p, true);
-            const heave = Math.sin(p * Math.PI * 4.4) * 14;
-            thorSpec.x = thorHomeX + ease * (W * 0.055) + Math.sin(p * Math.PI * 2.2) * 16;
-            thorSpec.y = baseFlyY - ease * (H * 0.255) + heave;
-            thorSpec.rot = 0.05 * Math.sin(p * Math.PI) - 0.04 * (p > 0.78 ? (p - 0.78) / 0.22 : 0);
-            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p > 0.22 ? 2 : 0;
-            thorSpec.dashDirX = 0.35;
-            thorSpec.dashDirY = -0.94;
-            camZoom = 1.0 + ease * 0.05;
-            camX = ease * W * 0.04;
-            camY = -ease * H * 0.085;
-            camTilt = -ease * 0.014;
-          } else if (rightFlyPattern === 'dip_rise') {
-            // #055 Lorna: Repeated wing-flaps dipping LOW skimming the battlefield ground!
-            setWingFlapCycle(2.2, p, true);
-            const heave = Math.sin(p * Math.PI * 4.4) * 10;
-            thorSpec.x = thorHomeX - ease * (W * 0.045);
-            thorSpec.y = baseFlyY + ease * (H * 0.105) + heave;
-            thorSpec.rot = -0.08 * ease;
-            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p > 0.25 ? 2 : 0;
-            thorSpec.dashDirX = -0.4;
-            thorSpec.dashDirY = 0.9;
-            camZoom = 1.0 + ease * 0.07;
-            camX = ease * W * 0.03;
-            camY = ease * H * 0.045;
-            if (p > 0.55) {
-              this.fireOnce('thor_fly_ground_skim', () => {
-                this.spawnDustPlume(thorSpec.x, thorHomeY, 1, 0.2, 12);
-              });
-            }
-          } else if (rightFlyPattern === 'soar_plunge') {
-            // #026 St. Koulas: Soar HIGH UP-LEFT into the sky (`f00->f03 ox:158->7, oy->0`), raising curved scimitar high overhead!
-            setWingFlapCycle(2.0, p, true);
-            const heave = Math.sin(p * Math.PI * 4.0) * 12;
-            thorSpec.x = thorHomeX - Math.pow(p, 1.15) * (W * 0.25);
-            thorSpec.y = baseFlyY - ease * (H * 0.42) + heave;
-            thorSpec.rot = -0.08 * ease;
-            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p > 0.16 ? 3 : 0;
-            thorSpec.dashDirX = -0.52;
-            thorSpec.dashDirY = -0.85;
-            camZoom = 1.0 + ease * 0.04;
-            camX = -ease * W * 0.05;
-            camY = -ease * H * 0.125;
-            camTilt = -ease * 0.016;
-          } else if (rightFlyPattern === 'dash_past') {
-            // #016 Kailas: Fast wing-tuck sweeping horizontally LEFT & low across foreground!
-            setWingFlapCycle(2.0, p, true);
-            thorSpec.x = thorHomeX - Math.pow(p, 1.35) * (W * 0.26);
-            thorSpec.y = baseFlyY + ease * (H * 0.055) + Math.sin(p * Math.PI * 4) * 8;
-            thorSpec.rot = -0.11 * ease;
-            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p > 0.14 ? 4 : 0;
-            thorSpec.dashDirX = -0.98;
-            thorSpec.dashDirY = 0.18;
-            camZoom = 1.0 + ease * 0.09;
-            camX = -ease * W * 0.06;
-            camY = ease * H * 0.025;
-            camTilt = -ease * 0.018;
+        if (rightFlyPattern === 'climb_dive') {
+          // #020 Sara / #054 Ares / #056 Raiden — EXACT clockwise swoop loop (`climb up-right -> brief coil apex -> explosive long dive HIT! -> low under-arc glide home!`)
+          path = [
+            { t: 0, dx: 0, dy: 0 },
+            { t: 500, dx: 0.075, dy: -0.24, ease: 'smooth' },       // steady steady wing-climb (NO wobble!)
+            { t: 690, dx: 0.085, dy: -0.26, ease: 'decel' },        // poised apex coil before strike!
+            { t: 910, dx: -0.305, dy: -0.145, ease: 'accel' },      // HUGE fast diagonal plunge right into HIT!
+            { t: 1180, dx: -0.345, dy: -0.09, ease: 'decel' },      // extended heavy impact momentum hold!
+            { t: 1520, dx: -0.185, dy: 0.015, ease: 'smooth' },     // DOS F08..F10 low pull-out under-curve
+            { t: 2160, dx: 0, dy: 0, ease: 'smooth' },              // smooth gliding ascent back home
+          ];
+          tApexStart = 500; tSurgeStart = 690; tHit = 910; tFollowEnd = 1520;
+          speedRgb = unitId === 56 ? '251, 146, 60' : '125, 211, 252';
+        } else if (rightFlyPattern === 'dip_rise') {
+          // #055 Lorna — EXACT counter-clockwise loop (`low skim left -> explosive rising uppercut HIT! -> high overhead crest -> graceful drop home!`)
+          path = [
+            { t: 0, dx: 0, dy: 0 },
+            { t: 510, dx: -0.125, dy: 0.075, ease: 'smooth' },      // sleek ground-skim swoop down-left
+            { t: 680, dx: -0.155, dy: 0.088, ease: 'decel' },       // brief tense ground-skim coil!
+            { t: 900, dx: -0.315, dy: -0.19, ease: 'accel' },       // long blazing rising slash surge!
+            { t: 1170, dx: -0.325, dy: -0.275, ease: 'decel' },     // crisp impact hold riding momentum skyward!
+            { t: 1580, dx: -0.07, dy: -0.30, ease: 'smooth' },      // DOS F08..F10 high overhead arch right
+            { t: 2160, dx: 0, dy: 0, ease: 'smooth' },              // smooth descending glide home
+          ];
+          tApexStart = 510; tSurgeStart = 680; tHit = 900; tFollowEnd = 1580;
+          speedRgb = '254, 240, 138';
+        } else if (rightFlyPattern === 'dash_past') {
+          // #016 Kailas — EXACT DOS slip-past & rising cross-slash (`level glide past left -> d=4 blur hold -> soaring diagonal cross-slash HIT! -> top-right arc drop home!`)
+          path = [
+            { t: 0, dx: 0, dy: 0 },
+            { t: 490, dx: -0.385, dy: 0.032, ease: 'smooth' },      // flat wing-glide left across lower track
+            { t: 720, dx: -0.425, dy: 0.04, ease: 'decel' },        // DOS F06 `delay=4` pause coil at far left!
+            { t: 910, dx: -0.285, dy: -0.165, ease: 'accel' },      // blistering rising slash right into HIT!
+            { t: 1180, dx: -0.165, dy: -0.225, ease: 'decel' },     // follow-through diagonal rise hold
+            { t: 1580, dx: 0.04, dy: -0.23, ease: 'smooth' },       // DOS F08..F09 bank up-right
+            { t: 2160, dx: 0, dy: 0, ease: 'smooth' },              // clean descending settle to station
+          ];
+          tApexStart = 490; tSurgeStart = 720; tHit = 910; tFollowEnd = 1580;
+          speedRgb = '253, 224, 71';
+        } else if (rightFlyPattern === 'soar_plunge') {
+          // #026 St. Koulas — EXACT DOS diagonal UP-LEFT ascent -> F05 `delay=6` sky apex hold -> reverse plunging cleave DOWN-RIGHT!
+          path = [
+            { t: 0, dx: 0, dy: 0 },
+            { t: 480, dx: -0.34, dy: -0.33, ease: 'smooth' },       // sleek straight upward-left climb!
+            { t: 760, dx: -0.365, dy: -0.35, ease: 'decel' },       // DOS F05 `delay=6` dramatic apex hover!
+            { t: 950, dx: -0.245, dy: -0.135, ease: 'accel' },      // steep reverse plunging dive into HIT!
+            { t: 1220, dx: -0.145, dy: -0.05, ease: 'decel' },      // extended sweeping cleave follow-through!
+            { t: 1620, dx: 0.045, dy: 0.035, ease: 'smooth' },      // DOS F08..F09 glide past right edge
+            { t: 2160, dx: 0, dy: 0, ease: 'smooth' },              // smooth return lift to home perch
+          ];
+          tApexStart = 480; tSurgeStart = 760; tHit = 950; tFollowEnd = 1620;
+          speedRgb = '253, 224, 71';
+        } else if (rightFlyPattern === 'sky_strafe') {
+          // #027 Banarossia — EXACT DOS steep climb right -> MASSIVE `delay=10` sky pause -> SUPERSONIC horizontal strafe straight across left -> overhead return drop!
+          path = [
+            { t: 0, dx: 0, dy: 0 },
+            { t: 430, dx: 0.11, dy: -0.35, ease: 'smooth' },        // steep rapid up-right takeoff off sky edge
+            { t: 720, dx: 0.125, dy: -0.185, ease: 'smooth' },      // DOS F05 `delay=10` hold dipping into strafe lane!
+            { t: 920, dx: -0.295, dy: -0.185, ease: 'accel' },      // SUPERSONIC horizontal dart strafe right->left!
+            { t: 1210, dx: -0.45, dy: -0.185, ease: 'decel' },      // piercing lance carries straight through target!
+            { t: 1570, dx: -0.055, dy: -0.28, ease: 'smooth' },     // DOS F11..F12 soaring loop-back overhead
+            { t: 2160, dx: 0, dy: 0, ease: 'smooth' },              // crisp vertical descent settling home!
+          ];
+          tApexStart = 430; tSurgeStart = 720; tHit = 920; tFollowEnd = 1570;
+          speedRgb = '163, 230, 53';
+        } else {
+          // #017 Miasdod Swordsman (`hover_swoop`): calm wing draw back -> explosive long horizontal lunge -> smooth return!
+          path = [
+            { t: 0, dx: 0, dy: 0 },
+            { t: 320, dx: 0.032, dy: -0.035, ease: 'smooth' },      // steady poise back with wings unfurled
+            { t: 480, dx: 0.038, dy: -0.04, ease: 'decel' },        // tight cocked hold right before strike
+            { t: 690, dx: -0.305, dy: -0.145, ease: 'accel' },      // BIG instant hawk lunge leap (DOS F04->F05*!)
+            { t: 1020, dx: -0.335, dy: -0.145, ease: 'decel' },     // solid blade-impact hold & slide!
+            { t: 1410, dx: -0.21, dy: -0.095, ease: 'smooth' },     // follow-through deceleration
+            { t: 1830, dx: 0, dy: 0, ease: 'smooth' },              // steady horizontal glide home
+          ];
+          tApexStart = 320; tSurgeStart = 480; tHit = 690; tFollowEnd = 1410;
+          speedRgb = '254, 240, 138';
+          maxRotScale = 0.05;
+        }
+
+        const sample = evalPath(path, localT);
+        const speedMag = Math.hypot(sample.vx, sample.vy);
+        thorSpec.x = sample.x;
+        thorSpec.y = sample.y;
+
+        // Smooth organic aerodynamic bank pitch pointing lightly along velocity (capped softly, ZERO jitter!)
+        if (speedMag > 0.05) {
+          const ndx = sample.vx / speedMag;
+          const ndy = sample.vy / speedMag;
+          thorSpec.dashDirX = ndx;
+          thorSpec.dashDirY = ndy;
+          const pitchTarget = Math.max(-maxRotScale, Math.min(maxRotScale, ndy * maxRotScale * (ndx < 0 ? 1.15 : -0.75)));
+          thorSpec.rot = pitchTarget;
+        } else {
+          thorSpec.rot = 0;
+        }
+
+        // Authentic wing/dash cues + frame sequence with crisp sharp pose holds (`no blurry oscillation!`)
+        this.fireOnce('thor_fly_flap_1', () => {
+          this.sound.playSfx('step_wing');
+          this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 40, 0.25, 1.0, 11);
+        });
+        if (isLongFly && localT >= 270) {
+          this.fireOnce('thor_fly_flap_2', () => {
+            this.sound.playSfx('step_wing');
+            this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 40, 0.35, 1.0, 10);
+          });
+        }
+        if (rightFlyPattern === 'dip_rise' && localT >= 390) {
+          this.fireOnce('thor_fly_ground_skim', () => {
+            this.spawnDustPlume(thorSpec.x, thorHomeY, 1, 0.2, 12);
+          });
+        }
+
+        // Pose selection locked cleanly to each phase's exact visual beat (with #026 crescent cue override!)
+        if (localT < tApexStart) {
+          // Single smooth wing spread transitioning `0 -> 1 -> 2` (NO chaotic wing-flap spasm!)
+          const u = localT / Math.max(1, tApexStart);
+          if (u < 0.22) {
+            blendPose(0, 1, u / 0.22, 0, 1, 0);
+          } else if (u < 0.72) {
+            snapPose(1, 1, 1);
           } else {
-            // #017 Miasdod (`hover_swoop`): Buoyant hover bob dip -> rise lifting wings wide!
-            setWingFlapCycle(1.4, p, true);
-            const bobOffset = p < 0.45 ? Math.sin((p / 0.45) * Math.PI) * (H * 0.035) : -((p - 0.45) / 0.55) * (H * 0.08);
-            thorSpec.x = thorHomeX + ease * (W * 0.02);
-            thorSpec.y = baseFlyY + bobOffset;
-            thorSpec.rot = p > 0.5 ? -0.05 * ((p - 0.5) / 0.5) : 0.04 * Math.sin(p * Math.PI * 2);
-            camZoom = 1.0 + ease * 0.1;
-            camX = ease * W * 0.05;
-            camY = -ease * H * 0.03;
-            camTilt = -ease * 0.012;
+            blendPose(1, 2, (u - 0.72) / 0.28, 1, 2, 1);
           }
-        } else if (localT < tStrikeStart) {
-          // PHASE 2: Explosive Aerial Dive-Bomb / Rising Slash / Iaido Cross-Slash Surge + Crit Cut-In!
-          const p = (localT - tPreludeEnd) / (tStrikeStart - tPreludeEnd);
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring && u > 0.35 ? 2 : 0;
+        } else if (localT < tSurgeStart) {
+          // Coiled apex / pause hold (`DOS delay=4/6/10` tension beat!)
+          const p = (localT - tApexStart) / Math.max(1, tSurgeStart - tApexStart);
+          snapPose(unitId === 26 ? 2 : 2, 2, 1);
+          if (rightFlyPattern === 'dash_past' || rightFlyPattern === 'soar_plunge' || rightFlyPattern === 'sky_strafe') {
+            apexOpacity = 0.58 + 0.42 * Math.abs(Math.cos(p * Math.PI));
+            thorSpec.opacity = apexOpacity;
+          }
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 3 : 0;
           if (this.config.enableAnimeCutIn && this.scenario === 'thor_crit') {
             cutInProgress = p;
             cutInUnit = 'thor';
           }
-          const launchSfxCheck = () => {
-            this.fireOnce('thor_dash_sfx', () => {
-              const prof = this.vfxAssets.rightUnit.sfxProfile;
-              this.sound.playSfx(prof?.launchSfx ?? prof?.stepSfx ?? 'step_wing');
-              this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 80, 0.85, -0.35, 16);
-            });
-          };
-
-          if (rightFlyPattern === 'climb_dive') {
-            const dashP = Math.max(0, (p - 0.14) / 0.86);
-            const dashEase = Math.pow(dashP, 0.72); // snappy fast dive acceleration!
-            const startX = thorHomeX + W * 0.055;
-            const startY = baseFlyY - H * 0.255;
-            const endX = thorHomeX - W * 0.305;
-            const endY = thorHomeY - H * 0.165;
-            thorSpec.x = startX + (endX - startX) * dashEase;
-            thorSpec.y = startY + (endY - startY) * dashEase;
-            thorSpec.rot = -0.16 * Math.sin(Math.min(1, dashP * 1.15) * Math.PI * 0.65);
-            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && dashP > 0.04 ? 5 : 0;
-            const ang = Math.atan2(endY - startY, endX - startX);
-            thorSpec.dashDirX = Math.cos(ang);
-            thorSpec.dashDirY = Math.sin(ang);
-            aerialSpeedLinesIntensity = dashP > 0.08 ? Math.sin(dashP * Math.PI) * 0.85 : 0;
-            aerialSpeedLinesAngle = ang;
-            aerialSpeedLinesRgb = '125, 211, 252';
-            if (srcMode === 'omni_video') {
-              this.setContinuousFrame(thorSpec, 2.2 + dashP * 1.8, 9);
-            } else if (srcMode === 'nb2_6frame') {
-              this.setContinuousFrame(thorSpec, dashP > 0.55 ? 2.0 + ((dashP - 0.55) / 0.45) : 2.0, 5);
-            } else {
-              thorSpec.primaryIdx = dashP > 0.65 ? 2 : 1;
-            }
-            camZoom = 1.05 + dashEase * 0.14;
-            camX = W * 0.04 - dashEase * (W * 0.14);
-            camY = -H * 0.085 + dashEase * (H * 0.02);
-            camTilt = -0.014 + dashEase * 0.036;
-            launchSfxCheck();
-          } else if (rightFlyPattern === 'dip_rise') {
-            const dashP = Math.max(0, (p - 0.12) / 0.88);
-            const dashEase = 1 - Math.pow(1 - dashP, 2.6);
-            const startX = thorHomeX - W * 0.045;
-            const startY = baseFlyY + H * 0.105;
-            const endX = thorHomeX - W * 0.31;
-            const endY = thorHomeY - H * 0.22;
-            thorSpec.x = startX + (endX - startX) * dashEase;
-            thorSpec.y = startY + (endY - startY) * dashEase;
-            thorSpec.rot = 0.15 * dashEase;
-            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && dashP > 0.04 ? 5 : 0;
-            const ang = Math.atan2(endY - startY, endX - startX);
-            thorSpec.dashDirX = Math.cos(ang);
-            thorSpec.dashDirY = Math.sin(ang);
-            aerialSpeedLinesIntensity = dashP > 0.06 ? Math.sin(dashP * Math.PI) * 0.9 : 0;
-            aerialSpeedLinesAngle = ang;
-            aerialSpeedLinesRgb = '254, 240, 138';
-            if (srcMode === 'omni_video') {
-              this.setContinuousFrame(thorSpec, 2.2 + dashP * 1.8, 9);
-            } else if (srcMode === 'nb2_6frame') {
-              this.setContinuousFrame(thorSpec, dashP > 0.55 ? 2.0 + ((dashP - 0.55) / 0.45) : 2.0, 5);
-            } else {
-              thorSpec.primaryIdx = dashP > 0.65 ? 2 : 1;
-            }
-            camZoom = 1.07 + dashEase * 0.12;
-            camX = W * 0.03 - dashEase * (W * 0.13);
-            camY = H * 0.045 - dashEase * (H * 0.14);
-            camTilt = dashEase * 0.025;
-            launchSfxCheck();
-          } else if (rightFlyPattern === 'soar_plunge') {
-            // #026 St. Koulas: Brief high-sky apex hover (`f05 d=6`) -> Explosive steep DOWNWARD diagonal plunging cleave (`f06->f07`)!
-            const pauseFrac = 0.20;
-            const startX = thorHomeX - W * 0.25;
-            const startY = baseFlyY - H * 0.42;
-            const endX = thorHomeX - W * 0.29;
-            const endY = thorHomeY - H * 0.14;
-            if (p < pauseFrac) {
-              const bp = p / pauseFrac;
-              thorSpec.x = startX - bp * (W * 0.04);
-              thorSpec.y = startY - Math.sin(bp * Math.PI) * (H * 0.04);
-              thorSpec.opacity = 0.35 + 0.65 * Math.abs(Math.cos(bp * Math.PI));
-              thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 4 : 0;
-              thorSpec.dashDirX = 0;
-              thorSpec.dashDirY = -1;
-              thorSpec.primaryIdx = srcMode === 'nb2_3pose' ? 1 : 2;
-              camZoom = 1.04 + bp * 0.04;
-              camX = -W * 0.05;
-              camY = -H * 0.125;
-            } else {
-              const dashP = (p - pauseFrac) / (1 - pauseFrac);
-              const dashEase = Math.pow(dashP, 0.72); // explosive gravity-fed plunging dive!
-              thorSpec.x = startX - W * 0.04 + (endX - (startX - W * 0.04)) * dashEase;
-              thorSpec.y = startY + (endY - startY) * dashEase;
-              thorSpec.opacity = 1;
-              thorSpec.rot = 0.14 * Math.sin(Math.min(1, dashP * 1.1) * Math.PI * 0.7);
-              thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 6 : 0;
-              const ang = Math.atan2(endY - startY, 65);
-              thorSpec.dashDirX = Math.cos(ang);
-              thorSpec.dashDirY = Math.sin(ang);
-              aerialSpeedLinesIntensity = Math.sin(dashP * Math.PI) * 0.96;
-              aerialSpeedLinesAngle = ang;
-              aerialSpeedLinesRgb = '253, 224, 71';
-              if (srcMode === 'omni_video') {
-                this.setContinuousFrame(thorSpec, 2.5 + dashP * 1.7, 9);
-              } else if (srcMode === 'nb2_6frame') {
-                this.setContinuousFrame(thorSpec, 2.0 + dashP * 1.3, 5);
-              } else {
-                thorSpec.primaryIdx = dashP > 0.4 ? 2 : 1;
-              }
-              camZoom = 1.08 + dashEase * 0.12;
-              camX = -W * 0.05 - dashEase * (W * 0.05);
-              camY = -H * 0.125 + dashEase * (H * 0.07);
-              camTilt = -0.016 + dashEase * 0.036;
-              launchSfxCheck();
-            }
-          } else if (rightFlyPattern === 'dash_past') {
-            // Brief speed-blur beat (matching DOS #016 f06 delay=4!) -> High-Speed Rising Diagonal Iaido Cross-Slash!
-            const pauseFrac = 0.24;
-            if (p < pauseFrac) {
-              const bp = p / pauseFrac;
-              thorSpec.x = thorHomeX - W * 0.26 - bp * (W * 0.05);
-              thorSpec.y = baseFlyY + H * 0.055;
-              thorSpec.opacity = 0.28 + 0.72 * Math.abs(Math.cos(bp * Math.PI));
-              thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 5 : 0;
-              thorSpec.dashDirX = -1;
-              thorSpec.dashDirY = 0;
-              thorSpec.primaryIdx = srcMode === 'nb2_3pose' ? 1 : 2;
-              camZoom = 1.09 + bp * 0.04;
-              camX = -W * 0.06;
-              camY = H * 0.025;
-            } else {
-              const dashP = (p - pauseFrac) / (1 - pauseFrac);
-              const dashEase = 1 - Math.pow(1 - dashP, 3);
-              const startX = thorHomeX - W * 0.31;
-              const startY = baseFlyY + H * 0.055;
-              const endX = thorHomeX - W * 0.31;
-              const endY = thorHomeY - H * 0.195;
-              // Sweeps cleanly up-right/diagonal rising arc right across the enemy!
-              thorSpec.x = startX + Math.sin(dashP * Math.PI) * (-W * 0.05) + (endX - startX) * dashEase;
-              thorSpec.y = startY + (endY - startY) * dashEase;
-              thorSpec.opacity = 1;
-              thorSpec.rot = -0.1 * (1 - dashEase);
-              thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 6 : 0;
-              thorSpec.dashDirX = -0.35;
-              thorSpec.dashDirY = -0.94;
-              aerialSpeedLinesIntensity = Math.sin(dashP * Math.PI) * 0.95;
-              aerialSpeedLinesAngle = Math.atan2(-0.55, -0.83);
-              aerialSpeedLinesRgb = '253, 224, 71';
-              if (srcMode === 'omni_video') {
-                this.setContinuousFrame(thorSpec, 2.6 + dashP * 1.6, 9);
-              } else if (srcMode === 'nb2_6frame') {
-                this.setContinuousFrame(thorSpec, 2.0 + dashP * 1.0, 5);
-              } else {
-                thorSpec.primaryIdx = dashP > 0.4 ? 2 : 1;
-              }
-              camZoom = 1.13 + dashEase * 0.08;
-              camX = -W * 0.06 - dashEase * (W * 0.05);
-              camY = H * 0.025 - dashEase * (H * 0.11);
-              camTilt = -0.018 + dashEase * 0.038;
-              launchSfxCheck();
-            }
+        } else if (localT < tHit) {
+          // Explosive LONG-REACH lunge flying directly into the enemy!
+          const p = (localT - tSurgeStart) / Math.max(1, tHit - tSurgeStart);
+          thorSpec.opacity = 1;
+          // Stay sharp tucked diving pose until final micro-frames right before contact
+          const preHitO = unitId === 27 ? 3 : unitId === 26 ? 2 : 3;
+          if (p < 0.78) {
+            snapPose(preHitO, 2, 1);
           } else {
-            // `hover_swoop`: Crisp hawk-like horizontal aerial lunge (`#017 Miasdod`)
-            const dashP = Math.max(0, (p - 0.16) / 0.84);
-            const dashEase = 1 - Math.pow(1 - dashP, 3);
-            thorSpec.x = thorHomeX + W * 0.02 - dashEase * (W * 0.33);
-            thorSpec.y = baseFlyY - H * 0.08 - dashEase * (H * 0.105);
-            thorSpec.rot = -0.08 * dashEase;
-            thorSpec.afterimages = this.config.enableAfterimagesAndSpring && dashP > 0.04 ? 5 : 0;
-            thorSpec.dashDirX = -0.96;
-            thorSpec.dashDirY = -0.27;
-            aerialSpeedLinesIntensity = dashP > 0.1 ? Math.sin(dashP * Math.PI) * 0.65 : 0;
-            aerialSpeedLinesAngle = Math.atan2(-0.27, -0.96);
-            aerialSpeedLinesRgb = '254, 240, 138';
-            if (srcMode === 'omni_video') {
-              this.setContinuousFrame(thorSpec, 2.3 + dashP * 1.7, 9);
-            } else if (srcMode === 'nb2_6frame') {
-              this.setContinuousFrame(thorSpec, dashP > 0.6 ? 2.0 + ((dashP - 0.6) / 0.4) : 2.0, 5);
-            } else {
-              thorSpec.primaryIdx = dashP > 0.65 ? 2 : 1;
-            }
-            camZoom = 1.1 + dashEase * 0.11;
-            camX = W * 0.05 - dashEase * (W * 0.15);
-            camY = -H * 0.03 - dashEase * (H * 0.04);
-            camTilt = -0.012 + dashEase * 0.028;
-            launchSfxCheck();
+            blendPose(preHitO, unitId === 26 ? 3 : 4, (p - 0.78) / 0.22, 2, 3, 2);
           }
-        } else if (localT < tImpactEnd) {
-          // PHASE 3: Impact Burst & Authentic Aerial Pull-Up / Descending Sheath Follow-Through!
-          const p = (localT - tStrikeStart) / (tImpactEnd - tStrikeStart);
-          if (srcMode === 'omni_video') {
-            if (p < 0.72) {
-              this.setContinuousFrame(thorSpec, 4.0 + (p / 0.72) * 5.0, 9);
-            } else {
-              thorSpec.primaryIdx = 9;
-            }
-          } else if (srcMode === 'nb2_6frame') {
-            if (p < 0.30) {
-              this.setContinuousFrame(thorSpec, 3.0 + (p / 0.30) * 1.0, 5);
-            } else if (p < 0.62) {
-              this.setContinuousFrame(thorSpec, 4.0 + ((p - 0.30) / 0.32) * 1.0, 5);
-            } else {
-              thorSpec.primaryIdx = 5;
-            }
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring ? 5 : 0;
+          aerialSpeedLinesIntensity = Math.sin(p * Math.PI) * 0.9;
+          aerialSpeedLinesAngle = Math.atan2(sample.vy, sample.vx);
+          aerialSpeedLinesRgb = speedRgb;
+          this.fireOnce('thor_dash_sfx', () => {
+            const prof = this.vfxAssets.rightUnit.sfxProfile;
+            this.sound.playSfx(prof?.launchSfx ?? prof?.stepSfx ?? 'step_wing');
+            this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 60, -thorSpec.dashDirX * 0.7, -thorSpec.dashDirY * 0.7, 14);
+          });
+        } else if (localT < tFollowEnd) {
+          // IMPACT HOLD & FOLLOW-THROUGH (`crisp weapon flash frame held SOLID longer for strike power!`)
+          const p = (localT - tHit) / Math.max(1, tFollowEnd - tHit);
+          thorSpec.opacity = 1;
+          if (unitId === 26) {
+            // #026 St. Koulas has golden blade arcs across omni_3 (overhead) -> omni_4/5 (sweeping horizontal ring)
+            if (p < 0.24) snapPose(3, 3, 2);
+            else if (p < 0.56) snapPose(4, 3, 2);
+            else if (p < 0.76) blendPose(5, 6, (p - 0.56) / 0.20, 4, 4, 2);
+            else blendPose(6, 7, (p - 0.76) / 0.24, 4, 5, 2);
           } else {
-            thorSpec.primaryIdx = 2;
+            // Standard 10-frame flyers: crisp golden peak hit held solid across `omni_4..5` (`p = 0..0.48`!)
+            if (p < 0.28) snapPose(4, 3, 2);
+            else if (p < 0.48) snapPose(5, 3, 2);
+            else if (p < 0.72) blendPose(6, 7, (p - 0.48) / 0.24, 4, 4, 2);
+            else blendPose(7, 8, (p - 0.72) / 0.28, 4, 5, 2);
           }
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.35 ? 3 : 0;
 
-          if (rightFlyPattern === 'climb_dive') {
-            // Pull out smoothly from dive-bomb after impact!
-            const pull = Math.max(0, (p - 0.18) / 0.82);
-            thorSpec.x = thorHomeX - W * 0.305 - Math.sin(Math.min(1, p * 2.2) * Math.PI) * 28 + pull * (W * 0.04);
-            thorSpec.y = thorHomeY - H * 0.165 + Math.sin(Math.min(1, p * 2.5) * Math.PI) * 16 - pull * (H * 0.035);
-            thorSpec.rot = -0.14 * (1 - p) + 0.06 * pull;
-          } else if (rightFlyPattern === 'dip_rise') {
-            // Soar high up-left apex before easing downward!
-            thorSpec.x = thorHomeX - W * 0.31 + p * (W * 0.05);
-            thorSpec.y = thorHomeY - H * 0.22 - Math.sin(p * Math.PI) * (H * 0.04);
-            thorSpec.rot = 0.12 * (1 - p);
-          } else if (rightFlyPattern === 'soar_plunge') {
-            // #026 St. Koulas: Sweeping downward-right cleaving dive pull-out (`f07 (5,0) -> f08 (195,63) -> f10 (187,32)`)!
-            const descend = Math.pow(p, 0.80);
-            thorSpec.x = thorHomeX - W * 0.29 + descend * (W * 0.15);
-            thorSpec.y = thorHomeY - H * 0.14 + Math.sin(Math.min(1, p * 1.8) * Math.PI) * (H * 0.055) + descend * (H * 0.055);
-            thorSpec.rot = 0.08 * (1 - p);
-          } else if (rightFlyPattern === 'dash_past') {
-            // Iconic #016 Kailas descending aerial glide back right while sheathing flaming blade (`f4 -> f5`)!
-            const descend = Math.pow(p, 0.85);
-            thorSpec.x = thorHomeX - W * 0.31 + descend * (W * 0.14);
-            thorSpec.y = thorHomeY - H * 0.195 + descend * (H * 0.125);
-            thorSpec.rot = 0.04 * Math.sin(p * Math.PI);
-          } else {
-            // `hover_swoop`: buoyant hover bob at strike point!
-            thorSpec.x = thorHomeX - W * 0.31 - Math.min(1, p * 4) * 18;
-            thorSpec.y = baseFlyY - H * 0.185 + Math.sin(p * Math.PI * 2) * 12;
-            thorSpec.rot = -0.05 * (1 - p);
-          }
-
-          slashArcProgress = Math.min(1, p * 2.1);
-          shockwaveProgress = Math.min(1, p * 1.8);
+          slashArcProgress = Math.min(1, p * 2.2);
+          shockwaveProgress = Math.min(1, p * 1.9);
           shockwaveCenter = { x: banditHomeX + 45, y: banditHomeY - 195 };
           shockwaveGroundY = banditHomeY;
 
@@ -2104,7 +2185,7 @@ export class Modern25DCombatRenderer {
             this.banditTargetHp = Math.max(0, this.banditTargetHp - this.thorStrikeDmg);
           });
 
-          const recoil = Math.sin(Math.min(1, p * 2.2) * Math.PI);
+          const recoil = Math.sin(Math.min(1, p * 2.3) * Math.PI);
           banditSpec.x = banditHomeX - recoil * 52;
           banditSpec.y = banditHomeY + leftHoverBob - recoil * 26;
           banditSpec.rot = -recoil * 0.1;
@@ -2112,52 +2193,42 @@ export class Modern25DCombatRenderer {
           banditSpec.scaleY = 1.0 + recoil * 0.05;
           banditSpec.flashWhite = Math.max(0, 1 - p * 3.5);
           impactFlashAlpha = Math.max(0, 1 - p * 4.5);
-
-          camZoom = 1.19 - p * 0.1;
-          camX = -W * 0.1 * (1 - p * 0.5);
-          camY = -H * 0.065 * (1 - p * 0.5);
-          camTilt = 0.018 * (1 - p);
-          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 24) : 0;
+          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.6) * 22) : 0;
         } else {
-          // PHASE 4: Graceful Wing-Flapping Arc Return to Hover Station!
-          const p = (localT - tImpactEnd) / Math.max(1, tEnd - tImpactEnd);
-          const ease = 1 - Math.pow(1 - p, 2);
-          setReturnFlapFrame(p);
-          const startX =
-            rightFlyPattern === 'dash_past'
-              ? thorHomeX - W * 0.17
-              : rightFlyPattern === 'soar_plunge'
-                ? thorHomeX - W * 0.14
-                : rightFlyPattern === 'climb_dive'
-                  ? thorHomeX - W * 0.265
-                  : rightFlyPattern === 'dip_rise'
-                    ? thorHomeX - W * 0.26
-                    : thorHomeX - W * 0.31 - 18;
-          const startY =
-            rightFlyPattern === 'dash_past'
-              ? thorHomeY - H * 0.07
-              : rightFlyPattern === 'soar_plunge'
-                ? thorHomeY - H * 0.085
-                : rightFlyPattern === 'climb_dive'
-                  ? thorHomeY - H * 0.20
-                  : rightFlyPattern === 'dip_rise'
-                    ? thorHomeY - H * 0.22
-                    : baseFlyY - H * 0.185;
-          const arcLift = rightFlyPattern === 'dip_rise' ? -H * 0.03 * Math.sin(p * Math.PI) : -H * 0.075 * Math.sin(p * Math.PI);
-          thorSpec.x = startX + ease * (thorHomeX - startX);
-          thorSpec.y = startY + ease * (thorHomeY + rightHoverBob - startY) + arcLift;
-          thorSpec.rot = 0.06 * Math.sin(p * Math.PI);
-          thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.6 ? 2 : 0;
-          thorSpec.dashDirX = 0.92;
-          thorSpec.dashDirY = 0.38;
+          // Graceful soaring banking glide back home -> smooth wing fold into idle `0`
+          const endMs = path[path.length - 1].t;
+          const p = Math.min(1, (localT - tFollowEnd) / Math.max(1, endMs - tFollowEnd));
+          thorSpec.opacity = 1;
+          if (p < 0.35) {
+            blendPose(8, 9, p / 0.35, 5, 5, 0);
+          } else if (p < 0.72) {
+            blendPose(9, 0, (p - 0.35) / 0.37, 5, 0, 0);
+          } else {
+            snapPose(0, 0, 0);
+          }
+          // Smoothly blend vertical settle right onto idle `rightHoverBob` at exit end
+          thorSpec.y = sample.y + p * (thorHomeY + rightHoverBob - baseFlyY);
+          thorSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.45 ? 2 : 0;
           this.fireOnce('thor_fly_return_flap', () => {
             this.sound.playSfx('step_wing');
             this.spawnAirGustPlume(thorSpec.x, thorSpec.y - 30, -0.5, 0.8, 8);
           });
-          camZoom = 1.09 - ease * 0.09;
-          camX = -W * 0.05 * (1 - ease);
-          camY = -H * 0.032 * (1 - ease);
         }
+
+        // Smooth continuous subtle camera follow tied directly to aircraft position (ZERO harsh tilt/zoom jumps!)
+        const relX = (thorSpec.x - thorHomeX) / W;
+        const relY = (thorSpec.y - baseFlyY) / H;
+        const hitZoomEnv =
+          localT >= tSurgeStart && localT <= tFollowEnd + 240
+            ? Math.sin(
+                Math.max(0, Math.min(1, (localT - tSurgeStart) / Math.max(1, tFollowEnd + 240 - tSurgeStart))) *
+                  Math.PI
+              )
+            : 0;
+        camZoom = 1.0 + hitZoomEnv * 0.12;
+        camX = relX * W * 0.20;
+        camY = Math.max(-H * 0.11, Math.min(H * 0.05, relY * H * 0.28));
+        camTilt = (localT >= tSurgeStart && localT < tHit + 180) ? -relX * 0.032 * hitZoomEnv : 0;
       } else if (localT < 460) {
         // 1. Coiled Wind-Up at Bottom-Right
         const p = localT / 460;
@@ -2232,19 +2303,29 @@ export class Modern25DCombatRenderer {
           this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.5, 14);
         });
       } else if (localT < 1400) {
-        // 3. Diagonal Up-Left Cleave Impact & Follow-Through
+        // 3. Diagonal Up-Left Cleave Impact & Follow-Through (hold crisp peak slash frame for real strike power!)
         const p = (localT - 820) / 580;
         if (srcMode === 'omni_video') {
-          if (p < 0.65) {
-            this.setContinuousFrame(thorSpec, 4.0 + (p / 0.65) * 5.0, 9);
+          if (p < 0.26) {
+            thorSpec.primaryIdx = 4;
+            thorSpec.secondaryIdx = undefined;
+            thorSpec.blend = 0;
+          } else if (p < 0.44) {
+            thorSpec.primaryIdx = 5;
+            thorSpec.secondaryIdx = undefined;
+            thorSpec.blend = 0;
+          } else if (p < 0.80) {
+            this.setContinuousFrame(thorSpec, 6.0 + ((p - 0.44) / 0.36) * 3.0, 9);
           } else {
             thorSpec.primaryIdx = 9;
           }
         } else if (srcMode === 'nb2_6frame') {
-          if (p < 0.28) {
-            this.setContinuousFrame(thorSpec, 3.0 + (p / 0.28) * 1.0, 5);
-          } else if (p < 0.55) {
-            this.setContinuousFrame(thorSpec, 4.0 + ((p - 0.28) / 0.27) * 1.0, 5);
+          if (p < 0.34) {
+            thorSpec.primaryIdx = 3;
+            thorSpec.secondaryIdx = undefined;
+            thorSpec.blend = 0;
+          } else if (p < 0.62) {
+            this.setContinuousFrame(thorSpec, 4.0 + ((p - 0.34) / 0.28) * 1.0, 5);
           } else {
             thorSpec.primaryIdx = 5;
           }

@@ -10,7 +10,7 @@
  * volumetric additive blooms, tapered lightning splines, and curved plasma beams.
  */
 
-export const HD_SPELL_ASSET_VERSION = '?v=92';
+export const HD_SPELL_ASSET_VERSION = '?v=93';
 
 export type HdSpellLayer = 'both' | 'behind' | 'front';
 
@@ -381,8 +381,25 @@ const spellImages: HdSpellImageMap = {
 
 let loadStartedVersion = '';
 let loadPromise: Promise<HdSpellImageMap> | null = null;
-/** Reusable offscreen layer for soft feathered eruption/cutoff wipes on #02 Flame Dragon breath. */
+/** Reusable offscreen layer for soft feathered eruption/cutoff wipes on #02 Flame Dragon & column spells. */
 let breathMaskCanvas: HTMLCanvasElement | null = null;
+
+function acquireMaskCanvas(W: number, H: number): { canvas: HTMLCanvasElement; mctx: CanvasRenderingContext2D } | null {
+  if (typeof document === 'undefined') return null;
+  if (!breathMaskCanvas) breathMaskCanvas = document.createElement('canvas');
+  const iw = Math.max(1, Math.ceil(W));
+  const ih = Math.max(1, Math.ceil(H));
+  // Grow-only so successive staggered pillars never thrash GPU texture allocations
+  if (breathMaskCanvas.width < iw) breathMaskCanvas.width = iw;
+  if (breathMaskCanvas.height < ih) breathMaskCanvas.height = ih;
+  const mctx = breathMaskCanvas.getContext('2d');
+  if (!mctx) return null;
+  mctx.setTransform(1, 0, 0, 1, 0, 0);
+  mctx.globalCompositeOperation = 'source-over';
+  mctx.globalAlpha = 1;
+  mctx.clearRect(0, 0, iw, ih);
+  return { canvas: breathMaskCanvas, mctx };
+}
 
 function loadOptImg(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
@@ -693,10 +710,10 @@ function drawOrganicFlamePillar(
 
 /**
  * Renders ONE authentic 1995 `sp_018 / sp_019` rising vertical fire pillar cycle (`localF` in `0..16`):
- *   - `0..4.5`  (F0–F4): Thin blazing spark needle plunges vertically from sky straight to ground.
- *   - `4.0..8.8`(F5–F8): Elliptical glowing magma / plasma disc widens under column base.
- *   - `8.0..12.6`(F9–F12): Heavy-detail hand-painted spiral flame column erupts surging skyward.
- *   - `12.4..16`(F13–F15): Entire pillar DETACHES from ground & rockets straight UP off the top edge!
+ *   - `F0..F4` (`0..4.5`): Razor blazing spark needle shoots vertically from sky DOWN INTO ground (`tail chases tip into floor!`).
+ *   - `F5..F8` (`4.2..8.8`): Elliptical glowing magma / ice-blue plasma caldera puddle widens on ground `gy`.
+ *   - `F9..F12` (`8.0..12.4`): Pillar EMERGES STRAIGHT UP OUT OF GROUND `gy` (un-squashed, rising via crisp floor clip!).
+ *   - `F13..F15` (`12.4..16`): Pillar DETACHES from ground `gy` & ROCKETS FULL-BRIGHTNESS STRAIGHT UP OFF TOP SCREEN EDGE `y=0`!
  */
 function drawFirePillarInstance(
   ctx: CanvasRenderingContext2D,
@@ -713,59 +730,63 @@ function drawFirePillarInstance(
   alphaScale = 1.0
 ): void {
   if (localF < 0 || localF >= totalF) return;
-  const phase = localF / totalF; // normalized 0..1 inside this single pillar!
+  const isFullSky = totalF <= 15; // #01 sp_019 pierces ALL THE WAY off sky edge (`y=0..154`), #00 sp_018 ~60% compact torch!
 
-  // 1) Falling luminous spark needle (`F0..F4`, fast top-down drop straight into floor)
-  if (phase < 0.30) {
-    const dp = phase / 0.30;
-    const headY = -40 * sc + dp * (gy + 40 * sc);
-    const tailY = Math.max(-80 * sc, headY - (120 + (1 - dp) * 260) * sc);
-    const a = dp > 0.85 ? (1 - dp) / 0.15 : 1;
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    const ng = ctx.createLinearGradient(x, tailY, x, headY);
-    ng.addColorStop(0, 'rgba(0,0,0,0)');
-    ng.addColorStop(0.65, isBlue ? `rgba(56,189,248,${0.88 * a * alphaScale})` : `rgba(249,115,22,${0.88 * a * alphaScale})`);
-    ng.addColorStop(1, `rgba(255,255,245,${0.98 * a * alphaScale})`);
-    ctx.strokeStyle = ng;
-    ctx.lineCap = 'round';
-    ctx.lineWidth = (isBlue ? 12 : 10) * sc;
-    ctx.beginPath();
-    ctx.moveTo(x, tailY);
-    ctx.lineTo(x, headY);
-    ctx.stroke();
-    drawTaperedStarburst(
-      ctx,
-      x,
-      headY,
-      26 * sc * a,
-      4,
-      0,
-      isBlue ? 'rgba(96,165,250,0.9)' : 'rgba(251,146,60,0.9)',
-      '#ffffff'
-    );
-    ctx.restore();
+  // 1) F00..F04: Razor blazing needle drops from top edge straight DOWN INTO ground `gy`!
+  //    F00..F01 nose hits ground; F02..F04 tail plunges down and drains right INTO the ground impact dot!
+  if (localF < 4.9) {
+    const t = localF / 4.9;
+    const headY = t < 0.28 ? (t / 0.28) * gy : gy;
+    const tailY = t < 0.22 ? -24 * sc : Math.pow((t - 0.22) / 0.78, 1.35) * (gy - 6 * sc);
+    const tailLen = Math.max(0, headY - tailY);
+    if (tailLen > 2) {
+      const a = t > 0.84 ? clamp01((1 - t) / 0.16) : 1;
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      const ng = ctx.createLinearGradient(x, tailY, x, headY);
+      ng.addColorStop(0, 'rgba(0,0,0,0)');
+      ng.addColorStop(0.55, isBlue ? `rgba(56,189,248,${0.92 * a * alphaScale})` : `rgba(249,115,22,${0.92 * a * alphaScale})`);
+      ng.addColorStop(1, `rgba(255,255,245,${a * alphaScale})`);
+      ctx.strokeStyle = ng;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = (isBlue ? 12 : 10) * sc * (1 - Math.max(0, t - 0.65) * 1.4);
+      ctx.beginPath();
+      ctx.moveTo(x, tailY);
+      ctx.lineTo(x, headY);
+      ctx.stroke();
+      drawTaperedStarburst(
+        ctx,
+        x,
+        headY,
+        (t < 0.35 ? 28 : 22) * sc * a,
+        4,
+        0,
+        isBlue ? 'rgba(96,165,250,0.92)' : 'rgba(251,146,60,0.92)',
+        '#ffffff'
+      );
+      ctx.restore();
+    }
   }
 
-  // 2) Glowing caldera puddle disc widening under column (`F5..F12`)
-  if (phase >= 0.25 && phase < 0.82) {
-    const pp = (phase - 0.25) / 0.57;
-    const expand = Math.min(1, pp * 3.0);
-    const fade = pp > 0.65 ? (1 - pp) / 0.35 : 1;
-    const rad = width * (0.42 + 0.48 * expand);
+  // 2) F05..F08 (+ lingering glow through F12): Molten circular puddle widening on floor `gy` BEFORE pillar erupts!
+  if (localF >= 4.2 && localF < 13.0) {
+    const enterP = clamp01((localF - 4.2) / 1.8);
+    const fadeP = localF > 11.4 ? clamp01((13.0 - localF) / 1.6) : 1;
+    const pulse = 1 + Math.sin(localF * 3.4) * 0.08;
+    const rad = width * (0.28 + 0.56 * Math.sin(enterP * Math.PI * 0.5)) * pulse;
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
     ctx.translate(x, gy);
-    ctx.scale(1, 0.27);
+    ctx.scale(1, 0.29);
     const dg = ctx.createRadialGradient(0, 0, 2, 0, 0, Math.max(8, rad));
     if (isBlue) {
-      dg.addColorStop(0, `rgba(240,249,255,${0.92 * fade * alphaScale})`);
-      dg.addColorStop(0.45, `rgba(56,189,248,${0.78 * fade * alphaScale})`);
-      dg.addColorStop(0.85, `rgba(37,99,235,${0.45 * fade * alphaScale})`);
+      dg.addColorStop(0, `rgba(240,249,255,${0.95 * fadeP * alphaScale})`);
+      dg.addColorStop(0.45, `rgba(56,189,248,${0.84 * fadeP * alphaScale})`);
+      dg.addColorStop(0.85, `rgba(37,99,235,${0.50 * fadeP * alphaScale})`);
     } else {
-      dg.addColorStop(0, `rgba(255,248,200,${0.92 * fade * alphaScale})`);
-      dg.addColorStop(0.45, `rgba(249,115,22,${0.78 * fade * alphaScale})`);
-      dg.addColorStop(0.85, `rgba(220,38,38,${0.48 * fade * alphaScale})`);
+      dg.addColorStop(0, `rgba(255,248,200,${0.95 * fadeP * alphaScale})`);
+      dg.addColorStop(0.45, `rgba(249,115,22,${0.84 * fadeP * alphaScale})`);
+      dg.addColorStop(0.85, `rgba(220,38,38,${0.54 * fadeP * alphaScale})`);
     }
     dg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = dg;
@@ -775,72 +796,121 @@ function drawFirePillarInstance(
     ctx.restore();
   }
 
-  // 3) Erupting hand-painted heavy-detail flame pillar (`F9..F12`) → DETACHES & ROCKETS SKYWARD (`F13..F15`)!
-  if (phase >= 0.46) {
-    const ep = (phase - 0.46) / 0.54; // 0..1 from base rise -> top launch!
-    const riseGrow = clamp01(ep / 0.22);
-    const curH = maxH * (0.28 + 0.72 * Math.sin(riseGrow * Math.PI * 0.5));
-    // Launch straight off the floor skyward past `y=0` during second half (`exact DOS F13–F15 feel!`)
-    const liftT = ep > 0.48 ? Math.pow((ep - 0.48) / 0.52, 1.45) : 0;
-    const baseLiftY = gy - liftT * (gy + maxH * 0.65);
-    const fadeOut = ep < 0.08 ? ep / 0.08 : ep > 0.76 ? clamp01((1 - ep) / 0.24) : 1;
-    const pulseW = width * (1 + Math.sin(localF * 2.8) * 0.08) * (1 - liftT * 0.22);
+  // 3) F09..F15: Authentic DOS bottom-up EMERGENCE -> SUSTAIN -> ROCKETING SKYWARD OFF TOP EDGE!
+  const eruptStart = 7.6;
+  if (localF >= eruptStart) {
+    // Rise straight OUT of the ground plane `gy` (zero squashing distortion!)
+    const surgeT = clamp01((localF - eruptStart) / (isFullSky ? 2.1 : 1.7));
+    const liftStart = isFullSky ? 12.0 : 12.15;
+    const liftT = localF > liftStart ? clamp01((localF - liftStart) / (totalF - liftStart)) : 0;
 
-    if (img && img.naturalWidth > 0) {
-      const topY = baseLiftY - curH;
+    // Exact height of the flame body when fully emerged (`sp_018`: compact blazing plume; `sp_019`: sky-high column!)
+    const fullColH = isFullSky ? Math.max(maxH, gy + 120 * sc) : maxH;
+    // As pillar emerges (`surgeT: 0 -> 1`), it physically slides UP from beneath floor `gy` (`clipped strictly above `gy`!`).
+    const riseOff = (1 - Math.sin(surgeT * Math.PI * 0.5)) * fullColH * 0.86;
+    // As pillar exits (`liftT: 0 -> 1`), its bottom base DETACHES off floor `gy` and accelerates straight ABOVE `y = 0`!
+    const flyEase = liftT > 0 ? Math.pow(liftT, 1.18) : 0;
+    const bottomY = gy + riseOff - flyEase * (gy + (isFullSky ? 110 : 80) * sc);
+    const topY = bottomY - fullColH;
+    const pulseW = width * (1 + Math.sin(localF * 3.1) * 0.065) * (1 - flyEase * 0.14);
+    // Keep blazing bright alpha all the way while flying upward off screen! Only gentle soft alpha entry & sky exit!
+    const fadeAlpha =
+      localF < eruptStart + 0.55
+        ? (localF - eruptStart) / 0.55
+        : liftT > 0.82
+          ? clamp01((1 - liftT) / 0.18)
+          : 1;
+
+    if (bottomY > -40 * sc && fadeAlpha > 0.01) {
       ctx.save();
-      ctx.globalAlpha = clamp01(fadeOut * alphaScale * 0.96);
-      ctx.translate(x, topY + curH * 0.5);
-      if (flipX) ctx.scale(-1, 1);
-      // Warm soft under-glow right behind the pillar
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      const glowR = Math.max(pulseW * 0.85, curH * 0.28);
-      const bgG = ctx.createRadialGradient(0, 0, pulseW * 0.05, 0, 0, glowR);
-      bgG.addColorStop(0, isBlue ? `rgba(186,230,253,${0.48 * fadeOut})` : `rgba(254,215,102,${0.48 * fadeOut})`);
-      bgG.addColorStop(0.55, isBlue ? `rgba(37,99,235,${0.26 * fadeOut})` : `rgba(220,38,38,${0.28 * fadeOut})`);
-      bgG.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = bgG;
+      // Hard floor horizon clip so emerging column literally erupts *out of* the magma puddle at `gy`!
       ctx.beginPath();
-      ctx.ellipse(0, 0, pulseW * 0.88, curH * 0.54, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      ctx.rect(x - pulseW * 1.6, -260 * sc, pulseW * 3.2, gy + 275 * sc);
+      ctx.clip();
 
-      // Primary richly painted spiral dragonfire column (`source-over` preserves crimson/indigo curls!)
-      ctx.drawImage(img, -pulseW * 0.5, -curH * 0.5, pulseW, curH);
-      // Luminous subtle additive core overlay for dynamic shimmering flare
-      ctx.globalCompositeOperation = 'screen';
-      ctx.globalAlpha = clamp01(fadeOut * alphaScale * 0.42);
-      ctx.drawImage(img, -pulseW * 0.48, -curH * 0.52, pulseW * 0.96, curH * 1.04);
-      ctx.restore();
-    } else {
-      drawOrganicFlamePillar(
-        ctx,
-        x,
-        baseLiftY,
-        curH,
-        pulseW * 0.4,
-        localF * 0.08,
-        isBlue
-          ? { outer: 'rgba(37,99,235,0.52)', mid: 'rgba(56,189,248,0.78)', core: 'rgba(224,242,254,0.92)', hot: 'rgba(255,255,255,0.98)' }
-          : { outer: 'rgba(220,38,38,0.52)', mid: 'rgba(249,115,22,0.78)', core: 'rgba(254,215,102,0.9)', hot: 'rgba(255,252,235,0.96)' },
-        fadeOut * alphaScale
-      );
-    }
+      if (img && img.naturalWidth > 0) {
+        const midY = topY + fullColH * 0.5;
+        // Soft fiery atmospheric glow climbing right alongside the flying column
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const glowTop = Math.max(-200 * sc, midY);
+        const glowR = Math.max(pulseW * 0.9, fullColH * 0.30);
+        const bgG = ctx.createRadialGradient(x, glowTop, pulseW * 0.05, x, glowTop, glowR);
+        bgG.addColorStop(0, isBlue ? `rgba(186,230,253,${0.48 * fadeAlpha * alphaScale})` : `rgba(254,215,102,${0.48 * fadeAlpha * alphaScale})`);
+        bgG.addColorStop(0.55, isBlue ? `rgba(37,99,235,${0.25 * fadeAlpha * alphaScale})` : `rgba(220,38,38,${0.28 * fadeAlpha * alphaScale})`);
+        bgG.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = bgG;
+        ctx.beginPath();
+        ctx.ellipse(x, glowTop, pulseW * 0.92, fullColH * 0.54, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
 
-    // Spark embers bursting off the climbing bottom tail during liftoff (`F13..F15`)
-    if (liftT > 0.02 && liftT < 0.92) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'screen';
-      ctx.fillStyle = isBlue ? `rgba(224,242,254,${0.85 * fadeOut})` : `rgba(254,240,138,${0.85 * fadeOut})`;
-      for (let s = 0; s < 5; s++) {
-        const sx = x + Math.sin(s * 5.7 + localF * 2.1) * pulseW * 0.36;
-        const sy = baseLiftY + s * 22 * sc + (liftT * 90 * sc);
-        if (sy <= gy + 12 * sc) {
+        ctx.save();
+        ctx.translate(x, midY);
+        if (flipX) ctx.scale(-1, 1);
+        // Subtle vertical rising turbulence wave while firing so edges dance actively upward!
+        const jitterY = Math.sin(localF * 6.0) * 10 * sc;
+        ctx.globalAlpha = clamp01(fadeAlpha * alphaScale * 0.98);
+        ctx.drawImage(img, -pulseW * 0.5, -fullColH * 0.5 + jitterY, pulseW, fullColH);
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = clamp01(fadeAlpha * alphaScale * 0.44);
+        ctx.drawImage(img, -pulseW * 0.47, -fullColH * 0.52 - jitterY * 0.8, pulseW * 0.94, fullColH * 1.04);
+        ctx.restore();
+
+        // Crisp glowing jagged white-hot tail teeth under the lifting column base (matching `dos_sp_18 F13..F15`!)
+        if (liftT > 0.02 && bottomY < gy) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          const tailH = 120 * sc * (1 - liftT * 0.35);
+          const tg = ctx.createLinearGradient(x, bottomY - 30 * sc, x, bottomY + tailH);
+          tg.addColorStop(0, isBlue ? `rgba(224,242,254,${0.86 * fadeAlpha})` : `rgba(255,250,210,${0.88 * fadeAlpha})`);
+          tg.addColorStop(0.42, isBlue ? `rgba(56,189,248,${0.62 * fadeAlpha})` : `rgba(249,115,22,${0.62 * fadeAlpha})`);
+          tg.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = tg;
           ctx.beginPath();
-          ctx.ellipse(sx, sy, 2.8 * sc, 7.5 * sc, 0, 0, Math.PI * 2);
+          const hw = pulseW * 0.42;
+          ctx.moveTo(x - hw, bottomY - 12 * sc);
+          ctx.lineTo(x - hw * 0.65, bottomY + tailH * 0.72);
+          ctx.lineTo(x - hw * 0.25, bottomY + tailH * 0.22);
+          ctx.lineTo(x, bottomY + tailH);
+          ctx.lineTo(x + hw * 0.28, bottomY + tailH * 0.28);
+          ctx.lineTo(x + hw * 0.68, bottomY + tailH * 0.78);
+          ctx.lineTo(x + hw, bottomY - 12 * sc);
+          ctx.closePath();
           ctx.fill();
+          ctx.restore();
         }
+      } else {
+        drawOrganicFlamePillar(
+          ctx,
+          x,
+          bottomY,
+          fullColH,
+          pulseW * 0.4,
+          localF * 0.08,
+          isBlue
+            ? { outer: 'rgba(37,99,235,0.52)', mid: 'rgba(56,189,248,0.78)', core: 'rgba(224,242,254,0.92)', hot: 'rgba(255,255,255,0.98)' }
+            : { outer: 'rgba(220,38,38,0.52)', mid: 'rgba(249,115,22,0.78)', core: 'rgba(254,215,102,0.9)', hot: 'rgba(255,252,235,0.96)' },
+          fadeAlpha * alphaScale
+        );
+      }
+
+      // Trailing falling/lingering glowing embers peeling beneath the rising base (`F13..F15`!)
+      if (liftT > 0.02 && bottomY < gy + 20 * sc) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        for (let s = 0; s < 9; s++) {
+          const sx = x + Math.sin(s * 4.9 + localF * 1.9) * pulseW * 0.44;
+          const sy = bottomY + (8 + s * 28 + Math.sin(s * 7.3) * 16) * sc;
+          if (sy <= gy + 8 * sc && sy >= -30 * sc) {
+            const sa = clamp01((1 - s / 9) * fadeAlpha * 0.92);
+            ctx.fillStyle = isBlue ? `rgba(224,242,254,${sa})` : `rgba(254,240,138,${sa})`;
+            ctx.beginPath();
+            ctx.ellipse(sx, sy, (2.6 + (s % 2) * 1.5) * sc, (7.5 + (s % 3) * 3.5) * sc, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
       }
       ctx.restore();
     }
@@ -1712,70 +1782,86 @@ export function drawHdSpellEffect(
         }
       } else {
         // DIAGONAL ORBITAL SKY-BEAM (`base === 11`: BLUE plasma, `base === 22`: GOLD solar fire!)
+        // Authentic `dos_sp_39 F11..F21` track:
+        //   - Entry (`F11..F12`): tip shoots DIAGONALLY ↙ from upper-right edge straight INTO impact point `(ix, iy)`.
+        //   - Sustain (`F12..F18`): full towering sky-to-earth orbital laser blasting the crater!
+        //   - Exit (`F19..F21`): stays PLANTED at `(ix, iy)` while TOP-RIGHT TAIL drains straight down-left INTO ground!
         const isBlue = base === 11;
         const beamImg = isBlue ? imgs.solarBeamBlue : imgs.solarBeamGold;
         const bw = 920 * sc;
         const bh = beamImg && beamImg.naturalWidth > 0 ? (bw * beamImg.naturalHeight) / beamImg.naturalWidth : 700 * sc;
-        // Slide-in (`0..1.4`), roar full blast (`1.4..7.2`), downward shear dissolution (`7.2..11.0`)!
-        const entryT = clamp01(localF / 1.4);
-        const exitT = localF > 7.0 ? clamp01((localF - 7.0) / 4.0) : 0;
-        const alpha = localF < 0.8 ? localF / 0.8 : exitT > 0 ? Math.pow(1 - exitT, 0.75) : 1;
-        const pulse = 1 + Math.sin(localF * 5.2 + k) * 0.06;
+        const entryT = clamp01(localF / 1.5);
+        const exitT = localF > 6.8 ? clamp01((localF - 6.8) / 4.2) : 0;
+        const alpha = localF < 0.5 ? localF / 0.5 : exitT > 0.78 ? clamp01((1 - exitT) / 0.22) : 1;
+        const pulse = 1 + Math.sin(localF * 5.2 + k) * 0.045;
 
         ctx.save();
         // Anchor lower-left tip cleanly right onto `(ix, iy)` (mirror around `ix` when striking hero right side!)
         ctx.translate(ix, iy);
         if (targetIsHeroSide) ctx.scale(-1, 1);
 
-        // Clip progress along the diagonal direction (entering down-left on `entryT`, shrinking down-left on `exitT`!)
         const tipStartX = -bw * 0.05;
         const tipStartY = -bh + bh * 0.05;
-        const slideDown = exitT * bw * 0.45;
-        ctx.save();
-        if (entryT < 1) {
-          const rMax = Math.hypot(bw, bh) * 1.15;
-          ctx.beginPath();
-          ctx.arc(bw * 0.92, -bh * 0.92, rMax * entryT, 0, Math.PI * 2);
-          ctx.clip();
-        }
-        if (beamImg && beamImg.naturalWidth > 0) {
-          ctx.globalAlpha = clamp01(alpha * 0.96);
-          ctx.drawImage(
-            beamImg,
-            tipStartX - slideDown * 0.55,
-            tipStartY + slideDown * 0.42,
-            bw * pulse,
-            bh * pulse
-          );
-          ctx.globalCompositeOperation = 'screen';
-          ctx.globalAlpha = clamp01(alpha * 0.56);
-          ctx.drawImage(
-            beamImg,
-            tipStartX - slideDown * 0.55 - 12 * sc,
-            tipStartY + slideDown * 0.42 + 8 * sc,
-            bw * pulse,
-            bh * pulse
-          );
-        } else {
-          ctx.globalCompositeOperation = 'screen';
-          ctx.strokeStyle = isBlue ? `rgba(96,165,250,${0.9 * alpha})` : `rgba(251,146,60,${0.9 * alpha})`;
-          ctx.lineWidth = 72 * sc;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(bw * 0.9, -bh * 0.9);
-          ctx.lineTo(0, 0);
-          ctx.stroke();
-        }
-        ctx.restore();
+        const beamSpan = Math.hypot(bw, bh);
+        const angRad = Math.atan2(-bh, bw); // direction pointing UP-RIGHT along the beam shaft
 
-        // Blazing starburst flare right at the diagonal impact tip!
+        // Directional progress clip in rotated beam-frame (`s = 0` at ground tip `(0,0)`, `s = beamSpan` at sky top-right!)
+        const startS = (1 - entryT) * beamSpan; // shoots down from `beamSpan` -> `0`!
+        const endS = (1 - Math.pow(exitT, 1.15)) * beamSpan; // exit drains from top-right (`beamSpan`) down INTO `0`!
+        if (endS > startS + 4) {
+          ctx.save();
+          ctx.save();
+          ctx.rotate(angRad);
+          ctx.beginPath();
+          ctx.rect(startS - 90 * sc, -360 * sc, endS - startS + 180 * sc, 720 * sc);
+          ctx.restore();
+          ctx.clip();
+
+          if (beamImg && beamImg.naturalWidth > 0) {
+            ctx.globalAlpha = clamp01(alpha * 0.96);
+            ctx.drawImage(beamImg, tipStartX, tipStartY, bw * pulse, bh * pulse);
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = clamp01(alpha * 0.56);
+            ctx.drawImage(beamImg, tipStartX - 10 * sc, tipStartY + 8 * sc, bw * pulse, bh * pulse);
+          } else {
+            ctx.globalCompositeOperation = 'screen';
+            ctx.strokeStyle = isBlue ? `rgba(96,165,250,${0.9 * alpha})` : `rgba(251,146,60,${0.9 * alpha})`;
+            ctx.lineWidth = 72 * sc;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(bw * 0.9, -bh * 0.9);
+            ctx.lineTo(0, 0);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Luminous leading cap softening the descending top-right tail during `exitT` retraction!
+        if (exitT > 0.02 && exitT < 0.95) {
+          const capX = Math.cos(angRad) * endS;
+          const capY = Math.sin(angRad) * endS;
+          ctx.save();
+          ctx.globalCompositeOperation = 'screen';
+          const cg = ctx.createRadialGradient(capX, capY, 6 * sc, capX, capY, 120 * sc);
+          cg.addColorStop(0, `rgba(255,255,255,${0.9 * alpha})`);
+          cg.addColorStop(0.5, isBlue ? `rgba(96,165,250,${0.55 * alpha})` : `rgba(251,146,60,${0.55 * alpha})`);
+          cg.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = cg;
+          ctx.beginPath();
+          ctx.arc(capX, capY, 120 * sc, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // Blazing starburst flare right at the diagonal impact crater tip!
         if (entryT > 0.65) {
           ctx.globalCompositeOperation = 'screen';
+          const crFade = exitT > 0.65 ? clamp01((1 - exitT) / 0.35) : alpha;
           drawTaperedStarburst(
             ctx,
             0,
             0,
-            (180 + Math.sin(localF * 6) * 28) * sc * alpha,
+            (185 + Math.sin(localF * 6) * 28) * sc * crFade,
             10,
             localF * 0.8,
             isBlue ? 'rgba(96,165,250,0.92)' : 'rgba(251,146,60,0.92)',
@@ -1814,61 +1900,80 @@ export function drawHdSpellEffect(
       const gy = groundY - 6 * sc + (k % 2 === 0 ? -12 : 8) * sc;
       const flip = k % 2 === 1;
 
-      if (localF < 3.4) {
-        // Descending strike `F0..F2`: jagged bolt shoots down from `y=0` straight into ground!
-        const dropFrac = clamp01(localF / 1.75);
-        const fade = localF > 2.3 ? clamp01((3.4 - localF) / 1.1) : 1;
+      if (localF < 3.6) {
+        // Descending strike `F0..F2`: jagged bolt shoots TOP->BOTTOM straight into ground;
+        // `F3` (`localF 1.9..3.6`): upper shaft PEELS DOWN TOP->BOTTOM right into the erupting impact flare!
+        const dropFrac = clamp01(localF / 1.55);
+        const peelFrac = localF > 1.85 ? clamp01((localF - 1.85) / 1.75) : 0;
+        const clipTopY = Math.pow(peelFrac, 1.25) * (gy - 20 * sc);
+        const clipBotY = Math.max(12, (gy + 42 * sc) * dropFrac);
+        const fade = localF > 3.1 ? clamp01((3.6 - localF) / 0.5) : 1;
         const bH = gy + 30 * sc;
         const bW = bImg && bImg.naturalWidth > 0 ? Math.max(220 * sc, (bH * bImg.naturalWidth) / bImg.naturalHeight * 0.85) : 260 * sc;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, 0, W, Math.max(10, (gy + 40 * sc) * dropFrac));
-        ctx.clip();
-        if (bImg && bImg.naturalWidth > 0) {
-          ctx.translate(bx, gy * 0.5);
-          if (flip) ctx.scale(-1, 1);
-          ctx.globalAlpha = clamp01(fade * 0.96);
-          ctx.drawImage(bImg, -bW * 0.5, -bH * 0.5, bW, bH);
-          ctx.globalCompositeOperation = 'screen';
-          ctx.globalAlpha = clamp01(fade * 0.65);
-          ctx.drawImage(bImg, -bW * 0.52, -bH * 0.5, bW * 1.04, bH);
-        } else {
-          ctx.globalCompositeOperation = 'screen';
-          drawLightningBolt(ctx, bx, -20 * sc, bx, gy, 24 * sc, 54 * sc, 12, k * 37, 'rgba(139,92,246,0.88)', 'rgba(216,180,254,0.95)', '#ffffff', 2);
+        if (clipBotY > clipTopY + 4) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, clipTopY, W, clipBotY - clipTopY);
+          ctx.clip();
+          if (bImg && bImg.naturalWidth > 0) {
+            ctx.translate(bx, gy * 0.5);
+            if (flip) ctx.scale(-1, 1);
+            ctx.globalAlpha = clamp01(fade * 0.98);
+            ctx.drawImage(bImg, -bW * 0.5, -bH * 0.5, bW, bH);
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = clamp01(fade * 0.68);
+            ctx.drawImage(bImg, -bW * 0.52, -bH * 0.5, bW * 1.04, bH);
+          } else {
+            ctx.globalCompositeOperation = 'screen';
+            drawLightningBolt(ctx, bx, -20 * sc, bx, gy, 24 * sc, 54 * sc, 12, k * 37, 'rgba(139,92,246,0.88)', 'rgba(216,180,254,0.95)', '#ffffff', 2);
+          }
+          ctx.restore();
         }
-        ctx.restore();
-        if (dropFrac >= 0.85) {
+        if (dropFrac >= 0.82 && localF < 3.4) {
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
-          drawTaperedStarburst(ctx, bx, gy - 16 * sc, 108 * sc * fade, 8, k * 0.5, 'rgba(167,139,250,0.92)', '#faf5ff');
+          drawTaperedStarburst(ctx, bx, gy - 16 * sc, 114 * sc * fade, 8, k * 0.5, 'rgba(167,139,250,0.94)', '#faf5ff');
           ctx.restore();
         }
       }
 
-      // Authentic `sp_022 F3..F6` rebound flare crown shooting BACK UP straight out of the top sky!
-      if (localF >= 2.2) {
-        const up = clamp01((localF - 2.2) / 4.8);
-        const ry = gy - up * (gy + 120 * sc);
-        const fade = up < 0.15 ? up / 0.15 : Math.pow(1 - up, 0.7);
-        const rw = (72 - up * 20) * sc;
-        const rh = (175 - up * 55) * sc;
+      // Authentic `sp_022 F3..F6` bright W-shaped plasma rebound crest LIFTING OFF ground `gy` & ROCKETING OFF TOP `y=0`!
+      if (localF >= 2.15) {
+        const up = clamp01((localF - 2.15) / 4.85);
+        // Stay vividly bright right off the floor up to the top border (`y=0`), mirroring `dos_sp_22 F04..F06`!
+        const ry = gy - Math.pow(up, 0.92) * (gy + 190 * sc);
+        const fade = up < 0.14 ? up / 0.14 : up > 0.78 ? clamp01((1 - up) / 0.22) : 1;
+        const rw = (96 - up * 16) * sc;
+        const rh = (210 - up * 40) * sc;
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        const fg = ctx.createLinearGradient(bx, ry - rh, bx, ry + 18 * sc);
-        fg.addColorStop(0, 'rgba(109,40,217,0)');
-        fg.addColorStop(0.32, `rgba(167,139,250,${0.92 * fade})`);
-        fg.addColorStop(0.68, `rgba(245,243,255,${0.98 * fade})`);
+        // Outer violet aura glow halo
+        const og = ctx.createRadialGradient(bx, ry - rh * 0.42, 4 * sc, bx, ry - rh * 0.42, rw * 1.15);
+        og.addColorStop(0, `rgba(196,181,253,${0.62 * fade})`);
+        og.addColorStop(0.55, `rgba(139,92,246,${0.32 * fade})`);
+        og.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = og;
+        ctx.beginPath();
+        ctx.arc(bx, ry - rh * 0.42, rw * 1.15, 0, Math.PI * 2);
+        ctx.fill();
+        const fg = ctx.createLinearGradient(bx, ry - rh, bx, ry + 26 * sc);
+        fg.addColorStop(0, `rgba(139,92,246,${0.25 * fade})`);
+        fg.addColorStop(0.28, `rgba(196,181,253,${0.95 * fade})`);
+        fg.addColorStop(0.62, `rgba(252,248,255,${0.99 * fade})`);
         fg.addColorStop(1, 'rgba(109,40,217,0)');
         ctx.fillStyle = fg;
-        // Three jagged upward W-crown ribbon spikes echoing `sp_022 F4/F5`!
+        // Bold jagged 4-peak `W`-crest ribbon surging skyward (`dos_sp_22 F04..F06`!)
         ctx.beginPath();
-        ctx.moveTo(bx - rw * 0.5, ry + 10 * sc);
-        ctx.lineTo(bx - rw * 0.45, ry - rh * 0.88);
-        ctx.lineTo(bx - rw * 0.18, ry - rh * 0.42);
+        ctx.moveTo(bx - rw * 0.52, ry + 14 * sc);
+        ctx.lineTo(bx - rw * 0.48, ry - rh * 0.92);
+        ctx.lineTo(bx - rw * 0.24, ry - rh * 0.36);
         ctx.lineTo(bx, ry - rh);
-        ctx.lineTo(bx + rw * 0.18, ry - rh * 0.45);
-        ctx.lineTo(bx + rw * 0.45, ry - rh * 0.85);
-        ctx.lineTo(bx + rw * 0.5, ry + 10 * sc);
+        ctx.lineTo(bx + rw * 0.24, ry - rh * 0.38);
+        ctx.lineTo(bx + rw * 0.48, ry - rh * 0.90);
+        ctx.lineTo(bx + rw * 0.52, ry + 14 * sc);
+        ctx.lineTo(bx + rw * 0.28, ry - rh * 0.14);
+        ctx.lineTo(bx, ry - rh * 0.42);
+        ctx.lineTo(bx - rw * 0.28, ry - rh * 0.14);
         ctx.closePath();
         ctx.fill();
         ctx.restore();
@@ -1903,25 +2008,31 @@ export function drawHdSpellEffect(
       const gy = groundY + 6 * sc;
       const mirror = k % 2 === 1; // exact alternation of LEFT (`0..5`) and RIGHT (`6..11`) jagged elbow bolts!
 
-      if (localF < 2.8) {
-        const dropFrac = clamp01(localF / 1.45);
-        const fade = localF > 2.0 ? clamp01((2.8 - localF) / 0.8) : 1;
+      if (localF < 3.1) {
+        // Heavy zig-zag bolt shoots TOP->BOTTOM into `gy`, then upper shaft PEELS DOWN TOP->BOTTOM into the crown burst!
+        const dropFrac = clamp01(localF / 1.35);
+        const peelFrac = localF > 1.75 ? clamp01((localF - 1.75) / 1.35) : 0;
+        const topCutY = Math.pow(peelFrac, 1.15) * (gy - 30 * sc);
+        const botCutY = Math.max(12, (gy + 55 * sc) * dropFrac);
+        const fade = localF > 2.65 ? clamp01((3.1 - localF) / 0.45) : 1;
         const bH = gy + 24 * sc;
         const bW = hImg && hImg.naturalWidth > 0 ? Math.max(300 * sc, (bH * hImg.naturalWidth) / hImg.naturalHeight * 0.92) : 340 * sc;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, 0, W, Math.max(10, (gy + 55 * sc) * dropFrac));
-        ctx.clip();
-        if (hImg && hImg.naturalWidth > 0) {
-          ctx.translate(bx, gy * 0.5);
-          if (mirror) ctx.scale(-1, 1);
-          ctx.globalAlpha = clamp01(fade * 0.98);
-          ctx.drawImage(hImg, -bW * 0.5, -bH * 0.5, bW, bH);
-          ctx.globalCompositeOperation = 'screen';
-          ctx.globalAlpha = clamp01(fade * 0.65);
-          ctx.drawImage(hImg, -bW * 0.52, -bH * 0.5, bW * 1.04, bH);
+        if (botCutY > topCutY + 4) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, topCutY, W, botCutY - topCutY);
+          ctx.clip();
+          if (hImg && hImg.naturalWidth > 0) {
+            ctx.translate(bx, gy * 0.5);
+            if (mirror) ctx.scale(-1, 1);
+            ctx.globalAlpha = clamp01(fade * 0.98);
+            ctx.drawImage(hImg, -bW * 0.5, -bH * 0.5, bW, bH);
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = clamp01(fade * 0.65);
+            ctx.drawImage(hImg, -bW * 0.52, -bH * 0.5, bW * 1.04, bH);
+          }
+          ctx.restore();
         }
-        ctx.restore();
       }
 
       // Colossal wide painted ground shockwave crown splash (`F2..F4` bursting outward & upward!)
@@ -1992,25 +2103,32 @@ export function drawHdSpellEffect(
       const oFade = p < 0.08 ? p / 0.08 : p > 0.48 ? clamp01((0.56 - p) / 0.08) : 1;
       const spinDeg = op * 310;
 
-      // Iconic DOS `sp_032 F0` dramatic charging lightning tether feeding the sphere from sky-corner!
-      if (op < 0.28 && drawFront) {
-        const ta = clamp01(1 - op / 0.28);
-        const startX = targetX - dir * 560 * sc;
-        const startY = -40 * sc;
+      // Iconic DOS `sp_032 F0->F2` dramatic charging lightning tether pulling INWARD from sky-corner INTO the lead sphere!
+      if (op < 0.34 && drawFront) {
+        const tt = op / 0.34;
+        const ta = tt > 0.72 ? clamp01((1 - tt) / 0.28) : 1;
+        const orbX = targetX + Math.cos((spinDeg * Math.PI) / 180) * radX;
+        const orbY = cy + Math.sin((spinDeg * Math.PI) / 180) * radY;
+        const skyX = targetX - dir * 560 * sc;
+        const skyY = -40 * sc;
+        // Shrinks start endpoint from sky corner straight INTO the spinning orb (`dos_sp_32 F0->F1->F2`!)
+        const peel = Math.pow(tt, 1.3);
+        const startX = skyX + (orbX - skyX) * peel;
+        const startY = skyY + (orbY - skyY) * peel;
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         drawLightningBolt(
           ctx,
           startX,
           startY,
-          targetX + Math.cos((spinDeg * Math.PI) / 180) * radX,
-          cy + Math.sin((spinDeg * Math.PI) / 180) * radY,
-          28 * sc * ta,
-          48 * sc,
-          8,
+          orbX,
+          orbY,
+          28 * sc * (1 - peel * 0.5),
+          44 * sc * (1 - peel * 0.6),
+          7,
           Math.floor(p * 30),
-          `rgba(124,58,237,${0.84 * ta})`,
-          `rgba(216,180,254,${0.95 * ta})`,
+          `rgba(124,58,237,${0.88 * ta})`,
+          `rgba(216,180,254,${0.96 * ta})`,
           `rgba(250,245,255,${ta})`,
           1
         );
@@ -2110,95 +2228,148 @@ export function drawHdSpellEffect(
       const gy = groundY + 12 * sc;
       const colH = gy + 125 * sc;
 
-      if (localF < 0.85) {
-        // `F0`: Razor-tapered downward lightning spearhead piercing straight out of the upper sky edge!
-        const tp = localF / 0.85;
-        const tipH = (120 + tp * 310) * sc;
-        const tipW = (32 + tp * 28) * sc;
+      if (localF < 0.95) {
+        // `F0`: Massive violet spearhead shooting straight DOWN from sky edge `y=0` to ground `gy`!
+        const tp = Math.pow(localF / 0.95, 0.72);
+        const tipY = Math.max(80 * sc, tp * (gy + 12 * sc));
+        const tipW = (46 + tp * 140) * sc;
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        drawLightningBolt(ctx, px, -10, px, tipH, 28 * sc, 20 * sc, 5, k * 29, 'rgba(124,58,237,0.85)', 'rgba(216,180,254,0.96)', '#ffffff', 1);
-        const sg = ctx.createLinearGradient(px, 0, px, tipH);
-        sg.addColorStop(0, 'rgba(139,92,246,0.75)');
-        sg.addColorStop(0.7, 'rgba(221,214,254,0.92)');
+        drawLightningBolt(ctx, px, -10, px, tipY, (42 + tp * 30) * sc, 24 * sc, 6, k * 29, 'rgba(124,58,237,0.9)', 'rgba(216,180,254,0.98)', '#ffffff', 1);
+        const sg = ctx.createLinearGradient(px, 0, px, tipY);
+        sg.addColorStop(0, 'rgba(139,92,246,0.88)');
+        sg.addColorStop(0.65, 'rgba(221,214,254,0.95)');
         sg.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = sg;
         ctx.beginPath();
         ctx.moveTo(px - tipW, -8);
         ctx.lineTo(px + tipW, -8);
-        ctx.lineTo(px, tipH + 14 * sc);
+        ctx.lineTo(px, tipY + 18 * sc);
         ctx.closePath();
         ctx.fill();
         ctx.restore();
       } else {
-        // `F1`: Massive thick monolithic violet thunder column → `F2..F4`: pinches thin flanked by twin discharge needles!
-        const dp = (localF - 0.85) / 4.35; // 0..1
-        const fade = dp > 0.65 ? clamp01((1 - dp) / 0.35) : 1;
-        const pinch = Math.max(0.22, 1 - Math.pow(dp, 0.78) * 0.76);
-        const fullW = 560 * sc * pinch;
+        // `F1`: Colossal full-height thick royal-violet thunder column (`localF: 0.95..2.05`),
+        // `F2..F4`: DISAPPEARS FROM TOP TO BOTTOM (`top-down drain straight down into the ground crater `gy`!`)
+        // using a silky feathered vertical gradient mask while narrowing toward a spear!
+        const dp = (localF - 0.95) / 4.25; // 0..1 across strike + peel
+        const peelT = dp > 0.24 ? Math.pow((dp - 0.24) / 0.76, 1.08) : 0; // sweeps `0 -> 1` (sky `y=0` -> floor `gy`!)
+        const topEdgeY = peelT * (gy + 30 * sc);
+        const fade = dp > 0.84 ? clamp01((1 - dp) / 0.16) : 1;
+        const pinch = Math.max(0.26, 1 - Math.pow(dp, 0.88) * 0.72);
+        const fullW = 580 * sc * pinch;
+        const halfM = Math.max(120 * sc, fullW * 0.65);
 
-        // Soft glowing wide violet-white atmospheric pillar core sheath behind the painted spiral column
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        const sheathHalf = fullW * 0.42;
-        const sg = ctx.createLinearGradient(px - sheathHalf, 0, px + sheathHalf, 0);
-        sg.addColorStop(0, 'rgba(109,40,217,0)');
-        sg.addColorStop(0.22, `rgba(124,58,237,${0.56 * fade})`);
-        sg.addColorStop(0.42, `rgba(216,180,254,${0.86 * fade})`);
-        sg.addColorStop(0.5, `rgba(252,248,255,${0.95 * fade})`);
-        sg.addColorStop(0.58, `rgba(216,180,254,${0.86 * fade})`);
-        sg.addColorStop(0.78, `rgba(124,58,237,${0.56 * fade})`);
-        sg.addColorStop(1, 'rgba(109,40,217,0)');
-        ctx.fillStyle = sg;
-        ctx.fillRect(px - sheathHalf, 0, sheathHalf * 2, gy + 10 * sc);
-        ctx.restore();
+        const drawColCore = (tgt: CanvasRenderingContext2D, ox: number) => {
+          // Wide glowing atmospheric core sheath behind the painted spiral bolt column
+          const sheathHalf = fullW * 0.44;
+          tgt.save();
+          tgt.globalCompositeOperation = 'screen';
+          const sg = tgt.createLinearGradient(ox - sheathHalf, 0, ox + sheathHalf, 0);
+          sg.addColorStop(0, 'rgba(109,40,217,0)');
+          sg.addColorStop(0.20, `rgba(124,58,237,${0.62 * fade})`);
+          sg.addColorStop(0.42, `rgba(216,180,254,${0.88 * fade})`);
+          sg.addColorStop(0.5, `rgba(252,248,255,${0.98 * fade})`);
+          sg.addColorStop(0.58, `rgba(216,180,254,${0.88 * fade})`);
+          sg.addColorStop(0.80, `rgba(124,58,237,${0.62 * fade})`);
+          sg.addColorStop(1, 'rgba(109,40,217,0)');
+          tgt.fillStyle = sg;
+          tgt.fillRect(ox - sheathHalf, 0, sheathHalf * 2, gy + 12 * sc);
+          tgt.restore();
 
-        ctx.save();
-        if (pImg && pImg.naturalWidth > 0) {
-          ctx.beginPath();
-          ctx.rect(0, 0, W, gy + 12 * sc);
-          ctx.clip();
-          ctx.translate(px, (gy + 60 * sc) - colH * 0.5);
-          if (k % 2 === 1) ctx.scale(-1, 1);
-          ctx.globalAlpha = clamp01(fade * 0.98);
-          ctx.drawImage(pImg, -fullW * 0.5, -colH * 0.5, fullW, colH);
-          ctx.globalCompositeOperation = 'screen';
-          ctx.globalAlpha = clamp01(fade * 0.68);
-          ctx.drawImage(pImg, -fullW * 0.58, -colH * 0.5, fullW * 1.16, colH);
+          tgt.save();
+          if (pImg && pImg.naturalWidth > 0) {
+            tgt.beginPath();
+            tgt.rect(0, 0, ox * 2, gy + 14 * sc);
+            tgt.clip();
+            tgt.translate(ox, (gy + 60 * sc) - colH * 0.5);
+            if (k % 2 === 1) tgt.scale(-1, 1);
+            tgt.globalAlpha = clamp01(fade * 0.98);
+            tgt.drawImage(pImg, -fullW * 0.5, -colH * 0.5, fullW, colH);
+            tgt.globalCompositeOperation = 'screen';
+            tgt.globalAlpha = clamp01(fade * 0.72);
+            tgt.drawImage(pImg, -fullW * 0.58, -colH * 0.5, fullW * 1.16, colH);
+          } else {
+            tgt.globalCompositeOperation = 'screen';
+            drawLightningBolt(tgt, ox, -20, ox, gy, 115 * sc * pinch, 30 * sc, 10, k * 13, 'rgba(124,58,237,0.88)', 'rgba(216,180,254,0.96)', '#ffffff', 0);
+          }
+          tgt.restore();
+        };
+
+        if (peelT > 0.005) {
+          // Soft feathered TOP-TO-BOTTOM disappearance mask (`destination-in` vertical band sweeps DOWN from `y=0 -> gy`!)
+          const boxW = Math.ceil(halfM * 2);
+          const boxH = Math.ceil(gy + 32 * sc);
+          const mask = acquireMaskCanvas(boxW, boxH);
+          if (mask) {
+            drawColCore(mask.mctx, boxW * 0.5);
+            const feather = 185 * sc;
+            const y0 = Math.max(0, topEdgeY - feather * 0.35);
+            const y1 = y0 + feather;
+            mask.mctx.save();
+            mask.mctx.globalCompositeOperation = 'destination-in';
+            const vg = mask.mctx.createLinearGradient(0, y0, 0, y1);
+            vg.addColorStop(0, 'rgba(255,255,255,0)');
+            vg.addColorStop(0.55, 'rgba(255,255,255,0.68)');
+            vg.addColorStop(1, 'rgba(255,255,255,1)');
+            mask.mctx.fillStyle = vg;
+            mask.mctx.fillRect(0, 0, boxW, boxH);
+            mask.mctx.restore();
+            ctx.drawImage(mask.canvas, 0, 0, boxW, boxH, px - boxW * 0.5, 0, boxW, boxH);
+
+            // Bright trailing ionization flare & falling spark tail tracking the top falling cutoff (`y = topEdgeY`)!
+            if (topEdgeY > 10 * sc && topEdgeY < gy - 12 * sc) {
+              ctx.save();
+              ctx.globalCompositeOperation = 'screen';
+              const tg = ctx.createRadialGradient(px, topEdgeY + 28 * sc, 4 * sc, px, topEdgeY + 28 * sc, fullW * 0.45);
+              tg.addColorStop(0, `rgba(252,248,255,${0.86 * fade})`);
+              tg.addColorStop(0.45, `rgba(196,181,253,${0.48 * fade})`);
+              tg.addColorStop(1, 'rgba(109,40,217,0)');
+              ctx.fillStyle = tg;
+              ctx.beginPath();
+              ctx.ellipse(px, topEdgeY + 28 * sc, fullW * 0.36, 95 * sc, 0, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.restore();
+            }
+          }
         } else {
-          ctx.globalCompositeOperation = 'screen';
-          drawLightningBolt(ctx, px, -20, px, gy, 110 * sc * pinch, 30 * sc, 10, k * 13, 'rgba(124,58,237,0.85)', 'rgba(216,180,254,0.95)', '#ffffff', 0);
+          // Full solid column (`F1` impact beat — straight fast blit with zero offscreen overhead!)
+          ctx.save();
+          ctx.translate(px - halfM, 0);
+          drawColCore(ctx, halfM);
+          ctx.restore();
         }
-        ctx.restore();
 
         // Twin flanking ground spark spikes left & right matching `sp_037 F2/F3`!
-        if (dp > 0.16 && dp < 0.88) {
-          const sa = Math.sin(((dp - 0.16) / 0.72) * Math.PI);
-          const off = (112 + dp * 46) * sc;
+        if (dp > 0.14 && dp < 0.92) {
+          const sa = Math.sin(((dp - 0.14) / 0.78) * Math.PI);
+          const off = (122 + dp * 42) * sc;
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
           for (const side of [-1, 1]) {
             drawLightningBolt(
               ctx,
               px + side * off,
-              gy - 210 * sc * sa,
-              px + side * (off * 0.84),
+              gy - 220 * sc * sa,
+              px + side * (off * 0.86),
               gy - 4 * sc,
               18 * sc * sa,
               16 * sc,
               4,
               k * 17 + side * 9,
-              `rgba(139,92,246,${0.86 * sa})`,
-              `rgba(221,214,254,${0.95 * sa})`,
+              `rgba(139,92,246,${0.88 * sa})`,
+              `rgba(221,214,254,${0.96 * sa})`,
               '#faf5ff'
             );
           }
           ctx.restore();
         }
-        if (dp < 0.52) {
+        // Bright impact shock dome pulsing at ground floor (`glows even as the upper pillar drains down into it!`)
+        if (dp < 0.85) {
+          const gFade = dp < 0.25 ? 1 : clamp01(1 - (dp - 0.25) / 0.60);
           ctx.save();
           ctx.globalCompositeOperation = 'screen';
-          drawTaperedStarburst(ctx, px, gy - 26 * sc, 280 * sc * (1 - dp / 0.52), 10, k * 0.6, 'rgba(167,139,250,0.92)', '#faf5ff');
+          drawTaperedStarburst(ctx, px, gy - 24 * sc, 290 * sc * gFade, 10, k * 0.6, 'rgba(167,139,250,0.92)', '#faf5ff');
           ctx.restore();
         }
       }
@@ -2236,27 +2407,30 @@ export function drawHdSpellEffect(
       const sx = ex + g.sx * sc * dir;
       const sy = ey + g.sy * sc;
 
-      if (lf < 2.1) {
-        // Tapered blinding white-sapphire wedge beam slashing rapidly straight to the target!
-        const sp = clamp01(lf / 1.9);
+      if (lf < 2.2) {
+        // Tapered blinding white-sapphire lance shoots straight to impact, then trailing tail chases INTO orb (`sp_028 F0..F2`)!
+        const sp = clamp01(lf / 1.35);
+        const tailP = lf > 1.05 ? clamp01((lf - 1.05) / 1.15) : 0;
         const headX = sx + (ex - sx) * sp;
         const headY = sy + (ey - sy) * sp;
+        const tailX = sx + (ex - sx) * (tailP * 0.94);
+        const tailY = sy + (ey - sy) * (tailP * 0.94);
         const ang = Math.atan2(ey - sy, ex - sx);
-        const len = Math.max(40 * sc, Math.hypot(headX - sx, headY - sy));
+        const len = Math.max(24 * sc, Math.hypot(headX - tailX, headY - tailY));
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         ctx.translate(headX, headY);
         ctx.rotate(ang);
-        const wedge = ctx.createLinearGradient(-len, 0, 10 * sc, 0);
+        const wedge = ctx.createLinearGradient(-len, 0, 12 * sc, 0);
         wedge.addColorStop(0, 'rgba(96,165,250,0)');
-        wedge.addColorStop(0.45, 'rgba(186,230,253,0.9)');
+        wedge.addColorStop(0.45, 'rgba(186,230,253,0.92)');
         wedge.addColorStop(1, '#ffffff');
         ctx.fillStyle = wedge;
         ctx.beginPath();
         ctx.moveTo(0, -14 * sc);
         ctx.arc(0, 0, 14 * sc, -Math.PI * 0.5, Math.PI * 0.5);
-        ctx.lineTo(-len, 42 * sc);
-        ctx.lineTo(-len, -42 * sc);
+        ctx.lineTo(-len, 44 * sc * (1 - tailP * 0.55));
+        ctx.lineTo(-len, -44 * sc * (1 - tailP * 0.55));
         ctx.closePath();
         ctx.fill();
         ctx.restore();
