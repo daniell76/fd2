@@ -31,7 +31,7 @@
       "dir": "assets/vfx_lab/units/u_001",
       "overallPass": true,
       "heightCm": 184,
-      "displayScale": 0.96
+      "displayScale": 1.1294
     },
     {
       "uid": 2,
@@ -46,7 +46,7 @@
       "dir": "assets/vfx_lab/units/u_002",
       "overallPass": true,
       "heightCm": 185,
-      "displayScale": 0.95
+      "displayScale": 1.0338
     },
     {
       "uid": 3,
@@ -61,7 +61,7 @@
       "dir": "assets/vfx_lab/units/u_003",
       "overallPass": true,
       "heightCm": 182,
-      "displayScale": 0.93
+      "displayScale": 1.0941
     },
     {
       "uid": 4,
@@ -91,7 +91,7 @@
       "dir": "assets/vfx_lab/units/u_005",
       "overallPass": true,
       "heightCm": 171,
-      "displayScale": 0.92
+      "displayScale": 1.0553
     },
     {
       "uid": 6,
@@ -715,7 +715,7 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 176,
-      "displayScale": 0.93,
+      "displayScale": 1.0269,
       "omniFrameCount": 14,
       "hitFrames": [
         {
@@ -860,7 +860,7 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 188,
-      "displayScale": 1.52,
+      "displayScale": 1.7137,
       "mountHeightCm": 248
     },
     {
@@ -1434,11 +1434,11 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 182,
-      "displayScale": 1.0,
+      "displayScale": 1.2083,
       "stationaryBeam": {
         "originAnchor": {
-          "x": 0.415,
-          "y": 0.556
+          "x": 0.47,
+          "y": 0.52
         },
         "color": "gold",
         "thickness": 116
