@@ -295,7 +295,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=96';
+const VFX_ASSET_VERSION = '?v=97';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -1186,8 +1186,12 @@ export class Modern25DCombatRenderer {
     //  - Enemy Bandit (#96): Top-Left (x = 0.25W, y = 0.67H), facing Down-Right (↘)
     //  - Hero Thor (#0): Bottom-Right (x = 0.72W, y = 0.90H on TAI), facing Up-Left (↖)
     // -------------------------------------------------------------------------
-    const banditHomeX = W * 0.25;
-    const banditHomeY = H * 0.67;
+    const isLeftColossalDragon =
+      this.vfxAssets.leftUnit.uid === 104 ||
+      this.vfxAssets.leftUnit.uid === 105 ||
+      this.vfxAssets.leftUnit.uid === 127;
+    const banditHomeX = isLeftColossalDragon ? W * 0.28 : W * 0.25;
+    const banditHomeY = isLeftColossalDragon ? H * 0.83 : H * 0.67;
     const thorHomeX = W * 0.71;
     const thorHomeY = H * 0.91;
 

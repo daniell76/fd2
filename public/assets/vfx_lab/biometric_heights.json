@@ -3145,7 +3145,7 @@
         110
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 0.945,
+      "calibratedDisplayScale": 0.947,
       "appearanceNotes": "Scarred goggled navy-crimson bandit boss in wide crouch",
       "canvas": 960
     },
@@ -3384,9 +3384,10 @@
         175,
         164
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "COLOSSAL crimson ancient dragon head & neck entering from left edge!"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.24,
+      "appearanceNotes": "COLOSSAL crimson ancient dragon head & neck entering from left edge!",
+      "canvas": 1120
     },
     {
       "uid": 105,
@@ -3418,9 +3419,10 @@
         175,
         164
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "COLOSSAL sapphire-blue ancient dragon head & neck entering from left edge!"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.24,
+      "appearanceNotes": "COLOSSAL sapphire-blue ancient dragon head & neck entering from left edge!",
+      "canvas": 1120
     },
     {
       "uid": 106,
@@ -4002,9 +4004,10 @@
         144,
         150
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Colossal hunched stone/earth colossus (元素); glowing red eyes (~269cm hunched height -> 484px!)"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.411,
+      "appearanceNotes": "Colossal hunched stone/earth colossus (元素); glowing red eyes (~269cm hunched height -> 484px!)",
+      "canvas": 1120
     },
     {
       "uid": 123,
@@ -4036,9 +4039,10 @@
         201,
         139
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Ethereal tall pale-white water goddess (元素) with colossal flowing indigo hair & blue lips"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.037,
+      "appearanceNotes": "Ethereal tall pale-white water goddess (元素) with colossal flowing indigo hair & blue lips",
+      "canvas": 960
     },
     {
       "uid": 124,
@@ -4070,9 +4074,10 @@
         135,
         150
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Wild white-maned crouched elderly wind god (元素) with glowing blue eyes & tall spear"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.077,
+      "appearanceNotes": "Wild white-maned crouched elderly wind god (元素) with glowing blue eyes & tall spear",
+      "canvas": 960
     },
     {
       "uid": 125,
@@ -4104,9 +4109,10 @@
         143,
         153
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Towering spiky crimson-haired flame emperor (元素) in grand red-gold robe"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.274,
+      "appearanceNotes": "Towering spiky crimson-haired flame emperor (元素) in grand red-gold robe",
+      "canvas": 960
     },
     {
       "uid": 126,
@@ -4138,9 +4144,10 @@
         188,
         163
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "FINAL BOSS! Colossal black-armored white-haired winged-cape Void Overlord; glowing red eyes"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.396,
+      "appearanceNotes": "FINAL BOSS! Colossal black-armored white-haired winged-cape Void Overlord; glowing red eyes",
+      "canvas": 1120
     },
     {
       "uid": 127,
@@ -4172,9 +4179,10 @@
         175,
         164
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "COLOSSAL dark obsidian ancient dragon head & neck entering from left edge!"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.28,
+      "appearanceNotes": "COLOSSAL dark obsidian ancient dragon head & neck entering from left edge!",
+      "canvas": 1120
     },
     {
       "uid": 133,
