@@ -210,6 +210,8 @@ interface VfxLabAssets {
   banditOmniPoses: HTMLImageElement[];
   thorRangedPoses: HTMLImageElement[];
   thorChantPoses: HTMLImageElement[];
+  banditRangedPoses: HTMLImageElement[];
+  banditChantPoses: HTMLImageElement[];
   thorRangedProj: HTMLImageElement | null;
   thorSheetRaw: HTMLImageElement;
   banditSheetRaw: HTMLImageElement;
@@ -268,6 +270,8 @@ const vfxAssetsCache: VfxLabAssets = {
   banditOmniPoses: [],
   thorRangedPoses: [],
   thorChantPoses: [],
+  banditRangedPoses: [],
+  banditChantPoses: [],
   thorRangedProj: null,
   thorSheetRaw: new Image(),
   banditSheetRaw: new Image(),
@@ -291,7 +295,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=95';
+const VFX_ASSET_VERSION = '?v=96';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -465,14 +469,14 @@ export async function loadUnitSlotIntoVfxAssets(
   const [nb6, omni, rangedPoses, chantPoses, rangedProj, cutIn, cIdle, cAtk] = await Promise.all([
     Promise.all([0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/nb6_${i}.webp${cb}`))),
     Promise.all(omniIndices.map((i) => loadImg(`${entry.dir}/omni_${i}.webp${cb}`))),
-    side === 'player' && entry.rangedSkill
+    entry.rangedSkill
       ? Promise.all(
           Array.from({ length: entry.rangedSkill.frameCount }, (_, i) =>
             loadImg(`${entry.dir}/ranged_${i}.webp${cb}`).catch(() => null)
           )
         ).then((arr) => arr.filter((x): x is HTMLImageElement => Boolean(x)))
       : Promise.resolve([] as HTMLImageElement[]),
-    side === 'player' && entry.hasChantAnim
+    entry.hasChantAnim
       ? Promise.all(
           [0, 1, 2, 3, 4, 5].map((i) => loadImg(`${entry.dir}/chant_${i}.webp${cb}`).catch(() => null))
         ).then((arr) => arr.filter((x): x is HTMLImageElement => Boolean(x)))
@@ -503,6 +507,8 @@ export async function loadUnitSlotIntoVfxAssets(
     target.banditNb6Poses = nb6;
     target.banditPoses = [nb6[0], nb6[2], nb6[3]];
     target.banditOmniPoses = omni;
+    target.banditRangedPoses = rangedPoses;
+    target.banditChantPoses = chantPoses;
     target.classicBanditIdle = cIdle;
     target.classicBanditAtk = cAtk;
   }
@@ -2625,7 +2631,11 @@ export class Modern25DCombatRenderer {
     const activeThorPoses = this.getActivePoseList('thor');
     const banditDispSize = Math.round(545 * leftScale);
     this.renderCombatantWithBlend(ctx, activeBanditPoses, banditSpec, '#ef4444', banditDispSize);
-    if (banditSpec.primaryIdx >= 1 && banditSpec.primaryIdx <= 6) {
+    if (
+      (this.vfxAssets.leftUnit.uid === 96 || this.vfxAssets.leftUnit.uid === 97) &&
+      banditSpec.primaryIdx >= 1 &&
+      banditSpec.primaryIdx <= 6
+    ) {
       this.drawBanditVisorGlint(ctx, banditSpec.x + 24, banditSpec.y - 340, t);
     }
 
