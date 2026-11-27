@@ -295,7 +295,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=98';
+const VFX_ASSET_VERSION = '?v=99';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -1275,6 +1275,13 @@ export class Modern25DCombatRenderer {
       groundY: number;
       phase: 'portal' | 'beam' | 'retract';
       progress: number;
+    } | null = null;
+    let waterHairLanceState: {
+      ox: number;
+      oy: number;
+      tx: number;
+      ty: number;
+      extend: number; // 0 -> 1 -> 0
     } | null = null;
     const thorDrawsInFront = true;
 
@@ -2882,6 +2889,77 @@ export class Modern25DCombatRenderer {
           camX = W * 0.04 * (1 - ease);
           camY = H * 0.025 * (1 - ease);
         }
+      } else if (leftUid === 123) {
+        // #123 Water Demon God (水魔神): 100% STATIONARY AT HOME!
+        // Conducts her living deep-blue hair — two long spiraling hair-lances shoot straight out from her head across the stage to pierce the player, then retract!
+        banditSpec.x = banditHomeX;
+        banditSpec.y = banditHomeY + leftHoverBob;
+        const hairOx = banditHomeX + 42;
+        const hairOy = banditHomeY + leftHoverBob - 205;
+        const hairTx = thorHomeX - 24;
+        const hairTy = thorHomeY - 190;
+        if (localB < 520) {
+          const p = localB / 520;
+          setLeftFrame(p * 3.2, p * 3.0);
+          camZoom = 1.0 + p * 0.08;
+          camX = -p * W * 0.05;
+          this.fireOnce('bandit_windup', () => {
+            this.sound.playSfx('chant');
+            this.spawnImpactSparks(hairOx, hairOy, banditHomeY, 18, ['#ffffff', '#bae6fd', '#38bdf8'], 0.3, -0.5);
+          });
+        } else if (localB < 780) {
+          const p = (localB - 520) / 260;
+          if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
+            cutInProgress = p;
+            cutInUnit = 'bandit';
+          }
+          const ext = Math.pow(p, 1.15);
+          setLeftFrame(3.2 + p * 1.3, 3.0 + p * 1.0);
+          waterHairLanceState = { ox: hairOx, oy: hairOy, tx: hairTx, ty: hairTy, extend: ext };
+          camZoom = 1.08 + p * 0.06;
+          camX = -W * 0.05 + p * W * 0.12;
+          this.fireOnce('bandit_dash', () => {
+            this.sound.playSfx('slash');
+          });
+        } else if (localB < 1420) {
+          const p = (localB - 780) / 640;
+          const ext = p < 0.62 ? 1.0 : Math.max(0, 1.0 - (p - 0.62) / 0.38);
+          setLeftFrame(4.5 + p * 3.5, p < 0.55 ? 4.0 : 5.0);
+          if (ext > 0.02) {
+            waterHairLanceState = { ox: hairOx, oy: hairOy, tx: hairTx, ty: hairTy, extend: ext };
+          }
+          shockwaveProgress = Math.min(1, p * 2.0);
+          shockwaveCenter = { x: hairTx, y: hairTy };
+          shockwaveGroundY = thorHomeY;
+          this.fireOnce('bandit_impact', () => {
+            const isCrit = this.scenario === 'bandit_crit';
+            this.sound.playSfx(isCrit ? 'crit' : 'slash');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 95 : 75;
+            this.spawnImpactSparks(hairTx, hairTy, thorHomeY, isCrit ? 85 : 55, ['#ffffff', '#bae6fd', '#38bdf8', '#2563eb'], 1, 0.35);
+            this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.3, 14);
+            this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
+          });
+          const rec = Math.sin(Math.min(1, p * 2.1) * Math.PI);
+          thorSpec.x = thorHomeX + rec * 46;
+          thorSpec.y = thorHomeY + rightHoverBob + rec * 20;
+          thorSpec.rot = rec * 0.08;
+          thorSpec.flashWhite = Math.max(0, 1 - p * 3.4);
+          impactFlashAlpha = Math.max(0, (1 - p * 4.4) * 0.65);
+          camZoom = 1.14 - p * 0.07;
+          camX = W * 0.07 * (1 - p * 0.5);
+          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 18) : 0;
+        } else {
+          const p = (localB - 1380) / Math.max(1, banditDur - 1380);
+          if (p < 0.45) {
+            banditSpec.primaryIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
+            banditSpec.secondaryIdx = 0;
+            banditSpec.blend = p / 0.45;
+          } else {
+            banditSpec.primaryIdx = 0;
+          }
+          camZoom = 1.07 - p * 0.07;
+          camX = W * 0.035 * (1 - p);
+        }
       } else if (leftUid === 124) {
         // #124 Wind Demon God (風魔神): Authentic DOS Crouch -> SUDDENLY BECOMES WIND & DASHES ACROSS -> REAPPEARS MID-AIR SPINNING SLASH -> HIGH BACK-LEAP HOME!
         const strikeX = thorHomeX - 115;
@@ -3198,6 +3276,19 @@ export class Modern25DCombatRenderer {
       const thorAfterimageColor =
         rightFlyPattern === 'dash_past' || rightFlyPattern === 'soar_plunge' ? '#fde047' : '#38bdf8';
       this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, thorAfterimageColor, thorDispSize);
+    }
+
+    // #123 Water Demon God — Living Deep-Blue Hair-Lances Extending From Her Head Across The Stage!
+    if (waterHairLanceState) {
+      this.drawWaterDemonHairLances(
+        ctx,
+        waterHairLanceState.ox,
+        waterHairLanceState.oy,
+        waterHairLanceState.tx,
+        waterHairLanceState.ty,
+        waterHairLanceState.extend,
+        t
+      );
     }
 
     // #126 Sky Demon God — Authentic Player-Location Orbital Golden Sky-Pillar Beam (DOS f11..f16 fgLayer!)
@@ -5530,6 +5621,87 @@ export class Modern25DCombatRenderer {
       ctx.drawImage(img1, dx, dy, drawSize * spec.scaleX, drawSize * spec.scaleY);
       ctx.restore();
     }
+  }
+
+  private drawWaterDemonHairLances(
+    ctx: CanvasRenderingContext2D,
+    ox: number,
+    oy: number,
+    tx: number,
+    ty: number,
+    extend: number,
+    t: number
+  ): void {
+    const ext = Math.max(0, Math.min(1, extend));
+    if (ext < 0.03) return;
+    ctx.save();
+    // Draw twin spiraling deep sapphire-blue living hair-spears growing continuously from her head toward target!
+    const pairs = [
+      { dy0: -18, dy1: -26, phase: 0 },
+      { dy0: 14, dy1: 24, phase: 2.1 },
+    ];
+    for (const pr of pairs) {
+      const sx = ox;
+      const sy = oy + pr.dy0;
+      const ex = sx + (tx - sx) * ext;
+      const ey = sy + (ty + pr.dy1 - sy) * ext;
+      const dx = ex - sx;
+      const dy = ey - sy;
+      const len = Math.hypot(dx, dy);
+      if (len < 12) continue;
+      const nx = -dy / len;
+      const ny = dx / len;
+      const steps = 28;
+
+      // Scale wave frequency smoothly by physical length so hair stays sleek & silky at every extension length!
+      const waveCycles = Math.max(1.0, len / 185) * Math.PI * 2;
+      const topPts: Array<[number, number]> = [];
+      const botPts: Array<[number, number]> = [];
+      for (let i = 0; i <= steps; i++) {
+        const u = i / steps;
+        const bx = sx + dx * u;
+        const by = sy + dy * u;
+        const wave = Math.sin(u * waveCycles - t * 0.014 + pr.phase) * Math.min(11, len * 0.035) * (1 - u * 0.65);
+        const halfW = (17 * (1 - u * 0.86) + 2) * (0.78 + 0.22 * Math.sin(u * waveCycles * 1.5));
+        topPts.push([bx + nx * (wave + halfW), by + ny * (wave + halfW)]);
+        botPts.push([bx + nx * (wave - halfW), by + ny * (wave - halfW)]);
+      }
+
+      const grad = ctx.createLinearGradient(sx, sy, ex, ey);
+      grad.addColorStop(0, '#0f1c4d');
+      grad.addColorStop(0.42, '#1d4ed8');
+      grad.addColorStop(0.82, '#2563eb');
+      grad.addColorStop(1, '#bae6fd');
+
+      ctx.beginPath();
+      ctx.moveTo(topPts[0][0], topPts[0][1]);
+      for (let i = 1; i <= steps; i++) ctx.lineTo(topPts[i][0], topPts[i][1]);
+      ctx.lineTo(ex + (dx / len) * 28, ey + (dy / len) * 28); // razor hair-spear tip!
+      for (let i = steps; i >= 0; i--) ctx.lineTo(botPts[i][0], botPts[i][1]);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = '#0a1026';
+      ctx.stroke();
+
+      // Silky sapphire-cyan highlight strand flowing smoothly along the braided blue hair lance
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const u = i / steps;
+        const bx = sx + dx * u;
+        const by = sy + dy * u;
+        const spir = Math.sin(u * waveCycles * 1.4 - t * 0.016 + pr.phase) * (8 * (1 - u * 0.8));
+        const px = bx + nx * spir;
+        const py = by + ny * spir;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.lineWidth = 2.6;
+      ctx.strokeStyle = 'rgba(186, 230, 253, 0.72)';
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   private drawSkyDemonOrbitalPillar(

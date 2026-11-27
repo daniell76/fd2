@@ -1716,7 +1716,7 @@
       "magicNameEn": "Hydro Torrent",
       "overallPass": true,
       "heightCm": 225,
-      "displayScale": 1.207,
+      "displayScale": 0.98,
       "flightPattern": "hover_swoop",
       "hasChantAnim": true
     },
