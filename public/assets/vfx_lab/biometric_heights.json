@@ -3795,7 +3795,7 @@
         149
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.243,
+      "calibratedDisplayScale": 1.24,
       "appearanceNotes": "Elite humanoid commander mech (機械); horizontal slit visor & colored cables",
       "canvas": 960
     },
@@ -3865,7 +3865,7 @@
         150
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.023,
+      "calibratedDisplayScale": 1.019,
       "appearanceNotes": "Enemy Raiden ON FOOT in tan/silver heavy armor & tall lance (matches hero #006 188cm!)",
       "canvas": 960
     },
@@ -3900,7 +3900,7 @@
         134
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.041,
+      "calibratedDisplayScale": 1.043,
       "appearanceNotes": "Dark-red-haired imposing male warlord in tall navy-crimson cloak",
       "canvas": 960
     },
@@ -4005,7 +4005,7 @@
         150
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.411,
+      "calibratedDisplayScale": 1.396,
       "appearanceNotes": "Colossal hunched stone/earth colossus (元素); glowing red eyes (~269cm hunched height -> 484px!)",
       "canvas": 1120
     },
@@ -4040,7 +4040,7 @@
         139
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.037,
+      "calibratedDisplayScale": 1.207,
       "appearanceNotes": "Ethereal tall pale-white water goddess (元素) with colossal flowing indigo hair & blue lips",
       "canvas": 960
     },

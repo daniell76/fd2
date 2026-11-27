@@ -1,7 +1,7 @@
 {
   "totalCombatUnits": 121,
   "generatedCount": 80,
-  "updatedAt": "2026-11-26T20:35:00Z",
+  "updatedAt": "2026-11-26T23:35:00Z",
   "units": [
     {
       "uid": 0,
@@ -1488,14 +1488,10 @@
       "cutinFacing": "right",
       "dir": "assets/vfx_lab/units/u_103",
       "isFlying": false,
-      "hasMagic": true,
+      "hasMagic": false,
       "overallPass": true,
       "heightCm": 170,
-      "displayScale": 0.729,
-      "hasChantAnim": true,
-      "magicElement": "wind",
-      "magicNameZh": "音速刃",
-      "magicNameEn": "Sonic Blade"
+      "displayScale": 0.729
     },
     {
       "uid": 104,
@@ -1508,15 +1504,14 @@
       "cameraOrientation": "down_right",
       "cutinFacing": "right",
       "dir": "assets/vfx_lab/units/u_104",
-      "isFlying": true,
+      "isFlying": false,
       "hasMagic": true,
       "magicElement": "fire",
       "magicNameZh": "火燄術",
       "magicNameEn": "Inferno Breath",
       "overallPass": true,
       "heightCm": 400,
-      "displayScale": 1.24,
-      "flightPattern": "hover_swoop",
+      "displayScale": 1.0,
       "rangedSkill": {
         "nameZh": "火燄術",
         "nameEn": "Dragon Flame Cast",
@@ -1536,15 +1531,14 @@
       "cameraOrientation": "down_right",
       "cutinFacing": "right",
       "dir": "assets/vfx_lab/units/u_105",
-      "isFlying": true,
+      "isFlying": false,
       "hasMagic": true,
       "magicElement": "thunder",
       "magicNameZh": "雷擊術",
       "magicNameEn": "Thunderstorm Cast",
       "overallPass": true,
       "heightCm": 400,
-      "displayScale": 1.24,
-      "flightPattern": "hover_swoop",
+      "displayScale": 1.0,
       "rangedSkill": {
         "nameZh": "雷擊術",
         "nameEn": "Dragon Thunder Cast",
@@ -1568,7 +1562,7 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 232,
-      "displayScale": 1.243
+      "displayScale": 1.24
     },
     {
       "uid": 117,
@@ -1585,7 +1579,34 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 170,
-      "displayScale": 0.919
+      "displayScale": 0.919,
+      "omniFrameCount": 14,
+      "hitFrames": [
+        {
+          "frame": 2,
+          "weight": 0.16,
+          "sfx": "slash",
+          "color": "cyan"
+        },
+        {
+          "frame": 4,
+          "weight": 0.16,
+          "sfx": "slash",
+          "color": "cyan"
+        },
+        {
+          "frame": 6,
+          "weight": 0.16,
+          "sfx": "slash",
+          "color": "cyan"
+        },
+        {
+          "frame": 9,
+          "weight": 0.52,
+          "sfx": "crit",
+          "color": "gold"
+        }
+      ]
     },
     {
       "uid": 118,
@@ -1602,7 +1623,7 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 188,
-      "displayScale": 1.023
+      "displayScale": 1.019
     },
     {
       "uid": 119,
@@ -1619,7 +1640,8 @@
       "hasMagic": false,
       "overallPass": true,
       "heightCm": 190,
-      "displayScale": 1.041
+      "displayScale": 1.043,
+      "omniFrameCount": 14
     },
     {
       "uid": 120,
@@ -1673,7 +1695,7 @@
       "magicNameEn": "Tectonic Quake",
       "overallPass": true,
       "heightCm": 320,
-      "displayScale": 1.411,
+      "displayScale": 1.396,
       "hasChantAnim": true
     },
     {
@@ -1694,7 +1716,7 @@
       "magicNameEn": "Hydro Torrent",
       "overallPass": true,
       "heightCm": 225,
-      "displayScale": 1.037,
+      "displayScale": 1.207,
       "flightPattern": "hover_swoop",
       "hasChantAnim": true
     },
@@ -1765,7 +1787,7 @@
       "cameraOrientation": "down_right",
       "cutinFacing": "right",
       "dir": "assets/vfx_lab/units/u_126",
-      "isFlying": true,
+      "isFlying": false,
       "hasMagic": true,
       "magicElement": "thunder",
       "magicNameZh": "天空裂光",
@@ -1773,7 +1795,6 @@
       "overallPass": true,
       "heightCm": 268,
       "displayScale": 1.396,
-      "flightPattern": "hover_swoop",
       "rangedSkill": {
         "nameZh": "天空裂光",
         "nameEn": "Sky Demon Lightning Cast",
@@ -1793,15 +1814,14 @@
       "cameraOrientation": "down_right",
       "cutinFacing": "right",
       "dir": "assets/vfx_lab/units/u_127",
-      "isFlying": true,
+      "isFlying": false,
       "hasMagic": true,
       "magicElement": "dark",
       "magicNameZh": "黑暗波",
       "magicNameEn": "Abyssal Void",
       "overallPass": true,
       "heightCm": 420,
-      "displayScale": 1.28,
-      "flightPattern": "hover_swoop",
+      "displayScale": 1.0,
       "rangedSkill": {
         "nameZh": "黑暗波",
         "nameEn": "Dark Dragon Void Cast",

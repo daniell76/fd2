@@ -295,7 +295,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=97';
+const VFX_ASSET_VERSION = '?v=98';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -722,16 +722,18 @@ export class Modern25DCombatRenderer {
       : this.vfxAssets.rightUnit.stationaryBeam
         ? 290
         : 0;
+    const leftUid = this.vfxAssets.leftUnit.uid;
+    const enemyBossExtra = leftUid === 119 ? 600 : leftUid === 117 || leftUid === 126 ? 300 : 0;
     if (this.scenario === 'thor_crit') {
       return this.vfxAssets.rightUnit.isRemote ? 2850 : 2600 + heroFlyExtra;
     }
     if (this.scenario === 'bandit_crit') {
-      return this.vfxAssets.leftUnit.isRemote ? 2850 : 2600;
+      return this.vfxAssets.leftUnit.isRemote ? 2850 : 2600 + enemyBossExtra;
     }
     if (this.vfxAssets.rightUnit.isRemote || this.vfxAssets.leftUnit.isRemote) {
-      return 4850;
+      return 4850 + enemyBossExtra;
     }
-    return 4400 + heroFlyExtra;
+    return 4400 + heroFlyExtra + enemyBossExtra;
   }
 
   public isFinished(): boolean {
@@ -925,7 +927,14 @@ export class Modern25DCombatRenderer {
         : this.vfxAssets.rightUnit.stationaryBeam
           ? 2120
           : 1830;
-    const banditDur = this.vfxAssets.leftUnit.isRemote ? 2450 : 1850;
+    const leftUid = this.vfxAssets.leftUnit.uid;
+    const banditDur = this.vfxAssets.leftUnit.isRemote
+      ? 2450
+      : leftUid === 119
+        ? 2450
+        : leftUid === 117 || leftUid === 126
+          ? 2150
+          : 1850;
     if (this.scenario === 'hero_magic') {
       return { thorStart: 120, banditStart: -1, thorDur: 2950, banditDur: 0 };
     }
@@ -1260,6 +1269,12 @@ export class Modern25DCombatRenderer {
       color: 'azure' | 'gold' | 'crimson' | 'emerald';
       style: 'beam' | 'qi_splash';
       thickness: number;
+    } | null = null;
+    let skyPillarState: {
+      x: number;
+      groundY: number;
+      phase: 'portal' | 'beam' | 'retract';
+      progress: number;
     } | null = null;
     const thorDrawsInFront = true;
 
@@ -2415,12 +2430,540 @@ export class Modern25DCombatRenderer {
     }
 
     // -------------------------------------------------------------------------
-    // Bandit Diagonal Down-Right (↘) Strike Sequence
+    // Left-Side Enemy / Boss Strike Sequence (with Authentic Boss Choreographies!)
     // -------------------------------------------------------------------------
-    if (banditStart >= 0 && t >= banditStart && t < banditStart + 1850) {
+    const leftUid = this.vfxAssets.leftUnit.uid;
+    const leftOmniMax = Math.max(9, this.vfxAssets.banditOmniPoses.length - 1);
+    const setLeftFrame = (omniF: number, nb6F: number): void => {
+      if (srcMode === 'omni_video') {
+        this.setContinuousFrame(banditSpec, omniF, leftOmniMax);
+      } else if (srcMode === 'nb2_6frame') {
+        this.setContinuousFrame(banditSpec, nb6F, 5);
+      } else {
+        banditSpec.primaryIdx = Math.min(2, Math.round((nb6F / 5) * 2));
+      }
+    };
+
+    if (banditStart >= 0 && t >= banditStart && t < banditStart + banditDur) {
       const localB = t - banditStart;
-      if (localB < 520) {
-        // 1. Bandit Overhead Wind-Up at Top-Left
+
+      if (isLeftColossalDragon) {
+        // #104 Fire Dragon, #105 Thunder Dragon, #127 Dark Dragon:
+        // 100% STATIONARY TOP-LEFT OFF-SCREEN CORNER ANCHOR (`(0,0)`) — massive dragon lunges neck slightly forward & roars breath onto player!
+        const breathPalette =
+          leftUid === 104
+            ? ['#ffffff', '#fef08a', '#fb923c', '#ef4444']
+            : leftUid === 105
+              ? ['#ffffff', '#e0f2fe', '#38bdf8', '#60a5fa']
+              : ['#ffffff', '#f5d0fe', '#c084fc', '#7e22ce'];
+        if (localB < 520) {
+          const p = localB / 520;
+          const ease = 1 - Math.pow(1 - p, 3);
+          setLeftFrame(p * 3.0, p * 2.0);
+          banditSpec.x = banditHomeX - ease * 14;
+          banditSpec.y = banditHomeY - ease * 10;
+          camZoom = 1.0 + ease * 0.08;
+          camX = -ease * W * 0.04;
+          camY = -ease * H * 0.03;
+          this.fireOnce('bandit_windup', () => {
+            this.sound.playSfx(this.vfxAssets.leftUnit.sfxProfile?.stepSfx ?? 'chant');
+          });
+        } else if (localB < 800) {
+          const p = (localB - 520) / 280;
+          if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
+            cutInProgress = p;
+            cutInUnit = 'bandit';
+          }
+          const ease = 1 - Math.pow(1 - p, 2);
+          setLeftFrame(3.0 + p * 1.4, 2.0 + p * 1.0);
+          banditSpec.x = banditHomeX - 14 + ease * 26;
+          banditSpec.y = banditHomeY - 10 + ease * 18;
+          camZoom = 1.08 + ease * 0.07;
+          camX = -W * 0.04 + ease * W * 0.09;
+          camY = -H * 0.03 + ease * H * 0.05;
+        } else if (localB < 1460) {
+          const p = (localB - 800) / 660;
+          setLeftFrame(4.4 + p * 3.8, 3.0 + p * 1.5);
+          banditSpec.x = banditHomeX + 12 + Math.sin(p * Math.PI) * 10;
+          banditSpec.y = banditHomeY + 8 + Math.sin(p * Math.PI) * 6;
+          shockwaveProgress = Math.min(1, p * 1.8);
+          shockwaveCenter = { x: thorHomeX - 25, y: thorHomeY - 190 };
+          shockwaveGroundY = thorHomeY;
+          this.fireOnce('bandit_impact', () => {
+            const isCrit = this.scenario === 'bandit_crit';
+            this.sound.playSfx(isCrit ? 'crit' : 'explosion');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 95 : 75;
+            this.spawnImpactSparks(thorHomeX - 20, thorHomeY - 190, thorHomeY, isCrit ? 90 : 62, breathPalette, 1, 0.35);
+            this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.35, 16);
+            this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
+          });
+          const recoil = Math.sin(Math.min(1, p * 1.8) * Math.PI);
+          thorSpec.x = thorHomeX + recoil * 48;
+          thorSpec.y = thorHomeY + rightHoverBob + recoil * 22;
+          thorSpec.rot = recoil * 0.09;
+          thorSpec.flashWhite = Math.max(0, 1 - p * 3.2);
+          impactFlashAlpha = Math.max(0, (1 - p * 4.2) * 0.68);
+          camZoom = 1.15 - p * 0.08;
+          camX = W * 0.05 * (1 - p * 0.5);
+          camY = H * 0.02 * (1 - p * 0.5);
+          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.0) * 20) : 0;
+        } else {
+          const p = (localB - 1460) / Math.max(1, banditDur - 1460);
+          const ease = 1 - Math.pow(1 - p, 2);
+          if (p < 0.55) setLeftFrame(8.2 + (p / 0.55) * 0.8, 4.5 + (p / 0.55) * 0.5);
+          else {
+            banditSpec.primaryIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
+            banditSpec.secondaryIdx = 0;
+            banditSpec.blend = (p - 0.55) / 0.45;
+          }
+          banditSpec.x = banditHomeX + 12 * (1 - ease);
+          banditSpec.y = banditHomeY + 8 * (1 - ease);
+          camZoom = 1.07 - ease * 0.07;
+          camX = W * 0.025 * (1 - ease);
+          camY = H * 0.01 * (1 - ease);
+        }
+      } else if (leftUid === 126) {
+        // #126 Sky Demon God (空魔神): 100% STATIONARY AT HOME!
+        // Opens cape -> crouches & knocks his own ground (trigger flash) -> COLOSSAL GOLDEN ORBITAL SKY-PILLAR BEAM strikes PLAYER'S LOCATION (5 hits!)
+        banditSpec.x = banditHomeX;
+        banditSpec.y = banditHomeY;
+        if (localB < 380) {
+          const p = localB / 380;
+          setLeftFrame(p * 1.4, p * 1.0);
+          camZoom = 1.0 + p * 0.08;
+          camX = -p * W * 0.06;
+          this.fireOnce('bandit_windup', () => {
+            this.sound.playSfx('chant');
+          });
+        } else if (localB < 780) {
+          const p = (localB - 380) / 400;
+          if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit' && p < 0.75) {
+            cutInProgress = p / 0.75;
+            cutInUnit = 'bandit';
+          }
+          setLeftFrame(1.4 + p * 2.1, 1.0 + p * 1.4);
+          skyPillarState = { x: thorHomeX, groundY: thorHomeY, phase: 'portal', progress: p };
+          this.fireOnce('sky_ground_knock', () => {
+            this.sound.playSfx('hit');
+            this.spawnDustPlume(banditHomeX + 12, banditHomeY, 0.4, 0.2, 14);
+            this.spawnImpactSparks(banditHomeX + 15, banditHomeY - 40, banditHomeY, 32, ['#ffffff', '#38bdf8', '#fde047'], 0, -0.6);
+          });
+          camZoom = 1.08 + p * 0.04;
+          camX = -W * 0.06 + p * W * 0.14;
+          camShake = this.config.enableHitStopAndSparks && p < 0.35 ? (1 - p / 0.35) * 14 : 0;
+        } else if (localB < 1720) {
+          const p = (localB - 780) / 940;
+          setLeftFrame(4.0 + p * 3.0, 3.0);
+          skyPillarState = { x: thorHomeX, groundY: thorHomeY, phase: 'beam', progress: p };
+          // Authentic 5-hit orbital pillar pulses matching DOS f11..f15!
+          for (let hIdx = 0; hIdx < 5; hIdx++) {
+            const trigP = hIdx * 0.18;
+            if (p >= trigP) {
+              this.fireOnce(`sky_pillar_hit_${hIdx}`, () => {
+                const isLast = hIdx === 4;
+                const isCrit = this.scenario === 'bandit_crit';
+                this.sound.playSfx(isLast && isCrit ? 'crit' : 'explosion');
+                if (this.config.enableHitStopAndSparks && (hIdx === 0 || isLast)) {
+                  this.hitStopRemainingMs = isLast ? 80 : 40;
+                }
+                this.spawnImpactSparks(
+                  thorHomeX,
+                  thorHomeY - 190,
+                  thorHomeY,
+                  isLast ? 70 : 28,
+                  ['#ffffff', '#fef08a', '#fbbf24', '#f59e0b'],
+                  0.6,
+                  -0.5
+                );
+                const chunk = isLast
+                  ? Math.max(1, this.banditStrikeDmg - Math.floor(this.banditStrikeDmg * 0.18) * 4)
+                  : Math.max(1, Math.floor(this.banditStrikeDmg * 0.18));
+                this.thorTargetHp = Math.max(1, this.thorTargetHp - chunk);
+              });
+            }
+          }
+          const pulse = Math.abs(Math.sin(p * Math.PI * 5));
+          thorSpec.x = thorHomeX + 18 + pulse * 26;
+          thorSpec.y = thorHomeY + rightHoverBob + pulse * 10;
+          thorSpec.rot = pulse * 0.07;
+          thorSpec.flashWhite = pulse * 0.85;
+          impactFlashAlpha = p < 0.12 ? (1 - p / 0.12) * 0.65 : pulse * 0.22;
+          camZoom = 1.12 - p * 0.05;
+          camX = W * 0.08;
+          camShake = this.config.enableHitStopAndSparks ? 10 + pulse * 12 : 0;
+        } else {
+          const p = (localB - 1720) / Math.max(1, banditDur - 1720);
+          skyPillarState = p < 0.72 ? { x: thorHomeX, groundY: thorHomeY, phase: 'retract', progress: p / 0.72 } : null;
+          if (p < 0.55) {
+            setLeftFrame(8.0 + (p / 0.55), 4.0 + (p / 0.55));
+          } else {
+            banditSpec.primaryIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
+            banditSpec.secondaryIdx = 0;
+            banditSpec.blend = (p - 0.55) / 0.45;
+          }
+          camZoom = 1.07 - p * 0.07;
+          camX = W * 0.08 * (1 - p);
+        }
+      } else if (leftUid === 103) {
+        // #103 Beastman Captain (獸人隊長): Authentic DOS Jump Straight Up -> Steep Vertical Plunge Onto Player -> Crouched Land -> High Backward Arc Leap Home!
+        const landX = thorHomeX - 108;
+        const landY = thorHomeY - 8;
+        if (localB < 230) {
+          const p = localB / 230;
+          setLeftFrame(0, 0);
+          banditSpec.x = banditHomeX;
+          banditSpec.y = banditHomeY + Math.sin(p * Math.PI) * 8;
+          banditSpec.scaleY = 1.0 - Math.sin(p * Math.PI) * 0.08;
+          camZoom = 1.0 + p * 0.06;
+        } else if (localB < 580) {
+          // Explosive straight-up leap off the top of the screen (DOS f03 -> f04)
+          const p = (localB - 230) / 350;
+          if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
+            cutInProgress = p;
+            cutInUnit = 'bandit';
+          }
+          const ease = Math.pow(p, 1.35);
+          setLeftFrame(1.0 + p * 1.0, 1.0);
+          banditSpec.x = banditHomeX + ease * (W * 0.14);
+          banditSpec.y = banditHomeY - ease * (H * 0.92);
+          banditSpec.afterimages = this.config.enableAfterimagesAndSpring ? 4 : 0;
+          banditSpec.dashDirX = 0.25;
+          banditSpec.dashDirY = -0.96;
+          this.fireOnce('bandit_windup', () => {
+            this.sound.playSfx('step_foot');
+            this.spawnDustPlume(banditHomeX, banditHomeY, -0.5, -0.8, 14);
+          });
+          camZoom = 1.06;
+          camY = -Math.sin(p * Math.PI) * H * 0.05;
+        } else if (localB < 860) {
+          // Steep vertical diving plunge straight onto Thor (DOS f05 -> f06)
+          const p = (localB - 580) / 280;
+          const dive = Math.pow(p, 1.5);
+          setLeftFrame(3.0 + p * 1.4, 2.0);
+          banditSpec.x = landX;
+          banditSpec.y = -H * 0.18 + dive * (landY + H * 0.18);
+          banditSpec.afterimages = this.config.enableAfterimagesAndSpring ? 5 : 0;
+          banditSpec.dashDirX = 0;
+          banditSpec.dashDirY = 1;
+          aerialSpeedLinesIntensity = Math.sin(p * Math.PI) * 0.85;
+          aerialSpeedLinesAngle = Math.PI * 0.5;
+          aerialSpeedLinesRgb = '253, 224, 71';
+          camZoom = 1.06 + dive * 0.12;
+          camX = dive * W * 0.08;
+          camY = dive * H * 0.04;
+          this.fireOnce('bandit_dash', () => {
+            this.sound.playSfx('slash');
+          });
+        } else if (localB < 1260) {
+          // Crouched impact landing right at Thor (DOS f07 -> f08)
+          const p = (localB - 860) / 400;
+          setLeftFrame(p < 0.22 ? 4.0 : 5.0 + ((p - 0.22) / 0.78) * 2.0, p < 0.22 ? 2.0 : 3.0 + ((p - 0.22) / 0.78));
+          banditSpec.x = landX;
+          banditSpec.y = landY;
+          shockwaveProgress = Math.min(1, p * 2.1);
+          shockwaveCenter = { x: thorHomeX - 30, y: thorHomeY - 190 };
+          shockwaveGroundY = thorHomeY;
+          this.fireOnce('bandit_impact', () => {
+            const isCrit = this.scenario === 'bandit_crit';
+            this.sound.playSfx(isCrit ? 'crit' : 'slash');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 95 : 75;
+            this.spawnImpactSparks(thorHomeX - 30, thorHomeY - 195, thorHomeY, isCrit ? 85 : 55, ['#ffffff', '#fde047', '#f59e0b'], 0.8, 0.4);
+            this.spawnDustPlume(landX, landY, -0.6, -0.3, 14);
+            this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
+          });
+          const recoil = Math.sin(Math.min(1, p * 2.2) * Math.PI);
+          thorSpec.x = thorHomeX + recoil * 44;
+          thorSpec.y = thorHomeY + rightHoverBob + recoil * 20;
+          thorSpec.rot = recoil * 0.08;
+          thorSpec.flashWhite = Math.max(0, 1 - p * 3.6);
+          impactFlashAlpha = Math.max(0, (1 - p * 4.5) * 0.68);
+          camZoom = 1.18 - p * 0.09;
+          camX = W * 0.08 * (1 - p * 0.4);
+          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 18) : 0;
+        } else {
+          // Agile high parabolic backward leap returning to banditHome (DOS f09 -> f11)
+          const p = (localB - 1260) / Math.max(1, banditDur - 1260);
+          const ease = 1 - Math.pow(1 - p, 2);
+          if (p < 0.72) setLeftFrame(8.0 + (p / 0.72), 5.0);
+          else {
+            banditSpec.primaryIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
+            banditSpec.secondaryIdx = 0;
+            banditSpec.blend = (p - 0.72) / 0.28;
+          }
+          banditSpec.x = landX + ease * (banditHomeX - landX);
+          banditSpec.y = landY + ease * (banditHomeY - landY) - Math.sin(p * Math.PI) * (H * 0.42);
+          banditSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.7 ? 3 : 0;
+          banditSpec.dashDirX = -1;
+          banditSpec.dashDirY = -0.5;
+          camZoom = 1.09 - ease * 0.09;
+          camX = W * 0.048 * (1 - ease);
+          camY = H * 0.02 * (1 - ease);
+        }
+      } else if (leftUid === 117) {
+        // #117 Katina (卡特那): Authentic 4-HIT COMBO (3 Rapid-Fire Rapier Thrusts + Overhead Whirl + Sweeping Golden Crescent Finisher!)
+        const strikeX = banditHomeX + W * 0.30;
+        const strikeY = banditHomeY + H * 0.18;
+        if (localB < 340) {
+          const p = localB / 340;
+          if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
+            cutInProgress = p;
+            cutInUnit = 'bandit';
+          }
+          const ease = 1 - Math.pow(1 - p, 3);
+          setLeftFrame(p * 1.5, p * 1.0);
+          banditSpec.x = banditHomeX + ease * (strikeX - banditHomeX);
+          banditSpec.y = banditHomeY + ease * (strikeY - banditHomeY);
+          banditSpec.afterimages = this.config.enableAfterimagesAndSpring ? 3 : 0;
+          camZoom = 1.0 + ease * 0.14;
+          camX = ease * W * 0.07;
+          camY = ease * H * 0.04;
+          this.fireOnce('bandit_dash', () => {
+            this.sound.playSfx('step_foot');
+            this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.4, 10);
+          });
+        } else if (localB < 1040) {
+          // 3 rapid-fire thrusts (Hits 1, 2, 3!)
+          const p = (localB - 340) / 700;
+          const slot = Math.min(2, Math.floor(p * 3));
+          const subP = (p * 3) - slot;
+          const isThrust = subP < 0.56;
+          setLeftFrame(isThrust ? 2 + slot * 2 : 3 + Math.min(2, slot * 2), isThrust ? 2 : 1);
+          banditSpec.x = strikeX + (isThrust ? Math.sin((subP / 0.56) * Math.PI) * 26 : 0);
+          banditSpec.y = strikeY + (isThrust ? Math.sin((subP / 0.56) * Math.PI) * 10 : 0);
+          this.fireOnce(`katina_hit_${slot}`, () => {
+            this.sound.playSfx('slash');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = 35;
+            this.spawnImpactSparks(thorHomeX - 40, thorHomeY - 210 + slot * 16, thorHomeY, 32, ['#ffffff', '#bae6fd', '#fde047'], 1, 0.25);
+            this.thorTargetHp = Math.max(1, this.thorTargetHp - Math.max(1, Math.round(this.banditStrikeDmg * 0.16)));
+          });
+          const rec = isThrust ? Math.sin((subP / 0.56) * Math.PI) * 0.55 : 0;
+          thorSpec.x = thorHomeX + rec * 34;
+          thorSpec.y = thorHomeY + rightHoverBob + rec * 14;
+          thorSpec.flashWhite = isThrust ? Math.max(0, 1 - subP * 3.5) * 0.65 : 0;
+          camZoom = 1.14;
+          camX = W * 0.07;
+          camShake = this.config.enableHitStopAndSparks && isThrust ? 8 : 0;
+        } else if (localB < 1260) {
+          // Dramatic overhead whirl wind-up (DOS f09 -> f10)
+          const p = (localB - 1040) / 220;
+          setLeftFrame(7.0 + p * 1.5, 3.0);
+          banditSpec.x = strikeX - p * 14;
+          banditSpec.y = strikeY - p * 6;
+          camZoom = 1.14 + p * 0.05;
+          camX = W * 0.07;
+        } else if (localB < 1760) {
+          // HIT #4 FINISHER: Massive sweeping golden crescent slash + clean left-extended finish (DOS f11 -> f14)
+          const p = (localB - 1260) / 500;
+          setLeftFrame(9.0 + p * 4.0, p < 0.45 ? 4.0 : 5.0);
+          banditSpec.x = strikeX + 12;
+          banditSpec.y = strikeY + 4;
+          banditSlashProgress = Math.min(1, p * 2.2);
+          shockwaveProgress = Math.min(1, p * 2.0);
+          shockwaveCenter = { x: thorHomeX - 35, y: thorHomeY - 200 };
+          shockwaveGroundY = thorHomeY;
+          this.fireOnce('katina_finisher', () => {
+            const isCrit = this.scenario === 'bandit_crit';
+            this.sound.playSfx(isCrit ? 'crit' : 'slash');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 95 : 75;
+            this.spawnImpactSparks(thorHomeX - 30, thorHomeY - 205, thorHomeY, isCrit ? 88 : 58, ['#ffffff', '#fde047', '#fb923c', '#ef4444'], 1, 0.45);
+            this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.4, 14);
+            const spent = Math.max(1, Math.round(this.banditStrikeDmg * 0.16)) * 3;
+            this.thorTargetHp = Math.max(1, this.thorTargetHp - Math.max(1, this.banditStrikeDmg - spent));
+          });
+          const rec = Math.sin(Math.min(1, p * 2.2) * Math.PI);
+          thorSpec.x = thorHomeX + rec * 52;
+          thorSpec.y = thorHomeY + rightHoverBob + rec * 24;
+          thorSpec.rot = rec * 0.09;
+          thorSpec.flashWhite = Math.max(0, 1 - p * 3.4);
+          impactFlashAlpha = Math.max(0, (1 - p * 4.2) * 0.72);
+          camZoom = 1.19 - p * 0.10;
+          camX = W * 0.07 * (1 - p * 0.5);
+          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 20) : 0;
+        } else {
+          const p = (localB - 1760) / Math.max(1, banditDur - 1760);
+          const ease = 1 - Math.pow(1 - p, 2);
+          if (p < 0.4) {
+            banditSpec.primaryIdx = srcMode === 'omni_video' ? leftOmniMax : srcMode === 'nb2_6frame' ? 5 : 2;
+            banditSpec.secondaryIdx = 0;
+            banditSpec.blend = p / 0.4;
+          } else {
+            banditSpec.primaryIdx = 0;
+          }
+          banditSpec.x = strikeX + 12 + ease * (banditHomeX - (strikeX + 12));
+          banditSpec.y = strikeY + 4 + ease * (banditHomeY - (strikeY + 4));
+          camZoom = 1.09 - ease * 0.09;
+          camX = W * 0.035 * (1 - ease);
+        }
+      } else if (leftUid === 119) {
+        // #119 General Saka (薩卡): Iconic 14-Frame Light-Rod -> Unfolding Golden Light-Axe -> Real Steel Battleaxe -> Overhead Hoist -> Devastating Cleave!
+        const strikeX = banditHomeX + W * 0.30;
+        const strikeY = banditHomeY + H * 0.18;
+        if (localB < 1140) {
+          // Stationary weapon summon at banditHome: closed cape -> open hand -> light rod -> flaring -> unfolded axe -> solidifying -> real steel axe -> hoist!
+          const p = localB / 1140;
+          setLeftFrame(p * 8.0, p * 3.0);
+          banditSpec.x = banditHomeX;
+          banditSpec.y = banditHomeY;
+          camZoom = 1.0 + p * 0.10;
+          camX = -p * W * 0.07;
+          camY = -p * H * 0.04;
+          if (p >= 0.22) {
+            this.fireOnce('saka_light_rod', () => {
+              this.sound.playSfx('chant');
+              this.spawnImpactSparks(banditHomeX - 72, banditHomeY - 195, banditHomeY, 22, ['#ffffff', '#fef08a', '#fbbf24'], -0.4, -0.6);
+            });
+          }
+          if (p >= 0.52) {
+            this.fireOnce('saka_axe_unfold', () => {
+              this.sound.playSfx('magic');
+              this.spawnImpactSparks(banditHomeX - 88, banditHomeY - 210, banditHomeY, 34, ['#ffffff', '#fde047', '#f59e0b'], -0.6, -0.5);
+            });
+          }
+        } else if (localB < 1420) {
+          // Decisive power lunge down-right holding giant steel battleaxe overhead!
+          const p = (localB - 1140) / 280;
+          if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
+            cutInProgress = p;
+            cutInUnit = 'bandit';
+          }
+          const ease = 1 - Math.pow(1 - p, 3);
+          setLeftFrame(8.0 + p * 0.8, 3.0 + p * 0.6);
+          banditSpec.x = banditHomeX + ease * (strikeX - banditHomeX);
+          banditSpec.y = banditHomeY + ease * (strikeY - banditHomeY);
+          banditSpec.afterimages = this.config.enableAfterimagesAndSpring ? 4 : 0;
+          camZoom = 1.10 + ease * 0.09;
+          camX = -W * 0.07 + ease * W * 0.15;
+          camY = -H * 0.04 + ease * H * 0.09;
+          this.fireOnce('bandit_dash', () => {
+            this.sound.playSfx('step_foot');
+            this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.4, 12);
+          });
+        } else if (localB < 2000) {
+          // DEVASTATING VERTICAL-DIAGONAL OVERHEAD AXE SMASH!
+          const p = (localB - 1420) / 580;
+          setLeftFrame(9.0 + p * 4.0, p < 0.45 ? 4.0 : 5.0);
+          banditSpec.x = strikeX + Math.min(1, p * 4) * 18;
+          banditSpec.y = strikeY + Math.min(1, p * 4) * 8;
+          banditSlashProgress = Math.min(1, p * 2.2);
+          shockwaveProgress = Math.min(1, p * 1.9);
+          shockwaveCenter = { x: thorHomeX - 35, y: thorHomeY - 210 };
+          shockwaveGroundY = thorHomeY;
+          this.fireOnce('bandit_impact', () => {
+            const isCrit = this.scenario === 'bandit_crit';
+            this.sound.playSfx(isCrit ? 'crit' : 'slash');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 105 : 80;
+            this.spawnImpactSparks(thorHomeX - 35, thorHomeY - 210, thorHomeY, isCrit ? 90 : 60, ['#ffffff', '#fde047', '#fb923c', '#ef4444'], 1, 0.5);
+            this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.4, 16);
+            this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
+          });
+          const rec = Math.sin(Math.min(1, p * 2.2) * Math.PI);
+          thorSpec.x = thorHomeX + rec * 52;
+          thorSpec.y = thorHomeY + rightHoverBob + rec * 24;
+          thorSpec.rot = rec * 0.09;
+          thorSpec.flashWhite = Math.max(0, 1 - p * 3.5);
+          impactFlashAlpha = Math.max(0, (1 - p * 4.5) * 0.72);
+          camZoom = 1.19 - p * 0.10;
+          camX = W * 0.08 * (1 - p * 0.5);
+          camY = H * 0.05 * (1 - p * 0.5);
+          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 22) : 0;
+        } else {
+          const p = (localB - 2000) / Math.max(1, banditDur - 2000);
+          const ease = 1 - Math.pow(1 - p, 2);
+          if (p < 0.42) {
+            banditSpec.primaryIdx = srcMode === 'omni_video' ? leftOmniMax : srcMode === 'nb2_6frame' ? 5 : 2;
+            banditSpec.secondaryIdx = 0;
+            banditSpec.blend = p / 0.42;
+          } else {
+            banditSpec.primaryIdx = 0;
+          }
+          banditSpec.x = strikeX + 18 + ease * (banditHomeX - (strikeX + 18));
+          banditSpec.y = strikeY + 8 + ease * (banditHomeY - (strikeY + 8));
+          camZoom = 1.09 - ease * 0.09;
+          camX = W * 0.04 * (1 - ease);
+          camY = H * 0.025 * (1 - ease);
+        }
+      } else if (leftUid === 124) {
+        // #124 Wind Demon God (風魔神): Authentic DOS Crouch -> SUDDENLY BECOMES WIND & DASHES ACROSS -> REAPPEARS MID-AIR SPINNING SLASH -> HIGH BACK-LEAP HOME!
+        const strikeX = thorHomeX - 115;
+        const strikeY = thorHomeY - 22;
+        if (localB < 300) {
+          const p = localB / 300;
+          setLeftFrame(p * 1.4, p * 1.0);
+          banditSpec.x = banditHomeX;
+          banditSpec.y = banditHomeY;
+          camZoom = 1.0 + p * 0.08;
+        } else if (localB < 660) {
+          // Suddenly vanishes into emerald cyclone wind streak blasting across the stage (DOS f05 -> f08)
+          const p = (localB - 300) / 360;
+          if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
+            cutInProgress = p;
+            cutInUnit = 'bandit';
+          }
+          const ease = 1 - Math.pow(1 - p, 2.5);
+          setLeftFrame(2.0 + p * 1.5, 2.0);
+          banditSpec.x = banditHomeX + ease * (strikeX - banditHomeX);
+          banditSpec.y = banditHomeY + ease * (strikeY - banditHomeY) - Math.sin(p * Math.PI) * (H * 0.08);
+          // Translucent wind-blur vanishing effect mid-dash!
+          banditSpec.opacity = p < 0.18 || p > 0.84 ? 0.92 : 0.34 + Math.abs(Math.cos(p * Math.PI * 3)) * 0.28;
+          banditSpec.afterimages = this.config.enableAfterimagesAndSpring ? 5 : 0;
+          aerialSpeedLinesIntensity = Math.sin(p * Math.PI) * 0.92;
+          aerialSpeedLinesAngle = Math.atan2(strikeY - banditHomeY, strikeX - banditHomeX);
+          aerialSpeedLinesRgb = '110, 231, 183';
+          this.fireOnce('wind_dash_burst', () => {
+            this.sound.playSfx('step_wing');
+            this.spawnAirGustPlume(banditHomeX, banditHomeY - 40, 1, 0.35, 16);
+            this.spawnDustPlume(banditHomeX + 70, banditHomeY + 35, 1, 0.3, 14);
+          });
+          camZoom = 1.08 + ease * 0.10;
+          camX = ease * W * 0.09;
+          camY = ease * H * 0.04;
+        } else if (localB < 1280) {
+          // Suddenly reappears FULL OPACITY at Thor unleashing Wind-Fang Naginata cleave (DOS f09 -> f14)
+          const p = (localB - 660) / 620;
+          setLeftFrame(4.0 + p * 3.8, p < 0.45 ? 3.0 : 4.0);
+          banditSpec.opacity = 1.0;
+          banditSpec.x = strikeX + Math.sin(p * Math.PI) * 18;
+          banditSpec.y = strikeY - (p < 0.45 ? 24 : 10);
+          banditSlashProgress = Math.min(1, p * 2.2);
+          shockwaveProgress = Math.min(1, p * 2.0);
+          shockwaveCenter = { x: thorHomeX - 30, y: thorHomeY - 200 };
+          shockwaveGroundY = thorHomeY;
+          this.fireOnce('bandit_impact', () => {
+            const isCrit = this.scenario === 'bandit_crit';
+            this.sound.playSfx(isCrit ? 'crit' : 'slash');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 95 : 75;
+            this.spawnImpactSparks(thorHomeX - 30, thorHomeY - 205, thorHomeY, isCrit ? 88 : 58, ['#ffffff', '#6ee7b7', '#fde047', '#34d399'], 1, 0.4);
+            this.spawnAirGustPlume(thorHomeX - 20, thorHomeY - 120, 1, 0.2, 16);
+            this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
+          });
+          const rec = Math.sin(Math.min(1, p * 2.2) * Math.PI);
+          thorSpec.x = thorHomeX + rec * 48;
+          thorSpec.y = thorHomeY + rightHoverBob + rec * 22;
+          thorSpec.rot = rec * 0.08;
+          thorSpec.flashWhite = Math.max(0, 1 - p * 3.5);
+          impactFlashAlpha = Math.max(0, (1 - p * 4.5) * 0.70);
+          camZoom = 1.18 - p * 0.09;
+          camX = W * 0.09 * (1 - p * 0.45);
+          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.4) * 18) : 0;
+        } else {
+          // High parabolic wind-leap back to original home position (DOS f15 -> f21)
+          const p = (localB - 1280) / Math.max(1, banditDur - 1280);
+          const ease = 1 - Math.pow(1 - p, 2);
+          if (p < 0.65) setLeftFrame(8.0 + (p / 0.65), 5.0);
+          else {
+            banditSpec.primaryIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
+            banditSpec.secondaryIdx = 0;
+            banditSpec.blend = (p - 0.65) / 0.35;
+          }
+          banditSpec.x = strikeX + ease * (banditHomeX - strikeX);
+          banditSpec.y = strikeY + ease * (banditHomeY - strikeY) - Math.sin(p * Math.PI) * (H * 0.30);
+          banditSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.65 ? 3 : 0;
+          camZoom = 1.09 - ease * 0.09;
+          camX = W * 0.05 * (1 - ease);
+          camY = H * 0.02 * (1 - ease);
+        }
+      } else if (localB < 520) {
+        // Default Enemy 1. Overhead Wind-Up at Top-Left
         const p = localB / 520;
         const ease = 1 - Math.pow(1 - p, 3);
         if (srcMode === 'omni_video') {
@@ -2607,7 +3150,9 @@ export class Modern25DCombatRenderer {
     const rightScale = this.vfxAssets.rightUnit.displayScale ?? 1;
     const leftShadowBase = Math.round(195 * Math.min(1.45, Math.max(0.75, 0.55 + 0.45 * leftScale)));
     const rightShadowBase = Math.round(215 * Math.min(1.5, Math.max(0.75, 0.55 + 0.45 * rightScale)));
-    if (leftIsFlying) {
+    if (isLeftColossalDragon) {
+      // Colossal dragons enter straight from top-left viewport border (no floating ground shadow underneath!)
+    } else if (leftIsFlying) {
       const lAlt = Math.max(0, banditHomeY - banditSpec.y);
       const lRad = leftShadowBase * Math.max(0.36, 1 - lAlt / 540);
       const lAlpha = Math.max(0.24, 1 - lAlt / 430);
@@ -2630,11 +3175,15 @@ export class Modern25DCombatRenderer {
       this.drawGroundShockwave(ctx, shockwaveCenter.x, shockwaveGroundY - 10, shockwaveProgress);
     }
 
-    // Render Bandit (Top-Left, lower Y -> drawn first in painter's algorithm; 545px base = 75.7% perspective depth vs 720px foreground!)
+    // Render Left Enemy / Boss (Colossal Dragons pin flush to top-left corner (0,0)!)
     const activeBanditPoses = this.getActivePoseList('bandit');
     const activeThorPoses = this.getActivePoseList('thor');
     const banditDispSize = Math.round(545 * leftScale);
-    this.renderCombatantWithBlend(ctx, activeBanditPoses, banditSpec, '#ef4444', banditDispSize);
+    if (isLeftColossalDragon) {
+      this.renderColossalTopLeftDragon(ctx, activeBanditPoses, banditSpec, banditHomeX, banditHomeY, W, H);
+    } else {
+      this.renderCombatantWithBlend(ctx, activeBanditPoses, banditSpec, '#ef4444', banditDispSize);
+    }
     if (
       (this.vfxAssets.leftUnit.uid === 96 || this.vfxAssets.leftUnit.uid === 97) &&
       banditSpec.primaryIdx >= 1 &&
@@ -2649,6 +3198,11 @@ export class Modern25DCombatRenderer {
       const thorAfterimageColor =
         rightFlyPattern === 'dash_past' || rightFlyPattern === 'soar_plunge' ? '#fde047' : '#38bdf8';
       this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, thorAfterimageColor, thorDispSize);
+    }
+
+    // #126 Sky Demon God — Authentic Player-Location Orbital Golden Sky-Pillar Beam (DOS f11..f16 fgLayer!)
+    if (skyPillarState) {
+      this.drawSkyDemonOrbitalPillar(ctx, W, H, skyPillarState.x, skyPillarState.groundY, skyPillarState.phase, skyPillarState.progress, t);
     }
 
     if (
@@ -4936,6 +5490,130 @@ export class Modern25DCombatRenderer {
     }
 
     this.drawModernDualHud(ctx, W, H);
+  }
+
+  private renderColossalTopLeftDragon(
+    ctx: CanvasRenderingContext2D,
+    poses: HTMLImageElement[],
+    spec: PoseRenderSpec,
+    homeX: number,
+    homeY: number,
+    W: number,
+    H: number
+  ): void {
+    const img1 = poses[spec.primaryIdx] || poses[0];
+    if (!img1 || !img1.complete || img1.naturalWidth === 0) return;
+    // Pin top-left neck edge flush to (-24, -22) off-screen corner so the colossal dragon extends seamlessly from off-screen!
+    const drawSize = Math.round(Math.min(W * 0.78, H * 1.15));
+    const dx = Math.min(-4, -24 + (spec.x - homeX) * 0.9);
+    const dy = Math.min(-4, -22 + (spec.y - homeY) * 0.9);
+    const baseOpacity = Math.max(0, Math.min(1, spec.opacity ?? 1.0));
+    const drawLayer = (im: HTMLImageElement, alpha: number) => {
+      if (!im || !im.complete || im.naturalWidth === 0 || alpha <= 0.01) return;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(im, dx, dy, drawSize * spec.scaleX, drawSize * spec.scaleY);
+      ctx.restore();
+    };
+    if (spec.secondaryIdx !== undefined && spec.blend !== undefined && spec.blend > 0.02) {
+      const img2 = poses[spec.secondaryIdx] || img1;
+      const b = Math.max(0, Math.min(1, spec.blend));
+      drawLayer(img1, (1 - b * 0.75) * baseOpacity);
+      drawLayer(img2, b * baseOpacity);
+    } else {
+      drawLayer(img1, baseOpacity);
+    }
+    if (spec.flashWhite > 0.05) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(0.65, spec.flashWhite * 0.55);
+      ctx.drawImage(img1, dx, dy, drawSize * spec.scaleX, drawSize * spec.scaleY);
+      ctx.restore();
+    }
+  }
+
+  private drawSkyDemonOrbitalPillar(
+    ctx: CanvasRenderingContext2D,
+    _W: number,
+    _H: number,
+    targetX: number,
+    groundY: number,
+    phase: 'portal' | 'beam' | 'retract',
+    progress: number,
+    t: number
+  ): void {
+    ctx.save();
+    const ringY = groundY - 8;
+    const pulse = 0.88 + Math.sin(t * 0.04) * 0.12;
+
+    // 1. Glowing golden ground target portal ring directly under the player (DOS f08..f18!)
+    const ringScale =
+      phase === 'portal'
+        ? 0.2 + 0.8 * Math.min(1, progress * 1.2)
+        : phase === 'retract'
+          ? Math.max(0.05, 1 - progress)
+          : 1.0;
+    const rx = 148 * ringScale * pulse;
+    const ry = 36 * ringScale * pulse;
+    const rg = ctx.createRadialGradient(targetX, ringY, rx * 0.08, targetX, ringY, rx);
+    rg.addColorStop(0, 'rgba(255, 255, 240, 0.96)');
+    rg.addColorStop(0.55, 'rgba(253, 224, 71, 0.88)');
+    rg.addColorStop(0.85, 'rgba(245, 158, 11, 0.55)');
+    rg.addColorStop(1, 'rgba(245, 158, 11, 0)');
+    ctx.fillStyle = rg;
+    ctx.beginPath();
+    ctx.ellipse(targetX, ringY, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (phase === 'beam') {
+      // 2. Colossal blazing golden-white orbital sky-pillar slamming straight down from top of screen onto player!
+      const openW = Math.min(1, progress * 6.5);
+      const beamHalfW = (118 + Math.sin(t * 0.055) * 14) * openW;
+      const topY = -60;
+      const grad = ctx.createLinearGradient(targetX - beamHalfW, 0, targetX + beamHalfW, 0);
+      grad.addColorStop(0, 'rgba(234, 88, 12, 0)');
+      grad.addColorStop(0.14, 'rgba(245, 158, 11, 0.82)');
+      grad.addColorStop(0.32, 'rgba(253, 224, 71, 0.96)');
+      grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.99)');
+      grad.addColorStop(0.68, 'rgba(253, 224, 71, 0.96)');
+      grad.addColorStop(0.86, 'rgba(245, 158, 11, 0.82)');
+      grad.addColorStop(1, 'rgba(234, 88, 12, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(targetX - beamHalfW, topY, beamHalfW * 2, ringY - topY);
+
+      // Additive inner incandescent core & rising celestial streaks
+      ctx.globalCompositeOperation = 'lighter';
+      const coreW = beamHalfW * 0.52;
+      ctx.fillStyle = 'rgba(255, 253, 230, 0.62)';
+      ctx.fillRect(targetX - coreW, topY, coreW * 2, ringY - topY);
+      // Impact shockwave dome at base
+      const dome = ctx.createRadialGradient(targetX, ringY, 10, targetX, ringY, beamHalfW * 1.45);
+      dome.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      dome.addColorStop(0.45, 'rgba(253, 224, 71, 0.65)');
+      dome.addColorStop(1, 'rgba(245, 158, 11, 0)');
+      ctx.fillStyle = dome;
+      ctx.beginPath();
+      ctx.ellipse(targetX, ringY, beamHalfW * 1.45, 62, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+    } else if (phase === 'retract') {
+      // 3. Authentic DOS f16..f17 jagged golden sky-rays retracting upward!
+      ctx.globalCompositeOperation = 'lighter';
+      const rayH = Math.max(0, (1 - progress) * 240);
+      const count = 9;
+      for (let i = 0; i < count; i++) {
+        const frac = (i / (count - 1)) * 2 - 1;
+        const rxPos = targetX + frac * 112;
+        const rh = rayH * (0.65 + 0.35 * Math.cos(frac * Math.PI * 0.8 + i));
+        ctx.fillStyle = `rgba(253, 224, 71, ${(1 - progress) * 0.88})`;
+        ctx.beginPath();
+        ctx.moveTo(rxPos - 14, -20);
+        ctx.lineTo(rxPos + 14, -20);
+        ctx.lineTo(rxPos, rh);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.restore();
   }
 
   private renderCombatantWithBlend(
