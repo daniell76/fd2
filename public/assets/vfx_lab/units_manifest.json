@@ -1694,8 +1694,8 @@
       "magicNameZh": "裂地術",
       "magicNameEn": "Tectonic Quake",
       "overallPass": true,
-      "heightCm": 320,
-      "displayScale": 1.396,
+      "heightCm": 335,
+      "displayScale": 2.114,
       "hasChantAnim": true
     },
     {
@@ -1715,8 +1715,8 @@
       "magicNameZh": "激水炮",
       "magicNameEn": "Hydro Torrent",
       "overallPass": true,
-      "heightCm": 225,
-      "displayScale": 1.437,
+      "heightCm": 270,
+      "displayScale": 2.023,
       "flightPattern": "hover_swoop",
       "hasChantAnim": true
     },
@@ -1737,8 +1737,8 @@
       "magicNameZh": "風牙斬",
       "magicNameEn": "Tempest Gale",
       "overallPass": true,
-      "heightCm": 215,
-      "displayScale": 1.077,
+      "heightCm": 258,
+      "displayScale": 1.36,
       "flightPattern": "climb_dive",
       "rangedSkill": {
         "nameZh": "風牙斬",
@@ -1765,8 +1765,8 @@
       "magicNameZh": "魔燄波",
       "magicNameEn": "Inferno Vortex",
       "overallPass": true,
-      "heightCm": 245,
-      "displayScale": 1.274,
+      "heightCm": 265,
+      "displayScale": 2.229,
       "flightPattern": "hover_swoop",
       "rangedSkill": {
         "nameZh": "魔燄波",

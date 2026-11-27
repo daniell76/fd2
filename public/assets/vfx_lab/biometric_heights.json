@@ -3990,7 +3990,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 320,
+      "heightCm": 335,
       "mountHeightCm": null,
       "poseFactor": 0.84,
       "targetBodyPx": 484,
@@ -4005,9 +4005,9 @@
         150
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.396,
+      "calibratedDisplayScale": 2.114,
       "appearanceNotes": "Colossal hunched stone/earth colossus (元素); glowing red eyes (~269cm hunched height -> 484px!)",
-      "canvas": 1120
+      "canvas": 1600
     },
     {
       "uid": 123,
@@ -4025,7 +4025,7 @@
       "flightPattern": "hover_swoop",
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 225,
+      "heightCm": 270,
       "mountHeightCm": null,
       "poseFactor": 0.98,
       "targetBodyPx": 397,
@@ -4040,9 +4040,9 @@
         139
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.437,
+      "calibratedDisplayScale": 2.023,
       "appearanceNotes": "Ethereal tall pale-white water goddess (元素) with colossal flowing indigo hair & blue lips",
-      "canvas": 1408
+      "canvas": 1600
     },
     {
       "uid": 124,
@@ -4060,7 +4060,7 @@
       "flightPattern": "climb_dive",
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 215,
+      "heightCm": 258,
       "mountHeightCm": null,
       "poseFactor": 0.86,
       "targetBodyPx": 333,
@@ -4075,7 +4075,7 @@
         150
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.077,
+      "calibratedDisplayScale": 1.36,
       "appearanceNotes": "Wild white-maned crouched elderly wind god (元素) with glowing blue eyes & tall spear",
       "canvas": 960
     },
@@ -4095,7 +4095,7 @@
       "flightPattern": "hover_swoop",
       "isRemote": false,
       "hitCount": 6,
-      "heightCm": 245,
+      "heightCm": 265,
       "mountHeightCm": null,
       "poseFactor": 0.98,
       "targetBodyPx": 432,
@@ -4110,9 +4110,9 @@
         153
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.274,
+      "calibratedDisplayScale": 2.229,
       "appearanceNotes": "Towering spiky crimson-haired flame emperor (元素) in grand red-gold robe",
-      "canvas": 960
+      "canvas": 1600
     },
     {
       "uid": 126,
