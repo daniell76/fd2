@@ -295,7 +295,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=103';
+const VFX_ASSET_VERSION = '?v=104';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -2496,9 +2496,8 @@ export class Modern25DCombatRenderer {
           shockwaveGroundY = thorHomeY;
           this.fireOnce('bandit_impact', () => {
             const isCrit = this.scenario === 'bandit_crit';
-            // Pure roaring dragon flames burning sound (NEVER metallic blade slash!)
-            const dragonBreathSfx: SfxKind =
-              leftUid === 104 ? 'bank:82:1' : leftUid === 105 ? 'bank:86:1' : 'bank:83:2';
+            // Pure roaring dragon flames burning sound for ALL 3 dragons (ZERO slash sound!)
+            const dragonBreathSfx: SfxKind = leftUid === 127 ? 'bank:83:2' : 'bank:82:1';
             this.sound.playSfx(dragonBreathSfx);
             if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 95 : 75;
             this.spawnImpactSparks(thorHomeX - 20, thorHomeY - 190, thorHomeY, isCrit ? 90 : 62, breathPalette, 1, 0.35);
@@ -2666,7 +2665,8 @@ export class Modern25DCombatRenderer {
           camX = dive * W * 0.08;
           camY = dive * H * 0.04;
           this.fireOnce('bandit_dash', () => {
-            this.sound.playSfx('slash');
+            // Silent / pure air-dive rush (NO premature blade slash -> prevents double hit sound!)
+            this.sound.playSfx('step_wing');
           });
         } else if (localB < 1260) {
           // Crouched impact landing right at Thor (DOS f07 -> f08)
