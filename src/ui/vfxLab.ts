@@ -295,7 +295,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=104';
+const VFX_ASSET_VERSION = '?v=105';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -353,7 +353,8 @@ function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifest
     }
   }
   const isMounted = Boolean(
-    dex?.classNameZh?.includes('騎士') || entry.classEn.toLowerCase().includes('knight')
+    dex?.classNameZh?.includes('騎士') ||
+      (entry.classEn.toLowerCase().includes('knight') && !dex?.classNameZh?.includes('武士'))
   );
   const stepSfx: SfxKind = isFlying ? 'step_wing' : isMounted ? 'step_horse' : 'step_foot';
 

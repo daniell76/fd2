@@ -2212,7 +2212,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 175,
+      "heightCm": 176,
       "mountHeightCm": null,
       "poseFactor": 0.92,
       "targetBodyPx": 290,
@@ -2226,9 +2226,10 @@
         98,
         146
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Visored silver-helm human ally infantry; sword"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.04,
+      "appearanceNotes": "Visored silver-helm human ally infantry; sword",
+      "canvas": 960
     },
     {
       "uid": 69,
@@ -2260,9 +2261,10 @@
         174,
         136
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "ON FOOT dark-cloaked visored lancer (NOT mounted!)"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.15,
+      "appearanceNotes": "ON FOOT dark-cloaked visored lancer (NOT mounted!)",
+      "canvas": 1120
     },
     {
       "uid": 70,
@@ -2294,9 +2296,10 @@
         123,
         110
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Brown-cloaked headband mercenary swordsman"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.05,
+      "appearanceNotes": "Brown-cloaked headband mercenary swordsman",
+      "canvas": 960
     },
     {
       "uid": 71,
@@ -2314,7 +2317,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 180,
+      "heightCm": 184,
       "mountHeightCm": null,
       "poseFactor": 0.9,
       "targetBodyPx": 292,
@@ -2328,9 +2331,10 @@
         83,
         98
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Blue-black Panther Leopard-Man (豹人); feline head & twin ears, crouched"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.08,
+      "appearanceNotes": "Blue-black Panther Leopard-Man (豹人); feline head & twin ears, crouched",
+      "canvas": 960
     },
     {
       "uid": 72,
@@ -2348,7 +2352,7 @@
       "flightPattern": null,
       "isRemote": true,
       "hitCount": 1,
-      "heightCm": 178,
+      "heightCm": 176,
       "mountHeightCm": null,
       "poseFactor": 0.97,
       "targetBodyPx": 311,
@@ -2362,9 +2366,10 @@
         98,
         157
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Turbaned blue-haired Elf sniper with pointed ears & heavy backpack cannon (ranged)"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.05,
+      "appearanceNotes": "Turbaned blue-haired Elf sniper with pointed ears & heavy backpack cannon (ranged)",
+      "canvas": 960
     },
     {
       "uid": 73,
@@ -2382,7 +2387,7 @@
       "flightPattern": "hover_swoop",
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 190,
+      "heightCm": 196,
       "mountHeightCm": null,
       "poseFactor": 0.92,
       "targetBodyPx": 315,
@@ -2396,9 +2401,10 @@
         218,
         165
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Golden-brown winged Dragonkin (龍人) carrying kite shield & sword"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.2,
+      "appearanceNotes": "Golden-brown winged Dragonkin (龍人) carrying kite shield & sword",
+      "canvas": 1120
     },
     {
       "uid": 76,
@@ -2430,9 +2436,10 @@
         121,
         108
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Standard visored foot soldier; sword & shield"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.16,
+      "appearanceNotes": "Standard visored foot soldier; sword & shield",
+      "canvas": 960
     },
     {
       "uid": 77,
@@ -2450,7 +2457,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 180,
+      "heightCm": 184,
       "mountHeightCm": null,
       "poseFactor": 0.96,
       "targetBodyPx": 311,
@@ -2464,9 +2471,10 @@
         96,
         150
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "T-visored armored infantry warrior; greatsword"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.24,
+      "appearanceNotes": "T-visored armored infantry warrior; greatsword",
+      "canvas": 960
     },
     {
       "uid": 78,
@@ -2484,7 +2492,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 218,
+      "heightCm": 195,
       "mountHeightCm": null,
       "poseFactor": 0.93,
       "targetBodyPx": 365,
@@ -2498,9 +2506,10 @@
         158,
         150
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Colossal dark spiked-plate juggernaut; giant sword"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.38,
+      "appearanceNotes": "Colossal dark spiked-plate juggernaut; giant sword",
+      "canvas": 1120
     },
     {
       "uid": 79,
@@ -2532,9 +2541,10 @@
         114,
         118
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Masked green-haired headband mercenary; sword"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.18,
+      "appearanceNotes": "Masked green-haired headband mercenary; sword",
+      "canvas": 960
     },
     {
       "uid": 80,
@@ -2552,7 +2562,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 222,
+      "heightCm": 200,
       "mountHeightCm": null,
       "poseFactor": 0.93,
       "targetBodyPx": 372,
@@ -2566,9 +2576,10 @@
         158,
         150
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Colossal navy-black gold-veined spiked juggernaut"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.42,
+      "appearanceNotes": "Colossal navy-black gold-veined spiked juggernaut",
+      "canvas": 1120
     },
     {
       "uid": 81,
@@ -2586,7 +2597,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 225,
+      "heightCm": 204,
       "mountHeightCm": null,
       "poseFactor": 0.93,
       "targetBodyPx": 377,
@@ -2600,9 +2611,10 @@
         158,
         150
       ],
-      "status": "planned",
-      "calibratedDisplayScale": null,
-      "appearanceNotes": "Colossal horned spiked-plate dark juggernaut"
+      "status": "calibrated_live",
+      "calibratedDisplayScale": 1.44,
+      "appearanceNotes": "Colossal horned spiked-plate dark juggernaut",
+      "canvas": 1120
     },
     {
       "uid": 82,
