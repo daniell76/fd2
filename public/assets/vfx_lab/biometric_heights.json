@@ -4030,7 +4030,7 @@
       "poseFactor": 0.98,
       "targetBodyPx": 397,
       "targetTotalPx": 397,
-      "recommendedCanvasPx": 960,
+      "recommendedCanvasPx": 1408,
       "dosIdleSize": [
         201,
         139
@@ -4040,9 +4040,9 @@
         139
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 0.98,
+      "calibratedDisplayScale": 1.437,
       "appearanceNotes": "Ethereal tall pale-white water goddess (元素) with colossal flowing indigo hair & blue lips",
-      "canvas": 960
+      "canvas": 1408
     },
     {
       "uid": 124,

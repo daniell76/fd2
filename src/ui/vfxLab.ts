@@ -295,7 +295,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=99';
+const VFX_ASSET_VERSION = '?v=100';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -1212,7 +1212,12 @@ export class Modern25DCombatRenderer {
       : null;
     // Calm gentle hover buoyancy while resting idle (avoid erratic bobbing/wobble!)
     const rightHoverBob = rightIsFlying ? -16 + Math.sin(t * 0.0021) * 5 : 0;
-    const leftHoverBob = leftIsFlying ? -14 + Math.sin(t * 0.0022 + 1.2) * 5 : 0;
+    const leftHoverBob =
+      this.vfxAssets.leftUnit.uid === 126
+        ? -36 + Math.sin(t * 0.0024 + 0.8) * 8
+        : leftIsFlying
+          ? -14 + Math.sin(t * 0.0022 + 1.2) * 5
+          : 0;
 
     const thorSpec: PoseRenderSpec = {
       primaryIdx: 0,
@@ -1276,14 +1281,12 @@ export class Modern25DCombatRenderer {
       phase: 'portal' | 'beam' | 'retract';
       progress: number;
     } | null = null;
-    let waterHairLanceState: {
-      ox: number;
-      oy: number;
-      tx: number;
-      ty: number;
-      extend: number; // 0 -> 1 -> 0
-    } | null = null;
-    const thorDrawsInFront = true;
+    const thorDrawsInFront = !(
+      this.vfxAssets.leftUnit.uid === 123 &&
+      banditStart >= 0 &&
+      t >= banditStart + 520 &&
+      t < banditStart + 1480
+    );
 
     // -------------------------------------------------------------------------
     // Hero Diagonal Up-Left (↖) Strike Sequence (supports Ground, Multi-Hit & Authentic 1995 DOS Flying Preludes!)
@@ -2399,7 +2402,7 @@ export class Modern25DCombatRenderer {
         // Bandit diagonal Up-Left recoil (matching FD2.EXE dx < 0, dy < 0!)
         const recoil = Math.sin(Math.min(1, p * 2.2) * Math.PI);
         banditSpec.x = banditHomeX - recoil * 52;
-        banditSpec.y = banditHomeY - recoil * 26;
+        banditSpec.y = banditHomeY + leftHoverBob - recoil * 26;
         banditSpec.rot = -recoil * 0.1;
         banditSpec.scaleX = 1.0 - recoil * 0.07;
         banditSpec.scaleY = 1.0 + recoil * 0.05;
@@ -2530,12 +2533,13 @@ export class Modern25DCombatRenderer {
           camY = H * 0.01 * (1 - ease);
         }
       } else if (leftUid === 126) {
-        // #126 Sky Demon God (空魔神): 100% STATIONARY AT HOME!
-        // Opens cape -> crouches & knocks his own ground (trigger flash) -> COLOSSAL GOLDEN ORBITAL SKY-PILLAR BEAM strikes PLAYER'S LOCATION (5 hits!)
+        // #126 Sky Demon God (空魔神): FLOATS IN SPACE AT REST -> DROPS DOWN TO KNOCK HIS OWN GROUND -> 5-HIT GOLDEN ORBITAL PILLAR AT PLAYER -> RISES BACK INTO FLOATING LEVITATION!
         banditSpec.x = banditHomeX;
-        banditSpec.y = banditHomeY;
         if (localB < 380) {
+          // Flares colossal cape while floating in mid-air, then drops decisively onto the ground!
           const p = localB / 380;
+          const dropEase = p < 0.45 ? 0 : Math.pow((p - 0.45) / 0.55, 2.0);
+          banditSpec.y = banditHomeY + leftHoverBob * (1 - dropEase);
           setLeftFrame(p * 1.4, p * 1.0);
           camZoom = 1.0 + p * 0.08;
           camX = -p * W * 0.06;
@@ -2543,6 +2547,7 @@ export class Modern25DCombatRenderer {
             this.sound.playSfx('chant');
           });
         } else if (localB < 780) {
+          banditSpec.y = banditHomeY;
           const p = (localB - 380) / 400;
           if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit' && p < 0.75) {
             cutInProgress = p / 0.75;
@@ -2559,6 +2564,7 @@ export class Modern25DCombatRenderer {
           camX = -W * 0.06 + p * W * 0.14;
           camShake = this.config.enableHitStopAndSparks && p < 0.35 ? (1 - p / 0.35) * 14 : 0;
         } else if (localB < 1720) {
+          banditSpec.y = banditHomeY;
           const p = (localB - 780) / 940;
           setLeftFrame(4.0 + p * 3.0, 3.0);
           skyPillarState = { x: thorHomeX, groundY: thorHomeY, phase: 'beam', progress: p };
@@ -2599,7 +2605,10 @@ export class Modern25DCombatRenderer {
           camX = W * 0.08;
           camShake = this.config.enableHitStopAndSparks ? 10 + pulse * 12 : 0;
         } else {
+          // Rises effortlessly back up into floating space levitation!
           const p = (localB - 1720) / Math.max(1, banditDur - 1720);
+          const riseEase = 1 - Math.pow(1 - p, 2);
+          banditSpec.y = banditHomeY + riseEase * leftHoverBob;
           skyPillarState = p < 0.72 ? { x: thorHomeX, groundY: thorHomeY, phase: 'retract', progress: p / 0.72 } : null;
           if (p < 0.55) {
             setLeftFrame(8.0 + (p / 0.55), 4.0 + (p / 0.55));
@@ -2894,8 +2903,8 @@ export class Modern25DCombatRenderer {
         // Conducts her living deep-blue hair — two long spiraling hair-lances shoot straight out from her head across the stage to pierce the player, then retract!
         banditSpec.x = banditHomeX;
         banditSpec.y = banditHomeY + leftHoverBob;
-        const hairOx = banditHomeX + 42;
-        const hairOy = banditHomeY + leftHoverBob - 205;
+        const hairOx = banditHomeX + 82;
+        const hairOy = banditHomeY + leftHoverBob - 178;
         const hairTx = thorHomeX - 24;
         const hairTy = thorHomeY - 190;
         if (localB < 520) {
@@ -2913,9 +2922,7 @@ export class Modern25DCombatRenderer {
             cutInProgress = p;
             cutInUnit = 'bandit';
           }
-          const ext = Math.pow(p, 1.15);
-          setLeftFrame(3.2 + p * 1.3, 3.0 + p * 1.0);
-          waterHairLanceState = { ox: hairOx, oy: hairOy, tx: hairTx, ty: hairTy, extend: ext };
+          setLeftFrame(3.2 + p * 1.4, 3.0 + p * 1.0);
           camZoom = 1.08 + p * 0.06;
           camX = -W * 0.05 + p * W * 0.12;
           this.fireOnce('bandit_dash', () => {
@@ -2923,11 +2930,7 @@ export class Modern25DCombatRenderer {
           });
         } else if (localB < 1420) {
           const p = (localB - 780) / 640;
-          const ext = p < 0.62 ? 1.0 : Math.max(0, 1.0 - (p - 0.62) / 0.38);
-          setLeftFrame(4.5 + p * 3.5, p < 0.55 ? 4.0 : 5.0);
-          if (ext > 0.02) {
-            waterHairLanceState = { ox: hairOx, oy: hairOy, tx: hairTx, ty: hairTy, extend: ext };
-          }
+          setLeftFrame(4.6 + p * 2.8, p < 0.62 ? 4.0 : 5.0);
           shockwaveProgress = Math.min(1, p * 2.0);
           shockwaveCenter = { x: hairTx, y: hairTy };
           shockwaveGroundY = thorHomeY;
@@ -3230,7 +3233,7 @@ export class Modern25DCombatRenderer {
     const rightShadowBase = Math.round(215 * Math.min(1.5, Math.max(0.75, 0.55 + 0.45 * rightScale)));
     if (isLeftColossalDragon) {
       // Colossal dragons enter straight from top-left viewport border (no floating ground shadow underneath!)
-    } else if (leftIsFlying) {
+    } else if (leftIsFlying || this.vfxAssets.leftUnit.uid === 126) {
       const lAlt = Math.max(0, banditHomeY - banditSpec.y);
       const lRad = leftShadowBase * Math.max(0.36, 1 - lAlt / 540);
       const lAlpha = Math.max(0.24, 1 - lAlt / 430);
@@ -3257,6 +3260,16 @@ export class Modern25DCombatRenderer {
     const activeBanditPoses = this.getActivePoseList('bandit');
     const activeThorPoses = this.getActivePoseList('thor');
     const banditDispSize = Math.round(545 * leftScale);
+    const thorDispSize = Math.round(720 * (this.vfxAssets.rightUnit.displayScale ?? 1));
+    const thorAfterimageColor =
+      rightFlyPattern === 'dash_past' || rightFlyPattern === 'soar_plunge' ? '#fde047' : '#38bdf8';
+
+    // When #123 Water Demon God pierces across the stage with her Range-2 living hair-lances,
+    // render Thor first so her braided hair tips pierce cleanly IN FRONT of Thor (matching DOS fgLayer)!
+    if (!thorDrawsInFront) {
+      this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, thorAfterimageColor, thorDispSize);
+    }
+
     if (isLeftColossalDragon) {
       this.renderColossalTopLeftDragon(ctx, activeBanditPoses, banditSpec, banditHomeX, banditHomeY, W, H);
     } else {
@@ -3272,23 +3285,7 @@ export class Modern25DCombatRenderer {
 
     // Render Thor (Bottom-Right Foreground, higher Y -> drawn on top in painter's algorithm!)
     if (thorDrawsInFront) {
-      const thorDispSize = Math.round(720 * (this.vfxAssets.rightUnit.displayScale ?? 1));
-      const thorAfterimageColor =
-        rightFlyPattern === 'dash_past' || rightFlyPattern === 'soar_plunge' ? '#fde047' : '#38bdf8';
       this.renderCombatantWithBlend(ctx, activeThorPoses, thorSpec, thorAfterimageColor, thorDispSize);
-    }
-
-    // #123 Water Demon God — Living Deep-Blue Hair-Lances Extending From Her Head Across The Stage!
-    if (waterHairLanceState) {
-      this.drawWaterDemonHairLances(
-        ctx,
-        waterHairLanceState.ox,
-        waterHairLanceState.oy,
-        waterHairLanceState.tx,
-        waterHairLanceState.ty,
-        waterHairLanceState.extend,
-        t
-      );
     }
 
     // #126 Sky Demon God — Authentic Player-Location Orbital Golden Sky-Pillar Beam (DOS f11..f16 fgLayer!)
@@ -5623,87 +5620,6 @@ export class Modern25DCombatRenderer {
     }
   }
 
-  private drawWaterDemonHairLances(
-    ctx: CanvasRenderingContext2D,
-    ox: number,
-    oy: number,
-    tx: number,
-    ty: number,
-    extend: number,
-    t: number
-  ): void {
-    const ext = Math.max(0, Math.min(1, extend));
-    if (ext < 0.03) return;
-    ctx.save();
-    // Draw twin spiraling deep sapphire-blue living hair-spears growing continuously from her head toward target!
-    const pairs = [
-      { dy0: -18, dy1: -26, phase: 0 },
-      { dy0: 14, dy1: 24, phase: 2.1 },
-    ];
-    for (const pr of pairs) {
-      const sx = ox;
-      const sy = oy + pr.dy0;
-      const ex = sx + (tx - sx) * ext;
-      const ey = sy + (ty + pr.dy1 - sy) * ext;
-      const dx = ex - sx;
-      const dy = ey - sy;
-      const len = Math.hypot(dx, dy);
-      if (len < 12) continue;
-      const nx = -dy / len;
-      const ny = dx / len;
-      const steps = 28;
-
-      // Scale wave frequency smoothly by physical length so hair stays sleek & silky at every extension length!
-      const waveCycles = Math.max(1.0, len / 185) * Math.PI * 2;
-      const topPts: Array<[number, number]> = [];
-      const botPts: Array<[number, number]> = [];
-      for (let i = 0; i <= steps; i++) {
-        const u = i / steps;
-        const bx = sx + dx * u;
-        const by = sy + dy * u;
-        const wave = Math.sin(u * waveCycles - t * 0.014 + pr.phase) * Math.min(11, len * 0.035) * (1 - u * 0.65);
-        const halfW = (17 * (1 - u * 0.86) + 2) * (0.78 + 0.22 * Math.sin(u * waveCycles * 1.5));
-        topPts.push([bx + nx * (wave + halfW), by + ny * (wave + halfW)]);
-        botPts.push([bx + nx * (wave - halfW), by + ny * (wave - halfW)]);
-      }
-
-      const grad = ctx.createLinearGradient(sx, sy, ex, ey);
-      grad.addColorStop(0, '#0f1c4d');
-      grad.addColorStop(0.42, '#1d4ed8');
-      grad.addColorStop(0.82, '#2563eb');
-      grad.addColorStop(1, '#bae6fd');
-
-      ctx.beginPath();
-      ctx.moveTo(topPts[0][0], topPts[0][1]);
-      for (let i = 1; i <= steps; i++) ctx.lineTo(topPts[i][0], topPts[i][1]);
-      ctx.lineTo(ex + (dx / len) * 28, ey + (dy / len) * 28); // razor hair-spear tip!
-      for (let i = steps; i >= 0; i--) ctx.lineTo(botPts[i][0], botPts[i][1]);
-      ctx.closePath();
-      ctx.fillStyle = grad;
-      ctx.fill();
-      ctx.lineWidth = 2.2;
-      ctx.strokeStyle = '#0a1026';
-      ctx.stroke();
-
-      // Silky sapphire-cyan highlight strand flowing smoothly along the braided blue hair lance
-      ctx.beginPath();
-      for (let i = 0; i <= steps; i++) {
-        const u = i / steps;
-        const bx = sx + dx * u;
-        const by = sy + dy * u;
-        const spir = Math.sin(u * waveCycles * 1.4 - t * 0.016 + pr.phase) * (8 * (1 - u * 0.8));
-        const px = bx + nx * spir;
-        const py = by + ny * spir;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.lineWidth = 2.6;
-      ctx.strokeStyle = 'rgba(186, 230, 253, 0.72)';
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
   private drawSkyDemonOrbitalPillar(
     ctx: CanvasRenderingContext2D,
     _W: number,
@@ -7141,7 +7057,8 @@ export class Modern25DCombatRenderer {
     tintAlpha = 0.65
   ): void {
     if (!img || !img.complete || img.naturalWidth === 0) return;
-    const anchorRatioX = 0.5;
+    // #123 Water Demon God uses 1408x1408 wide runway anchored at x=28% so her Range-2 living hair reaches straight across the stage!
+    const anchorRatioX = img.src.includes('/u_123/') ? 0.28 : 0.5;
     const anchorRatioY = 648 / 680;
 
     ctx.save();
