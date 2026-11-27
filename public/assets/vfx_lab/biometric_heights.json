@@ -3130,7 +3130,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 178,
+      "heightCm": 182,
       "mountHeightCm": null,
       "poseFactor": 0.9,
       "targetBodyPx": 288,
@@ -3145,7 +3145,7 @@
         110
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 0.947,
+      "calibratedDisplayScale": 1.1,
       "appearanceNotes": "Scarred goggled navy-crimson bandit boss in wide crouch",
       "canvas": 960
     },
@@ -3780,7 +3780,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 232,
+      "heightCm": 236,
       "mountHeightCm": null,
       "poseFactor": 0.97,
       "targetBodyPx": 405,
@@ -3795,9 +3795,9 @@
         149
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.24,
+      "calibratedDisplayScale": 1.81,
       "appearanceNotes": "Elite humanoid commander mech (機械); horizontal slit visor & colored cables",
-      "canvas": 960
+      "canvas": 1408
     },
     {
       "uid": 117,
@@ -3815,7 +3815,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 4,
-      "heightCm": 170,
+      "heightCm": 180,
       "mountHeightCm": null,
       "poseFactor": 0.98,
       "targetBodyPx": 300,
@@ -3830,7 +3830,7 @@
         150
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 0.919,
+      "calibratedDisplayScale": 1.24,
       "appearanceNotes": "FEMALE eye-patched sea-blue-haired cloaked swordswoman boss! Red lipstick",
       "canvas": 960
     },
@@ -3850,7 +3850,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 188,
+      "heightCm": 192,
       "mountHeightCm": null,
       "poseFactor": 0.98,
       "targetBodyPx": 332,
@@ -3865,9 +3865,9 @@
         150
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.019,
+      "calibratedDisplayScale": 1.38,
       "appearanceNotes": "Enemy Raiden ON FOOT in tan/silver heavy armor & tall lance (matches hero #006 188cm!)",
-      "canvas": 960
+      "canvas": 1120
     },
     {
       "uid": 119,
@@ -3885,7 +3885,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 190,
+      "heightCm": 205,
       "mountHeightCm": null,
       "poseFactor": 0.99,
       "targetBodyPx": 339,
@@ -3900,7 +3900,7 @@
         134
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.043,
+      "calibratedDisplayScale": 1.52,
       "appearanceNotes": "Dark-red-haired imposing male warlord in tall navy-crimson cloak",
       "canvas": 960
     },
@@ -3920,7 +3920,7 @@
       "flightPattern": null,
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 172,
+      "heightCm": 182,
       "mountHeightCm": null,
       "poseFactor": 0.98,
       "targetBodyPx": 303,
@@ -3935,9 +3935,9 @@
         137
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 0.933,
+      "calibratedDisplayScale": 2.18,
       "appearanceNotes": "Short auburn-haired FEMALE dark warrior boss with BLUE lipstick & whip",
-      "canvas": 960
+      "canvas": 1600
     },
     {
       "uid": 121,
@@ -4025,7 +4025,7 @@
       "flightPattern": "hover_swoop",
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 270,
+      "heightCm": 295,
       "mountHeightCm": null,
       "poseFactor": 0.98,
       "targetBodyPx": 397,
@@ -4040,7 +4040,7 @@
         139
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 2.023,
+      "calibratedDisplayScale": 2.4,
       "appearanceNotes": "Ethereal tall pale-white water goddess (元素) with colossal flowing indigo hair & blue lips",
       "canvas": 1600
     },
@@ -4060,7 +4060,7 @@
       "flightPattern": "climb_dive",
       "isRemote": false,
       "hitCount": 1,
-      "heightCm": 258,
+      "heightCm": 285,
       "mountHeightCm": null,
       "poseFactor": 0.86,
       "targetBodyPx": 333,
@@ -4075,7 +4075,7 @@
         150
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 1.36,
+      "calibratedDisplayScale": 1.66,
       "appearanceNotes": "Wild white-maned crouched elderly wind god (元素) with glowing blue eyes & tall spear",
       "canvas": 960
     },
@@ -4095,7 +4095,7 @@
       "flightPattern": "hover_swoop",
       "isRemote": false,
       "hitCount": 6,
-      "heightCm": 265,
+      "heightCm": 285,
       "mountHeightCm": null,
       "poseFactor": 0.98,
       "targetBodyPx": 432,
@@ -4110,7 +4110,7 @@
         153
       ],
       "status": "calibrated_live",
-      "calibratedDisplayScale": 2.229,
+      "calibratedDisplayScale": 2.38,
       "appearanceNotes": "Towering spiky crimson-haired flame emperor (元素) in grand red-gold robe",
       "canvas": 1600
     },

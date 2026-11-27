@@ -10,7 +10,7 @@
  * volumetric additive blooms, tapered lightning splines, and curved plasma beams.
  */
 
-export const HD_SPELL_ASSET_VERSION = '?v=102';
+export const HD_SPELL_ASSET_VERSION = '?v=103';
 
 export type HdSpellLayer = 'both' | 'behind' | 'front';
 

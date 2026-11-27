@@ -1169,11 +1169,14 @@ export class SoundEngine {
         this.playSmoothedPcmLayer(50, 3, channel, 0.20, 3400, 80);
         return true;
       }
-      // 50:4 (`#19 羅德曼 / #34 鐵諾` ranged sword-wave impact / `#104,#105,#127` Dragon Breath impact):
-      // High-energy cleaving shockwave + searing elemental blast
-      triggerBladeSlashImpact('heavy', false);
-      synthNoise('lowpass', 1450, 180, 1.5, 0.42, 0.38, 0.02, 0.01, 0.5);
-      this.playSmoothedPcmLayer(50, subIdx, channel, 0.20, 3400, 80);
+      // 50:4 (`#104,#105,#127` Dragon Breath impact / `#19 羅德曼 / #34 鐵諾` blazing wave):
+      // Pure roaring dragon flames burning & searing furnace blast (NO metallic blade slash!)
+      const j4 = 0.95 + Math.random() * 0.1;
+      synthTone(130 * j4, 28, 0.54, 'sine', 0.48, 0, 0.012, 0.55);
+      synthTone(82 * j4, 24, 0.60, 'sawtooth', 0.28, 0.018, 0.02, 0.5);
+      synthNoise('lowpass', 1550 * j4, 170, 1.5, 0.58, 0.46, 0, 0.012, 0.6);
+      synthNoise('bandpass', 2350 * j4, 880 * j4, 2.4, 0.44, 0.28, 0.025, 0.01, 0.5);
+      this.playSmoothedPcmLayer(50, subIdx, channel, 0.22, 3400, 75);
       return true;
     }
 

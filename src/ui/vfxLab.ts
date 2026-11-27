@@ -295,7 +295,7 @@ function loadImg(url: string): Promise<HTMLImageElement> {
   });
 }
 
-const VFX_ASSET_VERSION = '?v=102';
+const VFX_ASSET_VERSION = '?v=103';
 
 function enrichUnitMetadataFromGameData(assets: AssetManager, entry: VfxManifestUnitEntry): VfxManifestUnitEntry {
   const dex = assets.gameData.unitDex?.[entry.uid];
@@ -1284,6 +1284,7 @@ export class Modern25DCombatRenderer {
     const thorDrawsInFront = !(
       banditStart >= 0 &&
       ((this.vfxAssets.leftUnit.uid === 123 && t >= banditStart + 520 && t < banditStart + 1480) ||
+        (this.vfxAssets.leftUnit.uid === 120 && t >= banditStart + 620 && t < banditStart + 1480) ||
         (this.vfxAssets.leftUnit.uid === 122 && t >= banditStart + 620 && t < banditStart + 1480) ||
         (this.vfxAssets.leftUnit.uid === 125 && t >= banditStart + 620 && t < banditStart + 1500) ||
         (isLeftColossalDragon && t >= banditStart + 740 && t < banditStart + 1520))
@@ -2469,7 +2470,8 @@ export class Modern25DCombatRenderer {
           camX = -ease * W * 0.04;
           camY = -ease * H * 0.03;
           this.fireOnce('bandit_windup', () => {
-            this.sound.playSfx(this.vfxAssets.leftUnit.sfxProfile?.stepSfx ?? 'chant');
+            // Authentic 1995 DOS dragon breath inhale / roaring furnace draft (bank 50:3)
+            this.sound.playSfx('bank:50:3');
           });
         } else if (localB < 800) {
           const p = (localB - 520) / 280;
@@ -2494,7 +2496,10 @@ export class Modern25DCombatRenderer {
           shockwaveGroundY = thorHomeY;
           this.fireOnce('bandit_impact', () => {
             const isCrit = this.scenario === 'bandit_crit';
-            this.sound.playSfx(isCrit ? 'crit' : 'explosion');
+            // Pure roaring dragon flames burning sound (NEVER metallic blade slash!)
+            const dragonBreathSfx: SfxKind =
+              leftUid === 104 ? 'bank:82:1' : leftUid === 105 ? 'bank:86:1' : 'bank:83:2';
+            this.sound.playSfx(dragonBreathSfx);
             if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 95 : 75;
             this.spawnImpactSparks(thorHomeX - 20, thorHomeY - 190, thorHomeY, isCrit ? 90 : 62, breathPalette, 1, 0.35);
             this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.35, 16);
@@ -2549,7 +2554,8 @@ export class Modern25DCombatRenderer {
           setLeftFrame(1.4 + p * 2.1, 1.0 + p * 1.4);
           skyPillarState = { x: thorHomeX, groundY: thorHomeY, phase: 'portal', progress: p };
           this.fireOnce('sky_ground_knock', () => {
-            this.sound.playSfx('hit');
+            // Pure heavy ground-knuckle slam (NO blade slash!)
+            this.sound.playSfx('bank:53:2');
             this.spawnDustPlume(banditHomeX + 12, banditHomeY, 0.4, 0.2, 14);
             this.spawnImpactSparks(banditHomeX + 15, banditHomeY - 40, banditHomeY, 32, ['#ffffff', '#38bdf8', '#fde047'], 0, -0.6);
           });
@@ -2561,14 +2567,13 @@ export class Modern25DCombatRenderer {
           const p = (localB - 780) / 940;
           setLeftFrame(4.0 + p * 3.0, 3.0);
           skyPillarState = { x: thorHomeX, groundY: thorHomeY, phase: 'beam', progress: p };
-          // Authentic 5-hit orbital pillar pulses matching DOS f11..f15!
+          // Authentic 5-hit orbital pillar pulses matching DOS f11..f15 (pure celestial thunder/energy, ZERO blade slash!)
           for (let hIdx = 0; hIdx < 5; hIdx++) {
             const trigP = hIdx * 0.18;
             if (p >= trigP) {
               this.fireOnce(`sky_pillar_hit_${hIdx}`, () => {
                 const isLast = hIdx === 4;
-                const isCrit = this.scenario === 'bandit_crit';
-                this.sound.playSfx(isLast && isCrit ? 'crit' : 'explosion');
+                this.sound.playSfx(hIdx === 0 || isLast ? 'bank:85:1' : 'explosion');
                 if (this.config.enableHitStopAndSparks && (hIdx === 0 || isLast)) {
                   this.hitStopRemainingMs = isLast ? 80 : 40;
                 }
@@ -2709,9 +2714,9 @@ export class Modern25DCombatRenderer {
           camY = H * 0.02 * (1 - ease);
         }
       } else if (leftUid === 117) {
-        // #117 Katina (卡特那): Authentic 4-HIT COMBO (3 Rapid-Fire Rapier Thrusts + Overhead Whirl + Sweeping Golden Crescent Finisher!)
-        const strikeX = thorHomeX - 135;
-        const strikeY = thorHomeY - 12;
+        // #117 Katina (卡特那): Authentic 4-HIT COMBO (3 Rapid-Fire Rapier Thrusts + Overhead Whirl + Sweeping Golden Crescent Finisher at torso level!)
+        const strikeX = thorHomeX - 158;
+        const strikeY = thorHomeY - 68;
         if (localB < 340) {
           const p = localB / 340;
           if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
@@ -2918,9 +2923,6 @@ export class Modern25DCombatRenderer {
           setLeftFrame(3.2 + p * 1.4, 3.0 + p * 1.0);
           camZoom = 1.08 + p * 0.06;
           camX = -W * 0.05 + p * W * 0.12;
-          this.fireOnce('bandit_dash', () => {
-            this.sound.playSfx('slash');
-          });
         } else if (localB < 1420) {
           const p = (localB - 780) / 640;
           setLeftFrame(4.6 + p * 2.8, p < 0.62 ? 4.0 : 5.0);
@@ -2929,7 +2931,8 @@ export class Modern25DCombatRenderer {
           shockwaveGroundY = thorHomeY;
           this.fireOnce('bandit_impact', () => {
             const isCrit = this.scenario === 'bandit_crit';
-            this.sound.playSfx(isCrit ? 'crit' : 'slash');
+            // Single crisp hydro-hair lash impact (zero duplicate slash sound!)
+            this.sound.playSfx('bank:53:1');
             if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 95 : 75;
             this.spawnImpactSparks(hairTx, hairTy, thorHomeY, isCrit ? 85 : 55, ['#ffffff', '#bae6fd', '#38bdf8', '#2563eb'], 1, 0.35);
             this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.3, 14);
@@ -2990,7 +2993,8 @@ export class Modern25DCombatRenderer {
           shockwaveGroundY = thorHomeY;
           this.fireOnce('bandit_impact', () => {
             const isCrit = this.scenario === 'bandit_crit';
-            this.sound.playSfx(isCrit ? 'crit' : 'explosion');
+            // Authentic crushing colossal boulder-fist PUNCH slam (bank 53:2, ZERO blade slash!)
+            this.sound.playSfx('bank:53:2');
             if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 115 : 90;
             this.spawnImpactSparks(thorHomeX - 24, thorHomeY - 195, thorHomeY, isCrit ? 95 : 68, ['#ffffff', '#fde047', '#d97706', '#92400e'], 1, 0.4);
             this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.45, 22);
@@ -3050,7 +3054,8 @@ export class Modern25DCombatRenderer {
           shockwaveGroundY = thorHomeY;
           this.fireOnce('bandit_impact', () => {
             const isCrit = this.scenario === 'bandit_crit';
-            this.sound.playSfx(isCrit ? 'crit' : 'explosion');
+            // Authentic roaring Fire Demon God inferno combustion sound (bank 82:1, ZERO blade slash!)
+            this.sound.playSfx('bank:82:1');
             if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 100 : 80;
             this.spawnImpactSparks(thorHomeX - 24, thorHomeY - 195, thorHomeY, isCrit ? 92 : 66, ['#ffffff', '#fef08a', '#fb923c', '#ef4444'], 1, 0.35);
             this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.35, 16);
@@ -3075,6 +3080,165 @@ export class Modern25DCombatRenderer {
           }
           camZoom = 1.07 - p * 0.07;
           camX = W * 0.038 * (1 - p);
+        }
+      } else if (leftUid === 120) {
+        // #120 Commander Marl (瑪爾): 100% STATIONARY AT HOME!
+        // Raises her long loose leather whip -> SNAPS IT ULTRA-FAR SE ACROSS THE STAGE DIRECTLY INTO THOR -> Recoils cleanly!
+        banditSpec.x = banditHomeX;
+        banditSpec.y = banditHomeY;
+        if (localB < 460) {
+          const p = localB / 460;
+          setLeftFrame(p * 2.6, p * 2.0);
+          camZoom = 1.0 + p * 0.08;
+          camX = -p * W * 0.05;
+          this.fireOnce('bandit_windup', () => {
+            this.sound.playSfx('step_foot');
+          });
+        } else if (localB < 720) {
+          const p = (localB - 460) / 260;
+          if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
+            cutInProgress = p;
+            cutInUnit = 'bandit';
+          }
+          setLeftFrame(2.6 + p * 1.2, 2.0 + p * 0.9);
+          camZoom = 1.08 + p * 0.07;
+          camX = -W * 0.05 + p * W * 0.12;
+        } else if (localB < 1420) {
+          // SUPERSONIC ULTRA-LONG LOOSE WHIP CRACK STRAIGHT INTO THOR!
+          const p = (localB - 720) / 700;
+          if (p < 0.30) setLeftFrame(4.0, 3.0);
+          else if (p < 0.58) setLeftFrame(5.0, 3.0);
+          else setLeftFrame(6.0 + ((p - 0.58) / 0.42) * 2.0, 4.0);
+          shockwaveProgress = Math.min(1, p * 2.0);
+          shockwaveCenter = { x: thorHomeX - 24, y: thorHomeY - 195 };
+          shockwaveGroundY = thorHomeY;
+          this.fireOnce('bandit_impact', () => {
+            const isCrit = this.scenario === 'bandit_crit';
+            // Authentic whip-crack supersonic air snap (bank 53:1, ZERO blade slash!)
+            this.sound.playSfx('bank:53:1');
+            if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isCrit ? 95 : 75;
+            this.spawnImpactSparks(thorHomeX - 24, thorHomeY - 195, thorHomeY, isCrit ? 88 : 58, ['#ffffff', '#fef08a', '#fbbf24', '#f59e0b'], 1, 0.35);
+            this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.35, 14);
+            this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
+          });
+          const rec = Math.sin(Math.min(1, p * 2.1) * Math.PI);
+          thorSpec.x = thorHomeX + rec * 48;
+          thorSpec.y = thorHomeY + rightHoverBob + rec * 22;
+          thorSpec.rot = rec * 0.09;
+          thorSpec.flashWhite = Math.max(0, 1 - p * 3.4);
+          impactFlashAlpha = Math.max(0, (1 - p * 4.4) * 0.68);
+          camZoom = 1.15 - p * 0.08;
+          camX = W * 0.07 * (1 - p * 0.45);
+          camShake = this.config.enableHitStopAndSparks ? Math.max(0, (1 - p * 2.2) * 18) : 0;
+        } else {
+          const p = (localB - 1420) / Math.max(1, banditDur - 1420);
+          if (p < 0.52) setLeftFrame(8.0 + p * 1.8, 5.0);
+          else {
+            banditSpec.primaryIdx = srcMode === 'omni_video' ? 9 : srcMode === 'nb2_6frame' ? 5 : 2;
+            banditSpec.secondaryIdx = 0;
+            banditSpec.blend = (p - 0.52) / 0.48;
+          }
+          camZoom = 1.07 - p * 0.07;
+          camX = W * 0.038 * (1 - p);
+        }
+      } else if (leftUid === 96) {
+        // #096 Bandit (盜賊): Custom omni_0..9 where omni_0..6 = overhead raise, omni_7 = downswing, omni_8 = EXACT BLADE IMPACT!
+        // Sync BOTH sound and HP reduction DEAD-ON omni_8 (never 1 frame early!)
+        const strikeX = thorHomeX - 134;
+        const strikeY = thorHomeY - 14;
+        if (localB < 250) {
+          const p = localB / 250;
+          const ease = 1 - Math.pow(1 - p, 3);
+          setLeftFrame(p * 1.5, p * 0.8);
+          banditSpec.x = banditHomeX - ease * 14;
+          banditSpec.y = banditHomeY - ease * 8;
+          camZoom = 1.0 + ease * 0.08;
+          camX = -ease * W * 0.06;
+          this.fireOnce('bandit_windup', () => {
+            this.sound.playSfx('step_foot');
+            this.spawnDustPlume(banditSpec.x, banditHomeY, -1, -0.4, 8);
+          });
+        } else if (localB < 620) {
+          const p = (localB - 250) / 370;
+          if (this.config.enableAnimeCutIn && this.scenario === 'bandit_crit') {
+            cutInProgress = p;
+            cutInUnit = 'bandit';
+          }
+          const ease = 1 - Math.pow(1 - p, 2.6);
+          banditSpec.x = banditHomeX - 14 + ease * (strikeX - (banditHomeX - 14));
+          banditSpec.y = banditHomeY - 8 + ease * (strikeY - (banditHomeY - 8));
+          banditSpec.afterimages = this.config.enableAfterimagesAndSpring ? 3 : 0;
+          setLeftFrame(1.5 + p * 3.5, 0.8 + p * 1.2); // omni 1.5 -> 5.0 (raised overhead while approaching)
+          camZoom = 1.08 + ease * 0.11;
+          camX = -W * 0.06 + ease * (W * 0.14);
+          this.fireOnce('bandit_dash', () => {
+            this.sound.playSfx('step_foot');
+            this.spawnDustPlume(banditHomeX, banditHomeY, -1, -0.4, 12);
+          });
+        } else if (localB < 1420) {
+          const p = (localB - 620) / 800;
+          // p in [0..0.28): omni 5 -> 7 (overhead downswing BEFORE contact)
+          // p >= 0.28: omni 8 (EXACT BLADE CONTACT -> sound + HP drop + sparks + recoil!) -> omni 9 follow-through
+          if (srcMode === 'omni_video') {
+            if (p < 0.28) {
+              this.setContinuousFrame(banditSpec, 5.0 + (p / 0.28) * 2.0, 9);
+            } else if (p < 0.62) {
+              banditSpec.primaryIdx = 8;
+              banditSpec.secondaryIdx = undefined;
+              banditSpec.blend = 0;
+            } else {
+              banditSpec.primaryIdx = 9;
+              banditSpec.secondaryIdx = undefined;
+              banditSpec.blend = 0;
+            }
+          } else {
+            setLeftFrame(p < 0.28 ? 5.0 + (p / 0.28) * 2.0 : 8.0, p < 0.28 ? 2.0 : p < 0.62 ? 3.0 : 5.0);
+          }
+          const hitP = Math.max(0, (p - 0.28) / 0.72);
+          banditSpec.x = strikeX + Math.min(1, hitP * 4) * 18;
+          banditSpec.y = strikeY + Math.min(1, hitP * 4) * 8;
+          if (p >= 0.28) {
+            banditSlashProgress = Math.min(1, hitP * 2.2);
+            shockwaveProgress = Math.min(1, hitP * 1.9);
+            shockwaveCenter = { x: thorHomeX - 35, y: thorHomeY - 210 };
+            shockwaveGroundY = thorHomeY;
+            this.fireOnce('bandit_impact', () => {
+              const isBanditCrit = this.scenario === 'bandit_crit';
+              const hitList = this.vfxAssets.leftUnit.sfxProfile?.hitSfxList ?? [];
+              const impactSfx: SfxKind = hitList[0] ?? (isBanditCrit ? 'crit' : 'hit');
+              this.sound.playSfx(impactSfx);
+              if (this.config.enableHitStopAndSparks) this.hitStopRemainingMs = isBanditCrit ? 95 : 75;
+              this.spawnImpactSparks(thorHomeX - 35, thorHomeY - 210, thorHomeY, isBanditCrit ? 85 : 55, ['#ffffff', '#fca5a5', '#ef4444', '#fb923c', '#fde047'], 1, 0.5);
+              this.spawnDustPlume(thorHomeX, thorHomeY, 1, 0.4, 14);
+              this.thorTargetHp = Math.max(1, this.thorTargetHp - this.banditStrikeDmg);
+            });
+            const recoil = Math.sin(Math.min(1, hitP * 2.2) * Math.PI);
+            thorSpec.x = thorHomeX + recoil * 44;
+            thorSpec.y = thorHomeY + rightHoverBob + recoil * 22;
+            thorSpec.rot = recoil * 0.08;
+            thorSpec.flashWhite = Math.max(0, 1 - hitP * 3.8);
+            impactFlashAlpha = Math.max(0, (1 - hitP * 4.8) * 0.7);
+          }
+          camZoom = 1.19 - p * 0.1;
+          camX = W * 0.08 * (1 - p * 0.5);
+          camShake = this.config.enableHitStopAndSparks && p >= 0.28 ? Math.max(0, (1 - hitP * 2.5) * 18) : 0;
+        } else {
+          const p = (localB - 1420) / Math.max(1, banditDur - 1420);
+          const ease = 1 - Math.pow(1 - p, 2);
+          if (p < 0.4) {
+            banditSpec.primaryIdx = srcMode === 'omni_video' ? 9 : 5;
+            banditSpec.secondaryIdx = 0;
+            banditSpec.blend = p / 0.4;
+          } else {
+            banditSpec.primaryIdx = 0;
+          }
+          const startX = strikeX + 18;
+          const startY = strikeY + 8;
+          banditSpec.x = startX + ease * (banditHomeX - startX);
+          banditSpec.y = startY + ease * (banditHomeY - startY);
+          banditSpec.afterimages = this.config.enableAfterimagesAndSpring && p < 0.6 ? 2 : 0;
+          camZoom = 1.09 - ease * 0.09;
+          camX = W * 0.04 * (1 - ease);
         }
       } else if (leftUid === 124) {
         // #124 Wind Demon God (風魔神): F1 Ready -> F2 Emerald Cyclone Dash -> F3/F4 Wind-Fang Cleave -> F5 Dust Land -> F6 CLEAN ZERO-DUST AIRBORNE BACK-LEAP!
@@ -7184,12 +7348,13 @@ export class Modern25DCombatRenderer {
     tintAlpha = 0.65
   ): void {
     if (!img || !img.complete || img.naturalWidth === 0) return;
-    // Stationary far-reaching bosses use wide left-anchored runways so extended hair/fist/flames reach across the stage!
-    const anchorRatioX = img.src.includes('/u_123/')
-      ? 0.24
-      : img.src.includes('/u_122/') || img.src.includes('/u_125/')
-        ? 0.25
-        : 0.5;
+    // Stationary far-reaching bosses use wide left-anchored runways so extended hair/fist/whip/flames reach across the stage!
+    const anchorRatioX =
+      img.src.includes('/u_123/') || img.src.includes('/u_120/')
+        ? 0.24
+        : img.src.includes('/u_122/') || img.src.includes('/u_125/')
+          ? 0.25
+          : 0.5;
     const anchorRatioY = 648 / 680;
 
     ctx.save();

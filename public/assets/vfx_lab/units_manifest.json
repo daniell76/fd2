@@ -1473,8 +1473,8 @@
       "isFlying": false,
       "hasMagic": false,
       "overallPass": true,
-      "heightCm": 178,
-      "displayScale": 0.947
+      "heightCm": 182,
+      "displayScale": 1.1
     },
     {
       "uid": 103,
@@ -1561,8 +1561,8 @@
       "isFlying": false,
       "hasMagic": false,
       "overallPass": true,
-      "heightCm": 232,
-      "displayScale": 1.24
+      "heightCm": 236,
+      "displayScale": 1.81
     },
     {
       "uid": 117,
@@ -1578,8 +1578,8 @@
       "isFlying": false,
       "hasMagic": false,
       "overallPass": true,
-      "heightCm": 170,
-      "displayScale": 0.919,
+      "heightCm": 180,
+      "displayScale": 1.24,
       "omniFrameCount": 14,
       "hitFrames": [
         {
@@ -1622,8 +1622,8 @@
       "isFlying": false,
       "hasMagic": false,
       "overallPass": true,
-      "heightCm": 188,
-      "displayScale": 1.019
+      "heightCm": 192,
+      "displayScale": 1.38
     },
     {
       "uid": 119,
@@ -1639,8 +1639,8 @@
       "isFlying": false,
       "hasMagic": false,
       "overallPass": true,
-      "heightCm": 190,
-      "displayScale": 1.043,
+      "heightCm": 205,
+      "displayScale": 1.52,
       "omniFrameCount": 14
     },
     {
@@ -1657,8 +1657,8 @@
       "isFlying": false,
       "hasMagic": false,
       "overallPass": true,
-      "heightCm": 172,
-      "displayScale": 0.933
+      "heightCm": 182,
+      "displayScale": 2.18
     },
     {
       "uid": 121,
@@ -1715,8 +1715,8 @@
       "magicNameZh": "激水炮",
       "magicNameEn": "Hydro Torrent",
       "overallPass": true,
-      "heightCm": 270,
-      "displayScale": 2.023,
+      "heightCm": 295,
+      "displayScale": 2.4,
       "flightPattern": "hover_swoop",
       "hasChantAnim": true
     },
@@ -1737,8 +1737,8 @@
       "magicNameZh": "風牙斬",
       "magicNameEn": "Tempest Gale",
       "overallPass": true,
-      "heightCm": 258,
-      "displayScale": 1.36,
+      "heightCm": 285,
+      "displayScale": 1.66,
       "flightPattern": "climb_dive",
       "rangedSkill": {
         "nameZh": "風牙斬",
@@ -1765,8 +1765,8 @@
       "magicNameZh": "魔燄波",
       "magicNameEn": "Inferno Vortex",
       "overallPass": true,
-      "heightCm": 265,
-      "displayScale": 2.229,
+      "heightCm": 285,
+      "displayScale": 2.38,
       "flightPattern": "hover_swoop",
       "rangedSkill": {
         "nameZh": "魔燄波",
