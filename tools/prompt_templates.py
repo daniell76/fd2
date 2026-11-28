@@ -55,6 +55,8 @@ CAMERA_TEMPLATES: dict[Side, str] = {
         "(NOT aligned flat horizontally!).\n"
         "- FACING DIRECTION: Head, eyes/visor, gaze, shoulder line, and weapon sightline MUST aim diagonally UPPER-LEFT "
         "(↖, ~10:30 o'clock) — NEVER flat horizontal 9:00 West (←), NEVER front-facing 7:30 (↙) toward the viewer, NEVER turning right (→/↗)!\n"
+        "- CONCRETE CELL-CORNER LOCK: In EVERY SINGLE ONE of the 6 cells, the character's nose/visor/snout/eyes MUST point toward the **TOP-LEFT CORNER** of the cell; "
+        "capes, cloaks, and tails trail toward the **BOTTOM-RIGHT CORNER** of the cell; and every spearhead, claw strike, and finished slash impact drives toward the **TOP-LEFT CORNER** — **NEVER toward the right edge of the cell!**\n"
         "- ATTACK DIRECTION: Punches, slashes, spear thrusts, arrows, beams, and crescent waves MUST drive diagonally UPWARD-LEFT "
         "(↖, ~25°-35° above horizontal) toward the enemy in the upper-left background (matching the original 1995 DOS FIGANI.DAT trajectories)."
     ),
@@ -67,6 +69,8 @@ CAMERA_TEMPLATES: dict[Side, str] = {
         "(NOT aligned flat horizontally!).\n"
         "- FACING DIRECTION: Head, eyes/visor, torso chest, and weapon sightline MUST face diagonally DOWNWARD-RIGHT "
         "(↘, ~4:30 o'clock) — NEVER flat horizontal 3:00 East (→), NEVER facing away!\n"
+        "- CONCRETE CELL-CORNER LOCK: In EVERY SINGLE ONE of the 6 cells, the character's face/visor/chest MUST face toward the **BOTTOM-RIGHT CORNER** of the cell; "
+        "capes/cloaks trail toward the **TOP-LEFT CORNER**; and every thrust, punch, and finished slash impact drives toward the **BOTTOM-RIGHT CORNER** — **NEVER toward the left edge of the cell!**\n"
         "- ATTACK DIRECTION: Punches, slashes, projectiles, breaths, and spells MUST drive diagonally DOWNWARD-RIGHT "
         "(↘, ~25°-35° below horizontal) toward the hero standing in the bottom-right foreground (matching the original 1995 DOS FIGANI.DAT trajectories)."
     ),
@@ -193,12 +197,12 @@ def build_prompt_and_refs(spec: UnitPromptSpec, portrait_path: str, dos_blueprin
     assert len(spec.frames_f1_to_f6) == 6, f"Unit #{spec.uid} must define exactly 6 frames!"
 
     refs: list[tuple[str, str]] = [
-        (portrait_path, "image/jpeg"),
         (dos_blueprint_path, "image/png"),
+        (portrait_path, "image/jpeg"),
     ]
     legend = [
-        "- **Reference Image 1** = THIS UNIT'S APPROVED HD PORTRAIT (100% EXACT LIKENESS LOCK: helmet/mask/horns/hair/species/colors!).",
-        "- **Reference Image 2** = ORIGINAL 1995 DOS `FIGANI` 6-FRAME ACTION BLUEPRINT (EXACT source of truth for weapon handedness, diagonal `↖`/`↘` orientation & action timing!).",
+        "- **Reference Image 1** = ORIGINAL 1995 DOS `FIGANI` 6-FRAME ACTION BLUEPRINT (PRIMARY SPATIAL LAYOUT & POSE TRUTH — match its EXACT `10:30 ↖` or `4:30 ↘` facing direction, weapon handedness, and action progression!).",
+        "- **Reference Image 2** = THIS UNIT'S APPROVED HD PORTRAIT (100% EXACT LIKENESS LOCK: helmet/mask/horns/hair/species/colors!).",
     ]
     if spec.side == "player":
         refs.append((HERO_ORNATE_ANCHOR, "image/png"))
@@ -229,14 +233,17 @@ def build_prompt_and_refs(spec: UnitPromptSpec, portrait_path: str, dos_blueprin
     pose_lines = "\n".join(f"  * **{cell_labels[i]}**: {spec.frames_f1_to_f6[i]}" for i in range(6))
 
     prompt = (
-        f"Paint ONE **16:9 WIDESCREEN `3×2` (3 columns × 2 rows = EXACTLY 6 POSES) UNIFIED COMBAT SPRITE SHEET** "
-        f"of **{spec.name}** (*Flame Dragon II* HD Remake) on a **100% SOLID FLAT PURE WHITE `#FFFFFF` BACKGROUND**.\n\n"
+        f"Create a clean **16:9 WIDESCREEN `3×2` (3 columns × 2 rows = EXACTLY 6 POSES) HD 2D ANIME GAME SPRITE SHEET** "
+        f"that **DIRECTLY BEAUTIFIES & ELEVATES EACH OF THE 6 EXACT 1995 DOS PIXEL-ART POSES IN REFERENCE IMAGE 1 CELL-FOR-CELL IN PLACE** "
+        f"(Top-Left HD cell = exact pose, facing & handedness of Top-Left DOS cell; Top-Center = Top-Center; Top-Right = Top-Right; "
+        f"Bottom-Left = Bottom-Left; Bottom-Center = Bottom-Center; Bottom-Right = Bottom-Right — completing any DOS edge-clipped slash/weapon tips cleanly!) "
+        f"for **{spec.name}** (*Flame Dragon II* HD Remake) on a **100% SOLID FLAT PURE WHITE `#FFFFFF` BACKGROUND**.\n\n"
         f"{CAMERA_TEMPLATES[spec.side]}\n\n"
         f"{STYLE_VANILLAWARE_ORNATE}\n\n"
         f"{ARCHETYPE_TEMPLATES[spec.archetype]}\n\n"
         f"{spec.hands.format_block(spec.side)}\n\n"
         "5. REFERENCE IMAGES:\n" + "\n".join(legend) + "\n\n"
         f"6. UNIT VISUAL DESIGN (HEAVY-DECORATION VANILLAWARE ELEVATION):\n{spec.visual_design}\n\n"
-        f"7. EXACT 6-FRAME KINEMATIC SEQUENCE (EVERY FRAME MUST OBEY SECTIONS 1, 3 & 4!!):\n{pose_lines}\n"
+        f"7. EXACT 6-FRAME KINEMATIC SEQUENCE (1-TO-1 CELL MATCH TO REFERENCE IMAGE 1, OBEYING SECTIONS 1, 3 & 4!!):\n{pose_lines}\n"
     )
     return prompt, refs
