@@ -107,6 +107,7 @@ ARCHETYPE_TEMPLATES: dict[Archetype, str] = {
         "The bright golden-white slash crescent MUST **TRAIL BEHIND THE SWUNG BLADE** — starting as a thin tapered tail back at the F3 wind-up origin (overhead/back) "
         "and sweeping continuously INTO the trailing back edge of the physical weapon resting at its completed forward/low strike position! "
         "**NEVER leave the sword still raised overhead with a golden arc floating ahead of it!!**\n"
+        "  * **SINGLE-EDGED BLADE ORIENTATION LAW**: For any curved sword, sabre, katana, or single-bladed axe, the **SHARP CUTTING EDGE** MUST ALWAYS face **INTO the direction of the slash/target** (never backwards with the blunt spine leading the cut!), while the blunt spine trails into the golden slash arc!\n"
         "  * **Follow-Through Frame**: Compact golden impact sparks right at the blade tip at the finished strike position (no full crescent arc).\n"
         "  * **Recovery Frame (F6)**: Clean physical guard recovery with ZERO VFX."
     ),
